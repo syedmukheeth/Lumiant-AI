@@ -30,22 +30,22 @@ _Rewritten at the end of every session. Last update: 2026-10-27, cloud-verify (L
 
 ## What is simulated (not evidence of customer readiness)
 - **All data is synthetic.** Valuation price = the generator's own moving average; ABC classes and reorder policies are synthetic stand-ins for customer master data.
-- **CI has not run on GitHub Actions** (workflow passes `actionlint`; every job's commands were run locally). Real upstream base images were not used for the image builds here.
+- **CI runs green on GitHub Actions** (all five jobs on `3ef74b9`, incl. e2e and the Docker build on real upstream images).
 - **Authentication is development-only in practice.** OIDC is implemented and tested with locally generated keys, never against a real identity provider (Q-010). The API refuses dev auth in production.
 - **The external AI provider has never been called.** Only the built-in matcher is verified; the Anthropic adapter is tested with a fake client (ISSUES #13).
 - **The only connector is DuckDB.** No PostgreSQL, SQL Server, Oracle or SAP connector exists or has been tested.
 
 ## Not built yet
-LIFO rule, ageing buckets, price-movement alerts, value maps · editable query chips, glossary, capability matrix · drill-through, saved views, background reports · value maps, mapping editor/approval, profiling (rest of M5) · a real IdP; a first GitHub Actions run; managed PostgreSQL/Redis · real customer integration (M7).
+LIFO rule, ageing buckets, price-movement alerts, value maps · editable query chips, glossary, capability matrix · drill-through, saved views, background reports · value maps, mapping editor/approval, profiling (rest of M5) · a real IdP; managed PostgreSQL/Redis · real customer integration (M7).
 
 ## Known limitations
-See `../logs/ISSUES.md` (open: #1 no enterprise warehouse connectors, #2 conservative pins, #3 no value maps, #5 master data tenant-wide, #6 no cost-based query limits, #8 test-client deprecation, #10 animations pause in background tabs, #13 live AI provider, #14, #15, #16 real IdP, #17 first GitHub Actions run, #21 Playwright browser download blocked in sandbox).
+See `../logs/ISSUES.md` (open: #1 no enterprise warehouse connectors, #2 conservative pins, #3 no value maps, #5 master data tenant-wide, #6 no cost-based query limits, #8 test-client deprecation, #10 animations pause in background tabs, #13 live AI provider, #14, #15, #16 real IdP).
 
 ## Blocked on the customer
 Everything production-related: `../07-customer/OPEN_QUESTIONS.md` — highest priority Q-001 (warehouse technology/access), Q-003 (schema), Q-006–Q-008 (costing policy), Q-010 (IdP), Q-012 (hosting), Q-013 (AI provider approval).
 
 ## Next step
-1. Owner: review the `cloud-verify` branch, merge when satisfied, and watch the first GitHub Actions run (fix the workflow, not the tests, if it fails).
+1. CI is green on `main` (`3ef74b9`). Delete the stale `cloud-verify` remote branch when convenient (it points at `f437fdf`, already in `main`).
 2. Send Q-001 … Q-017 to Lumiant/the customer (`../07-customer/OPEN_QUESTIONS.md`); M7 cannot start without them.
 3. Optional without the customer: value maps and mapping editor (ISSUES #3, #15), non-nonce CSP leftovers (`style-src`), a live-API check of the Anthropic adapter once a key and approval exist.
 

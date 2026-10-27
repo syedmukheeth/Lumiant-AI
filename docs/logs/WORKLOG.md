@@ -163,3 +163,4 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 - **Done:** `pyproject.toml`: `redis`, `redis.*` added to the existing `ignore_missing_imports` override. When the extra is installed, `redis` ships `py.typed`, so its real types are still checked.
 - **Commands + results:** see TEST_RUNS S02-1. Without extras and with `--extra redis --extra postgres`: ruff clean, 96 files formatted, mypy 70 files OK, 269 passed + 6 env-gated skips.
 - **Next:** push, watch the run (first run of `e2e` on GitHub).
+- **Result:** pushed `3ef74b9`; GitHub Actions run green in all five jobs, including the first GitHub run of `e2e` and the `docker` job on real upstream images (TEST_RUNS S02-2). ISSUES #17, #21, #22 closed.

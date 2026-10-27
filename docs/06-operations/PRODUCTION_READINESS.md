@@ -42,8 +42,8 @@ Legend: **Verified** · **Implemented, unverified** (code exists, cannot be prov
 | Audit trail (allow and deny), explorer, fail-closed writes | Verified | `test_admin.py`, `test_query_service.py` |
 | Migrations | Verified on SQLite and PostgreSQL 16 | Alembic `0001` up/down/up; `test_audit_store.py` |
 | PostgreSQL for the app database | Verified on PostgreSQL 16 (self-hosted, apt) | whole API suite (275 tests) passes with `LUMIANT_TEST_PG_ADMIN_URL`; not tried on a managed service or other versions |
-| Container images | Built and run, with caveats | Both images built; compose stack ran; sign-in and overview verified in a browser; API container runs as uid 10001, healthcheck passes. One real bug found and fixed. **Caveat:** built here with stand-in base images (ghcr.io blocked, Docker Hub rate-limited — TEST_RUNS CV-2), so a build against the real upstream images is still to be seen (the CI `docker` job does it). Production-mode container (OIDC, PostgreSQL) was only checked to refuse to start without config |
-| CI pipeline | Linted, not run | `actionlint` clean; a `pnpm/action-setup` conflict was fixed; commands of every job were run locally. **Not executed on GitHub Actions** |
+| Container images | Built and run, with caveats | Both images built; compose stack ran; sign-in and overview verified in a browser; API container runs as uid 10001, healthcheck passes. One real bug found and fixed. **Caveat:** built here with stand-in base images (ghcr.io blocked, Docker Hub rate-limited — TEST_RUNS CV-2), the CI `docker` job has since built both images from the real upstream images and passed the compose smoke test (TEST_RUNS S02-2). Production-mode container (OIDC, PostgreSQL) was only checked to refuse to start without config |
+| CI pipeline | Verified on GitHub Actions | Run on `3ef74b9`: `api`, `api-postgres-redis`, `web`, `docker` (real upstream images + compose smoke) and `e2e` all green. The first run had failed at mypy (ISSUES #22) |
 | Metrics / tracing (OpenTelemetry) | Open | logs only |
 | Backups, restore drill, rollback rehearsal | Open | see `RUNBOOK.md` |
 | Audit/chat retention policy | **Blocked** | Q-014 |
