@@ -1,5 +1,4 @@
-# LOCAL DEMO ONLY — synthetic data and development sign-in. NOT TESTED in the repository's development
-# environment (no Docker available). Production deployment is described in docs/06-operations/DEPLOYMENT.md.
+# LOCAL DEMO ONLY — synthetic data and development sign-in. Production deployment is described in docs/06-operations/DEPLOYMENT.md.
 #
 #   docker compose up --build
 #   open http://localhost:3000
@@ -11,6 +10,7 @@ services:
       LUMIANT_AUTH_MODE: dev
       LUMIANT_COOKIE_SECURE: "false"
       LUMIANT_APP_DB_URL: sqlite:////data/app.db
+      LUMIANT_DATA_DIR: /data
     volumes:
       - lumiant-data:/data
     command: ["sh", "-c", "lumiant-synthetic generate --all && uvicorn --factory lumiant.main:create_app --host 0.0.0.0 --port 8000 --proxy-headers"]

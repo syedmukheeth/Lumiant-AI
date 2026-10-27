@@ -1,4 +1,4 @@
-# Web image. NOT BUILT OR TESTED in the repository's development environment (no Docker available).
+# Web image (verification status: docs/06-operations/PRODUCTION_READINESS.md).
 # Build from apps/web:  docker build --build-arg LUMIANT_API_ORIGIN=http://api:8000 -t lumiant-web .
 FROM node:22-alpine AS build
 RUN corepack enable
