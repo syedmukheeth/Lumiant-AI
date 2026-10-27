@@ -9,7 +9,7 @@ from fastapi import FastAPI
 
 from lumiant import __version__
 from lumiant.agent.service import AgentService
-from lumiant.api import agent, analyses, auth, health, inventory, meta, metrics, query
+from lumiant.api import agent, analyses, auth, health, inventory, meta, metrics, query, reports
 from lumiant.audit.store import AuditStore, run_migrations
 from lumiant.auth.provider import DevAuthProvider
 from lumiant.connectors.registry import ConnectorRegistry
@@ -20,6 +20,7 @@ from lumiant.core.logging import configure_logging
 from lumiant.core.request_context import RequestContextMiddleware
 from lumiant.metrics.service import MetricsService
 from lumiant.query.service import QueryService
+from lumiant.reports.service import ReportService
 from lumiant.tenancy.registry import TenantRegistry
 
 
@@ -41,6 +42,7 @@ def build_container(settings: Settings) -> Container:
         query=query_service,
         metrics=MetricsService(query_service),
         agent=AgentService(query_service, settings),
+        reports=ReportService(query_service),
         dev_auth=DevAuthProvider(settings, tenants) if settings.dev_auth_enabled else None,
     )
 
@@ -67,6 +69,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.container = container
     app.add_middleware(RequestContextMiddleware)
     install_error_handlers(app)
-    for module in (health, auth, meta, metrics, inventory, analyses, agent, query):
+    for module in (health, auth, meta, metrics, inventory, analyses, agent, reports, query):
         app.include_router(module.router)
     return app

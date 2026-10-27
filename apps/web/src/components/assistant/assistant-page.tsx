@@ -194,6 +194,19 @@ export function AssistantPage() {
     chat.mutate({ id, question: q });
   };
 
+  // A guided-menu card links here with ?q=...: ask once, then clean the URL.
+  const prefilled = useRef(false);
+  useEffect(() => {
+    if (prefilled.current) return;
+    prefilled.current = true;
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q) {
+      window.history.replaceState(null, "", window.location.pathname);
+      ask(q);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     end.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [turns]);

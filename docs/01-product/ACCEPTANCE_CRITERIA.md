@@ -17,7 +17,7 @@ Status as of 2026-10-27 (end of M1). "Verified (synthetic)" = proven on generate
 | 10 | Queries execute only against approved datasets | M1 | **Verified** | validator `dataset_not_available`/`join_not_allowed`, SQL guard tests |
 | 11 | Unauthorized data requests are rejected | M1 | **Verified** | scope/cost/tenant tests (API + e2e) |
 | 12 | Missing data produces an honest, useful response | M1 (dashboard) / M3 (chat) | **Verified (dashboard + chat)** | missing valuation price warning, no-policy counts, UoM mismatch warning, `analysis_unavailable`, stale/unknown freshness warnings |
-| 13 | Results displayed as tables and appropriate charts | M1 | **Verified (synthetic)** | overview + inventory pages, e2e |
+| 13 | Results displayed as tables and appropriate charts | M1/M4 | **Verified (synthetic)** | overview, inventory, assistant, reports; exports + print (`test_reports.py`, e2e) |
 | 14 | Provenance and timestamps visible where relevant | M1 | **Verified** | provenance slip (unit + e2e), data as-of in header |
 | 15 | Relevant automated tests pass | every M | **Verified for M1** | `logs/TEST_RUNS.md` (134 API, 20 web unit, 5 e2e) |
 | 16 | Security risks and limitations documented | M1+ | **Verified for M1** | `03-security/*`, `logs/ISSUES.md` |

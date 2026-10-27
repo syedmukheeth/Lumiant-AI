@@ -70,5 +70,12 @@ Order follows dependencies. Milestone detail: `ROADMAP.md`, `MILESTONE_01.md`.
 - [x] Chat UI
 - [ ] Editable query chips, tenant glossary, capability matrix (moved to M5)
 
-## M4 – M7
+## M4 — Reports and guided menu (done on synthetic data)
+- [x] Report definitions + metadata header
+- [x] CSV and XLSX export with backend permission, audit, formula-injection protection
+- [x] Printable view
+- [x] Guided menu using the same services
+- [ ] Drill-through, saved views, background generation (moved to M5/M6)
+
+## M5 – M7
 See `ROADMAP.md`. Detailed checklists are added when each milestone starts.

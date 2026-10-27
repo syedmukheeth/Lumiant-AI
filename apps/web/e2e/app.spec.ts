@@ -161,3 +161,36 @@ test("assistant never reveals values to a role without cost access", async ({ pa
   await expect(answer).toContainText("can't view inventory values");
   await expect(answer).not.toContainText("USD");
 });
+
+test("guided menu runs the same analyses and reports carry metadata and export", async ({ page }) => {
+  await signIn(page, "alpha.admin");
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Explore" }).click();
+  await expect(page.getByTestId("explore-cards").getByRole("listitem")).toHaveCount(8);
+  await page.getByRole("link", { name: /Find slow-moving items/ }).click();
+  await expect(page.getByTestId("assistant-answer").first()).toContainText("no issue in the last 180 days");
+
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Reports" }).click();
+  await page.getByRole("combobox", { name: "Report" }).selectOption("below_reorder");
+  const meta = page.getByTestId("report-meta");
+  await expect(meta).toContainText("SYNTHETIC DEMO DATA");
+  await expect(meta).toContainText("Access scope: all warehouses in tenant");
+  await expect(page.getByRole("link", { name: "CSV" })).toBeVisible();
+  const csv = await page.request.get("/api/reports/below_reorder/export?format=csv");
+  expect(csv.status()).toBe(200);
+  const text = await csv.text();
+  expect(text).toContain("# Report");
+  expect(text).toContain("# NOTICE");
+});
+
+test("a role without export or cost access sees a reduced menu and cannot export", async ({ page }) => {
+  await signIn(page, "alpha.analyst");
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Explore" }).click();
+  await expect(page.getByRole("link", { name: /Investigate inventory costs/ })).toHaveCount(0);
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Reports" }).click();
+  await page.getByRole("combobox", { name: "Report" }).selectOption("below_reorder");
+  await expect(page.getByTestId("report-view")).toBeVisible();
+  await expect(page.getByRole("link", { name: "CSV" })).toHaveCount(0);
+  await expect(page.getByText("Your role can view reports but not export them.")).toBeVisible();
+  expect((await page.request.get("/api/reports/below_reorder/export")).status()).toBe(403);
+  expect((await page.request.get("/api/reports/value_by_warehouse")).status()).toBe(403);
+});

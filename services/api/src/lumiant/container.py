@@ -11,6 +11,7 @@ from lumiant.connectors.registry import ConnectorRegistry
 from lumiant.core.config import Settings
 from lumiant.metrics.service import MetricsService
 from lumiant.query.service import QueryService
+from lumiant.reports.service import ReportService
 from lumiant.tenancy.registry import TenantRegistry
 
 
@@ -23,6 +24,7 @@ class Container:
     query: QueryService
     metrics: MetricsService
     agent: AgentService
+    reports: ReportService
     dev_auth: DevAuthProvider | None
 
     def close(self) -> None:

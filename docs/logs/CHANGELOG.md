@@ -23,3 +23,9 @@ User-visible changes per milestone. Format loosely follows Keep a Changelog.
 - Ten typed analysis tools, clarification when an item or warehouse is ambiguous, honest refusals (e.g. obsolescence prediction).
 - Numeric grounding guard, external-AI approval gate per tenant, disclosure and feedback audit records.
 - Golden and adversarial evaluation sets; 220 API tests, 11 end-to-end tests.
+
+## [M4] — 2026-10-27
+### Added
+- Reports page: six reports with preview, CSV and Excel export, print view; each carries filters, data time, access scope and notices.
+- Explore page: guided menu of analyses (only options your role allows).
+- `export:data` permission; exports are audited and safe against spreadsheet formula injection.

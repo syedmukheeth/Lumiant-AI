@@ -29,9 +29,9 @@ warehouses:
   - {id: "3100", department: DIST}
 
 roles:
-  super_admin: [dashboard:read, inventory:read, cost:read, query:run, query:view_sql, audit:read, admin:tenant, chat:use]
-  dept_admin: [dashboard:read, inventory:read, cost:read, query:run, chat:use]
-  standard_user: [dashboard:read, inventory:read, cost:read, query:run, chat:use]
+  super_admin: [dashboard:read, inventory:read, cost:read, query:run, query:view_sql, audit:read, admin:tenant, chat:use, export:data]
+  dept_admin: [dashboard:read, inventory:read, cost:read, query:run, chat:use, export:data]
+  standard_user: [dashboard:read, inventory:read, cost:read, query:run, chat:use, export:data]
   viewer_no_cost: [dashboard:read, inventory:read, chat:use]
 
 # Development authentication only. Ignored (and the login endpoint disabled) outside dev mode.

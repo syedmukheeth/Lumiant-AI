@@ -39,3 +39,5 @@ Every test, lint, type-check or audit run is recorded here: date, step, exact co
 | 2026-10-27 | M3 | `uv run pytest -q` | 219 passed, **1 failed** | model prose overwrote a failed-tool message (real bug) |
 | 2026-10-27 | M3 | `uv run pytest -q` | **220 passed** | golden (14), adversarial (8), grounding (4), provider/endpoint tests with a fake Anthropic client |
 | 2026-10-27 | M3 | `pnpm exec playwright test` | 9 passed, **1 failed** | ambiguous "Ask" button locator (test bug) → exact match → **11 passed** |
+| 2026-10-27 | M4 | `uv run pytest -q` | **234 passed** | +14 report/export tests |
+| 2026-10-27 | M4 | `pnpm exec playwright test` | **12 passed** | +2 (guided menu + reports; reduced role) |

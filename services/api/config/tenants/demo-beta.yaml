@@ -24,8 +24,8 @@ warehouses:
   - {id: LDS1, department: OPS_UK}
 
 roles:
-  super_admin: [dashboard:read, inventory:read, cost:read, query:run, query:view_sql, audit:read, admin:tenant, chat:use]
-  standard_user: [dashboard:read, inventory:read, cost:read, query:run, chat:use]
+  super_admin: [dashboard:read, inventory:read, cost:read, query:run, query:view_sql, audit:read, admin:tenant, chat:use, export:data]
+  standard_user: [dashboard:read, inventory:read, cost:read, query:run, chat:use, export:data]
 
 dev_users:
   - {username: beta.admin, display_name: "Bram Admin", roles: [super_admin], warehouses: ["*"]}

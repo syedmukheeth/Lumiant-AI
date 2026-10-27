@@ -20,6 +20,7 @@ SECTIONS = (
     ("risks", Permission.INVENTORY_READ),
     ("costs", Permission.COST_READ),
     ("assistant", Permission.CHAT_USE),
+    ("reports", Permission.INVENTORY_READ),
 )
 
 

@@ -12,3 +12,4 @@ class Permission(StrEnum):
     AUDIT_READ = "audit:read"
     ADMIN_TENANT = "admin:tenant"
     CHAT_USE = "chat:use"
+    EXPORT_DATA = "export:data"
