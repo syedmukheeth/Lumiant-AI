@@ -78,5 +78,6 @@ mypy_path = "src"
 packages = ["lumiant"]
 
 [[tool.mypy.overrides]]
-module = ["duckdb_engine.*", "sqlglot.*"]
+# redis is an optional extra: the default install (and CI's api job) does not have it.
+module = ["duckdb_engine.*", "sqlglot.*", "redis", "redis.*"]
 ignore_missing_imports = true

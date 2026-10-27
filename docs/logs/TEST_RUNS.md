@@ -73,3 +73,7 @@ Every test, lint, type-check or audit run is recorded here: date, step, exact co
 | 2026-10-27 | CV-5 | `pnpm test` / `pnpm typecheck` | **23 passed** (+3 `buildCsp`) · clean | |
 | 2026-10-27 | CV-5 | `playwright test -c playwright.local.config.ts` | **16 passed** (CSP test strengthened: no `unsafe-inline` in script-src, every inline script carries the response nonce, nonce differs per request; +1 saved-theme test) | |
 | 2026-10-27 | CV-6 | `pnpm audit` · `uvx pip-audit` on `uv export --extra postgres --extra redis` | **0 known vulnerabilities** both | |
+| 2026-10-27 | S02-1 | GitHub Actions run #2 (`f437fdf`), job `api` | **FAILED** at `uv run mypy` (16 s); ruff + format passed; `e2e` skipped | logs need sign-in; step status read from the public run page |
+| 2026-10-27 | S02-1 | Windows: `uv sync --frozen` (no extras) → `uv run mypy` | **reproduced**: `ratelimit.py:97: Cannot find implementation or library stub for module named "redis" [import-not-found]` | |
+| 2026-10-27 | S02-1 | After the mypy override, no extras: `ruff check .` · `ruff format --check .` · `mypy` · `pytest -q` | **clean · 96 files formatted · 70 files OK · 269 passed, 6 skipped** | |
+| 2026-10-27 | S02-1 | Same with `uv sync --frozen --extra redis --extra postgres` (redis 7.4.1, psycopg 3.3.6): `mypy` · `pytest -q` | **70 files OK · 269 passed, 6 skipped** | skips need live PostgreSQL/Redis env vars |

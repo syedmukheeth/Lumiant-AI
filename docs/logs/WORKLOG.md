@@ -156,3 +156,10 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 - **Findings:** static prerendered shell cannot carry a CSP nonce (confirmed by inspecting the served HTML before the fix); PG ≥15 does not let a non-owner create tables in `public`.
 - **Not verified:** GitHub Actions run of the workflow; builds against the real ghcr/Docker Hub images; production-mode container with a real OIDC IdP and PostgreSQL; managed Redis/PostgreSQL; `playwright install --with-deps` and the matching Chromium build; all customer-dependent items.
 - **Next:** push `cloud-verify`, open a PR when the owner wants one, watch the first GitHub Actions run.
+
+## 2026-10-27 · S02 · CI · First GitHub Actions run failed on mypy
+- **Goal:** Make the first GitHub Actions run of `ci.yml` green.
+- **Finding:** run #2 on `f437fdf`: `ci / api` failed at `uv run mypy` (ruff and format passed; `e2e` skipped because it needs `api`). `core/ratelimit.py:97` imports `redis`, which is an optional extra; the `api` job runs `uv sync --frozen` without extras, and mypy strict had no override for it → `import-not-found`. `api-postgres-redis` passed because it installs the extra. Reproduced locally with the same command.
+- **Done:** `pyproject.toml`: `redis`, `redis.*` added to the existing `ignore_missing_imports` override. When the extra is installed, `redis` ships `py.typed`, so its real types are still checked.
+- **Commands + results:** see TEST_RUNS S02-1. Without extras and with `--extra redis --extra postgres`: ruff clean, 96 files formatted, mypy 70 files OK, 269 passed + 6 env-gated skips.
+- **Next:** push, watch the run (first run of `e2e` on GitHub).
