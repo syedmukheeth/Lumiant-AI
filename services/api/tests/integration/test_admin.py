@@ -18,6 +18,7 @@ from lumiant.main import create_app
 from lumiant.mapping.resolver import TenantMapping
 from lumiant.tenancy.models import TenantConfig
 from lumiant.tenancy.registry import TenantRegistry
+from tests.helpers import app_db_url
 
 pytestmark = pytest.mark.integration
 CSRF = {"X-Requested-With": "lumiant"}
@@ -31,7 +32,7 @@ def client(data_dir: Path, tmp_path_factory: pytest.TempPathFactory) -> Iterator
         auth_mode="dev",
         dev_jwt_secret="admin-secret-" + "x" * 40,
         data_dir=data_dir,
-        app_db_url=f"sqlite:///{(tmp_path_factory.mktemp('admdb') / 'app.db').as_posix()}",
+        app_db_url=app_db_url(tmp_path_factory.mktemp("admdb") / "app.db"),
         log_level="WARNING",
     )
     with TestClient(create_app(settings)) as c:

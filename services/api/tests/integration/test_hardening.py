@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from lumiant.core.config import Settings
 from lumiant.core.ratelimit import RateLimiter
 from lumiant.main import create_app
+from tests.helpers import app_db_url
 
 CSRF = {"X-Requested-With": "lumiant"}
 
@@ -54,7 +55,7 @@ def client(data_dir: Path, tmp_path: Path) -> Iterator[TestClient]:
         auth_mode="dev",
         dev_jwt_secret="limit-secret-" + "x" * 40,
         data_dir=data_dir,
-        app_db_url=f"sqlite:///{(tmp_path / 'app.db').as_posix()}",
+        app_db_url=app_db_url(tmp_path / "app.db"),
         log_level="WARNING",
         rate_limit_chat_per_min=3,
         rate_limit_export_per_min=2,
@@ -110,7 +111,7 @@ def test_limits_can_be_disabled(data_dir: Path, tmp_path: Path) -> None:
         auth_mode="dev",
         dev_jwt_secret="limit-secret-" + "x" * 40,
         data_dir=data_dir,
-        app_db_url=f"sqlite:///{(tmp_path / 'app2.db').as_posix()}",
+        app_db_url=app_db_url(tmp_path / "app2.db"),
         log_level="WARNING",
         rate_limit_enabled=False,
         rate_limit_login_per_min=1,

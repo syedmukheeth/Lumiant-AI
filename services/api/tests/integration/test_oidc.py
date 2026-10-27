@@ -23,6 +23,7 @@ import lumiant.auth.oidc as oidc_module
 from lumiant.core.config import BASE_DIR, Settings
 from lumiant.main import create_app
 from lumiant.tenancy.registry import TenantConfigError, TenantRegistry, parse_tenant_file
+from tests.helpers import app_db_url
 
 ISSUER = "https://idp.example.test/realms/alpha"
 AUDIENCE = "lumiant-alpha"
@@ -95,7 +96,7 @@ def client(tenant_dir: Path, data_dir: Path, tmp_path_factory: pytest.TempPathFa
         auth_mode="oidc",
         tenant_config_dir=tenant_dir,
         data_dir=data_dir,
-        app_db_url=f"sqlite:///{(tmp_path_factory.mktemp('oidcdb') / 'app.db').as_posix()}",
+        app_db_url=app_db_url(tmp_path_factory.mktemp("oidcdb") / "app.db"),
         log_level="WARNING",
     )
     with TestClient(create_app(settings)) as c:
@@ -221,7 +222,7 @@ def test_jwks_failure_is_not_a_server_error(tenant_dir: Path, data_dir: Path, tm
         auth_mode="oidc",
         tenant_config_dir=tenant_dir,
         data_dir=data_dir,
-        app_db_url=f"sqlite:///{(tmp_path / 'a.db').as_posix()}",
+        app_db_url=app_db_url(tmp_path / "a.db"),
         log_level="WARNING",
     )
     with TestClient(create_app(settings)) as c:
@@ -261,7 +262,7 @@ def test_oidc_mode_requires_a_configured_tenant(data_dir: Path, tmp_path: Path) 
         app_env="test",
         auth_mode="oidc",
         data_dir=data_dir,
-        app_db_url=f"sqlite:///{(tmp_path / 'b.db').as_posix()}",
+        app_db_url=app_db_url(tmp_path / "b.db"),
         log_level="WARNING",
     )
     with pytest.raises(RuntimeError, match="needs at least one tenant"):

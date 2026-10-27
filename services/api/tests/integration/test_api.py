@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 from lumiant.auth.provider import COOKIE_NAME
 from lumiant.core.config import AuthMode, Settings
 from lumiant.main import create_app
-from tests.helpers import raw_duckdb
+from tests.helpers import app_db_url, raw_duckdb
 
 pytestmark = pytest.mark.integration
 CSRF = {"X-Requested-With": "lumiant"}
@@ -32,7 +32,7 @@ def app_settings(data_dir: Path, tmp_path_factory: pytest.TempPathFactory) -> Se
         auth_mode="dev",
         dev_jwt_secret=SECRET,
         data_dir=data_dir,
-        app_db_url=f"sqlite:///{db.as_posix()}",
+        app_db_url=app_db_url(db),
         log_level="WARNING",
     )
 

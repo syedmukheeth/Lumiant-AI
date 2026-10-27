@@ -16,7 +16,7 @@ from openpyxl import load_workbook
 from lumiant.core.config import Settings
 from lumiant.main import create_app
 from lumiant.reports.service import safe_cell
-from tests.helpers import raw_duckdb
+from tests.helpers import app_db_url, raw_duckdb
 
 pytestmark = pytest.mark.integration
 CSRF = {"X-Requested-With": "lumiant"}
@@ -30,7 +30,7 @@ def client(data_dir: Path, tmp_path_factory: pytest.TempPathFactory) -> Iterator
         auth_mode="dev",
         dev_jwt_secret="report-secret-" + "x" * 40,
         data_dir=data_dir,
-        app_db_url=f"sqlite:///{(tmp_path_factory.mktemp('repdb') / 'app.db').as_posix()}",
+        app_db_url=app_db_url(tmp_path_factory.mktemp("repdb") / "app.db"),
         log_level="WARNING",
     )
     with TestClient(create_app(settings)) as c:

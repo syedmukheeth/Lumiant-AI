@@ -18,6 +18,7 @@ from lumiant.auth.principal import Principal
 from lumiant.core.config import BASE_DIR, Settings
 from lumiant.main import create_app
 from lumiant.query.service import QueryService
+from tests.helpers import app_db_url
 
 pytestmark = pytest.mark.integration
 CSRF = {"X-Requested-With": "lumiant"}
@@ -297,7 +298,7 @@ def client(data_dir: Path, tmp_path_factory: pytest.TempPathFactory) -> Any:
         auth_mode="dev",
         dev_jwt_secret="agent-secret-" + "x" * 40,
         data_dir=data_dir,
-        app_db_url=f"sqlite:///{(tmp_path_factory.mktemp('agentdb') / 'app.db').as_posix()}",
+        app_db_url=app_db_url(tmp_path_factory.mktemp("agentdb") / "app.db"),
         log_level="WARNING",
     )
     with TestClient(create_app(settings)) as c:

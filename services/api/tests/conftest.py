@@ -15,6 +15,7 @@ from lumiant.core.config import BASE_DIR
 from lumiant.query.service import QueryService
 from lumiant.synthetic.cli import generate_tenant
 from lumiant.tenancy.registry import TenantRegistry
+from tests.helpers import app_db_url
 
 # Tests sign in many times from one address; rate-limit behaviour has its own tests with explicit settings.
 os.environ.setdefault("LUMIANT_RATE_LIMIT_LOGIN_PER_MIN", "100000")
@@ -52,7 +53,7 @@ def beta_db(data_dir: Path) -> Path:
 
 @pytest.fixture(scope="session")
 def audit_store(tmp_path_factory: pytest.TempPathFactory) -> AuditStore:
-    url = f"sqlite:///{(tmp_path_factory.mktemp('appdb') / 'app.db').as_posix()}"
+    url = app_db_url(tmp_path_factory.mktemp("appdb") / "app.db")
     run_migrations(url)
     return AuditStore(url)
 
