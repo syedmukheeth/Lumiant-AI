@@ -11,3 +11,4 @@ class Permission(StrEnum):
     QUERY_VIEW_SQL = "query:view_sql"
     AUDIT_READ = "audit:read"
     ADMIN_TENANT = "admin:tenant"
+    CHAT_USE = "chat:use"

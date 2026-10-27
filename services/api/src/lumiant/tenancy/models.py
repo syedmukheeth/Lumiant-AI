@@ -105,6 +105,12 @@ class ItemCoding(StrictModel):
         return self
 
 
+class AiPolicy(StrictModel):
+    """Whether data may leave the deployment for an external AI provider. Off until the customer approves (Q-013)."""
+
+    external_provider_approved: bool = False
+
+
 class TenantConfig(StrictModel):
     id: Annotated[str, StringConstraints(pattern=r"^[a-z0-9][a-z0-9-]{1,40}$")]
     display_name: str = Field(min_length=1, max_length=120)
@@ -119,6 +125,7 @@ class TenantConfig(StrictModel):
     dev_users: list[DevUser] = Field(default_factory=list)
     datasets: dict[CanonicalName, DatasetMapping]
     item_coding: ItemCoding | None = None
+    ai: AiPolicy = AiPolicy()
     latest_price_statuses: list[str] = Field(default_factory=lambda: ["RECEIVED"])
 
     @property

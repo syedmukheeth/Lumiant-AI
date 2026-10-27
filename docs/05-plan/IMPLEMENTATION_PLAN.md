@@ -60,5 +60,15 @@ Order follows dependencies. Milestone detail: `ROADMAP.md`, `MILESTONE_01.md`.
 - [x] Item-code parser per tenant
 - [ ] Value maps in tenant mapping (ISSUES #3) — moved to M5
 
-## M3 – M7
+## M3 — AI agent (done on synthetic data; external provider unverified)
+- [x] Tool catalog with typed args and permission filtering
+- [x] Provider abstraction: built-in matcher + Anthropic adapter (fake-client tested only)
+- [x] Bounded loop, grounding guard, template fallback
+- [x] Clarification choices, honest unsupported answers
+- [x] Disclosure log, feedback, audit
+- [x] Golden + adversarial eval sets in CI tests
+- [x] Chat UI
+- [ ] Editable query chips, tenant glossary, capability matrix (moved to M5)
+
+## M4 – M7
 See `ROADMAP.md`. Detailed checklists are added when each milestone starts.

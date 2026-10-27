@@ -8,7 +8,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from lumiant import __version__
-from lumiant.api import analyses, auth, health, inventory, meta, metrics, query
+from lumiant.agent.service import AgentService
+from lumiant.api import agent, analyses, auth, health, inventory, meta, metrics, query
 from lumiant.audit.store import AuditStore, run_migrations
 from lumiant.auth.provider import DevAuthProvider
 from lumiant.connectors.registry import ConnectorRegistry
@@ -39,6 +40,7 @@ def build_container(settings: Settings) -> Container:
         audit=audit,
         query=query_service,
         metrics=MetricsService(query_service),
+        agent=AgentService(query_service, settings),
         dev_auth=DevAuthProvider(settings, tenants) if settings.dev_auth_enabled else None,
     )
 
@@ -65,6 +67,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.container = container
     app.add_middleware(RequestContextMiddleware)
     install_error_handlers(app)
-    for module in (health, auth, meta, metrics, inventory, analyses, query):
+    for module in (health, auth, meta, metrics, inventory, analyses, agent, query):
         app.include_router(module.router)
     return app

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from lumiant.agent.service import AgentService
 from lumiant.audit.store import AuditStore
 from lumiant.auth.provider import DevAuthProvider
 from lumiant.connectors.registry import ConnectorRegistry
@@ -21,6 +22,7 @@ class Container:
     audit: AuditStore
     query: QueryService
     metrics: MetricsService
+    agent: AgentService
     dev_auth: DevAuthProvider | None
 
     def close(self) -> None:

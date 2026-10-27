@@ -38,6 +38,9 @@ Status: **Implemented and tested (M1)** in `services/api/src/lumiant/api/`. Base
 | GET | `/api/analyses/data-quality` | `inventory:read` | list of checks with status/count/examples (value checks need `cost:read`) |
 | GET | `/api/analyses/abc` | `inventory:read` + `cost:read` | `a`, `b` cutoffs required (no defaults), optional `currency`; 409 `abc_mixed_currency` if several |
 | GET | `/api/analyses/cost-comparison` | `inventory:read` + `cost:read` | `item_id`, `warehouse_id`; MWA, FIFO, latest receipt cost, latest valid purchase price, source valuation, reconciliation, lots |
+| GET | `/api/agent/suggestions` | `chat:use` | starter questions |
+| POST | `/api/agent/chat` | `chat:use` | `{message}` (2–500 chars) → `{mode, notice, kind (tools/clarify/unsupported), answer, blocks[], tool_calls[], provenance[], warnings[], follow_ups[], choices[], grounding}` |
+| POST | `/api/agent/feedback` | `chat:use` | `{rating: up/down, reason?}` recorded in the audit trail |
 | POST | `/api/query` | `query:run` | body = QueryPlan → envelope |
 
 Exact request/response models: FastAPI OpenAPI at `/api/docs` (enabled only when `APP_ENV != production`).

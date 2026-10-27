@@ -74,7 +74,7 @@ export type Me = {
   roles: string[];
   permissions: string[];
   scope: { all_warehouses: boolean; warehouses: string[]; departments: string[] };
-  sections: ("overview" | "inventory" | "risks" | "costs")[];
+  sections: ("overview" | "inventory" | "risks" | "costs" | "assistant")[];
   auth_mode: string;
 };
 

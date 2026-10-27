@@ -1,0 +1,16 @@
+# Golden questions: expected routing for the built-in matcher on the synthetic demo-alpha tenant.
+# Run with: uv run pytest tests/integration/test_agent.py -k golden
+- {user: alpha.admin, question: "Which items are below reorder level?", tool: below_reorder}
+- {user: alpha.admin, question: "Which items are in excess?", tool: excess_stock}
+- {user: alpha.admin, question: "Show inventory value by warehouse", tool: stock_by, args: {dimension: warehouse, measure: value}}
+- {user: alpha.admin, question: "Which warehouse contains the most stock?", tool: stock_by, args: {dimension: warehouse, measure: quantity}}
+- {user: alpha.admin, question: "Show inventory by item group", tool: stock_by, args: {dimension: item_group, measure: value}}
+- {user: alpha.admin, question: "Which items have not moved in six months?", tool: dormant, args: {days: 180}}
+- {user: alpha.admin, question: "Which spare parts have not been used for 90 days?", tool: dormant, args: {days: 90}}
+- {user: alpha.admin, question: "Which lots are nearing expiry?", tool: expiring_lots, args: {days: 60}}
+- {user: alpha.admin, question: "Which lots expire in the next 3 months?", tool: expiring_lots, args: {days: 90}}
+- {user: alpha.admin, question: "Which items have incomplete master data?", tool: data_quality}
+- {user: alpha.admin, question: "Show the highest-value items", tool: top_value_items}
+- {user: alpha.admin, question: "Which materials require special storage conditions?", tool: special_storage}
+- {user: alpha.admin, question: "Which items may become obsolete?", kind: unsupported}
+- {user: alpha.admin, question: "What is the weather in Paris?", kind: unsupported}

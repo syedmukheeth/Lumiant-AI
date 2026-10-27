@@ -15,6 +15,7 @@ dependencies = [
   "alembic>=1.20,<1.21",
   "pyjwt>=2.15,<3",
   "pyyaml>=6.0.3,<7",
+  "anthropic>=1,<2",
 ]
 
 [project.scripts]
@@ -58,6 +59,7 @@ ignore = ["S101", "RUF001", "RUF002", "RUF003"]
 "tests/**" = ["S105", "S106", "S311", "S608", "E501", "N817"]
 "src/lumiant/synthetic/**" = ["S311"]
 "src/lumiant/analyses/risks.py" = ["E501"]
+"src/lumiant/agent/*.py" = ["E501", "RUF012"]
 
 [tool.mypy]
 python_version = "3.13"

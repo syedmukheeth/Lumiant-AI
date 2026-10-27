@@ -54,6 +54,7 @@ API (`services/api/.env`, see `.env.example`; prefix `LUMIANT_`):
 | `LUMIANT_APP_DB_URL` | `sqlite:///…/services/api/var/app.db` | PostgreSQL in production (untested locally) |
 | `LUMIANT_AUTO_MIGRATE` | `true` | |
 | `LUMIANT_LOG_LEVEL` | `INFO` | JSON logs to stdout |
+| `LUMIANT_AGENT_PROVIDER` | `rules` | `rules` (built-in, no data leaves) or `anthropic` (needs `LUMIANT_ANTHROPIC_API_KEY`, `LUMIANT_AGENT_MODEL`, **and** `ai.external_provider_approved: true` in the tenant YAML) |
 
 Web: `LUMIANT_API_ORIGIN` (default `http://127.0.0.1:8000`; read at build time for `next build`).
 

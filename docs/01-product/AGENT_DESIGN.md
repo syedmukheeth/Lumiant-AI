@@ -1,6 +1,6 @@
 # Inventory Agent Design
 
-Status: **Designed** (build in M3). The deterministic core it depends on is built in M1–M2.
+Status: **Implemented (M3) on synthetic data.** Built-in matcher verified; the external-LLM adapter is tested only against a fake client (ISSUES #13). Not yet: editable query chips, tenant glossary, capability matrix, per-conversation memory (M5). Code: `services/api/src/lumiant/agent/`; evals: `services/api/evals/`.
 
 ## 1. Principle
 

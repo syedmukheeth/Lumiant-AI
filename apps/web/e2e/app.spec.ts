@@ -132,3 +132,32 @@ test("costs and value-based pages are not offered to roles without cost access",
   const forbidden = await page.request.get("/api/analyses/cost-comparison?item_id=x&warehouse_id=3100");
   expect(forbidden.status()).toBe(403);
 });
+
+test("assistant: answers with a table and source, asks to clarify, and respects permissions", async ({ page }) => {
+  await signIn(page, "alpha.admin");
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Assistant" }).click();
+  await page.getByLabel("Ask a question").fill("Which items are below reorder level?");
+  await page.getByRole("button", { name: "Ask", exact: true }).click();
+  const answer = page.getByTestId("assistant-answer").first();
+  await expect(answer).toContainText("below their reorder level");
+  await expect(answer.locator("tbody tr").first()).toBeVisible();
+  await expect(answer.getByRole("button", { name: /how this was calculated/i })).toBeVisible();
+  await page.getByLabel("Ask a question").fill("how much stock of gasket");
+  await page.getByRole("button", { name: "Ask", exact: true }).click();
+  await expect(page.getByText("Which one do you mean?")).toBeVisible();
+  await page.getByLabel("Ask a question").fill("Which items may become obsolete?");
+  await page.getByRole("button", { name: "Ask", exact: true }).click();
+  await expect(page.getByText("can't predict obsolescence")).toBeVisible();
+  await page.getByRole("button", { name: "Helpful" }).first().click();
+  await expect(page.getByText("Thanks for the feedback")).toBeVisible();
+});
+
+test("assistant never reveals values to a role without cost access", async ({ page }) => {
+  await signIn(page, "alpha.analyst");
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Assistant" }).click();
+  await page.getByLabel("Ask a question").fill("Show the highest-value items");
+  await page.getByRole("button", { name: "Ask", exact: true }).click();
+  const answer = page.getByTestId("assistant-answer").first();
+  await expect(answer).toContainText("can't view inventory values");
+  await expect(answer).not.toContainText("USD");
+});

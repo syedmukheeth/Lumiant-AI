@@ -5,6 +5,7 @@ from __future__ import annotations
 from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -37,6 +38,9 @@ class Settings(BaseSettings):
     data_dir: Path = BASE_DIR
     app_db_url: str = f"sqlite:///{(BASE_DIR / 'var' / 'app.db').as_posix()}"
     auto_migrate: bool = True
+    agent_provider: Literal["rules", "anthropic"] = "rules"
+    agent_model: str = "claude-opus-5-5"
+    anthropic_api_key: SecretStr | None = None
 
     @model_validator(mode="after")
     def _production_guards(self) -> Settings:

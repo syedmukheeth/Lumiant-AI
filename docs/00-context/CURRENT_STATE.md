@@ -1,10 +1,10 @@
 # Current State
 
-_Rewritten at the end of every session. Last update: 2026-10-27, end of session 01._
+_Rewritten at the end of every session. Last update: 2026-10-27, session 01 (M3 done)._
 
 ## Milestone
-**M1 complete; M2 — Intelligence engine complete on synthetic data (draft definitions)** (all exit criteria in `../05-plan/MILESTONE_01.md` met on synthetic data). Nothing is committed to git yet; the owner decides when.
-**Next:** M2 — intelligence engine (costing, computed ABC, risk analyses). See "Next step" below.
+**M1, M2 (intelligence engine) and M3 (AI agent) complete on synthetic data.** Code is on GitHub (`syedmukheeth/Lumiant-AI`, `main`).
+**Next:** M4 — guided menu, reports and exports.
 
 ## What works (verified by automated tests and manual browser checks)
 
@@ -18,15 +18,17 @@ _Rewritten at the end of every session. Last update: 2026-10-27, end of session 
 | Below-reorder analysis incl. zero-stock pairs | `test_below_reorder_matches_independent_sql` |
 | Web: login, permission-aware shell, overview, inventory explorer, provenance slips, synthetic badge, data as-of, light/dark, mobile | `apps/web/tests/unit`, `apps/web/e2e/app.spec.ts`, browser checks in WORKLOG M1-step-7 |
 | M2: costing (MWA/periodic/FIFO/latest price), computed ABC, item-code rules, excess/dormant/expiry/data-quality, cost comparison reconciled to the source | `test_costing.py`, `test_m2_analyses.py`, e2e `risks`/`costs` |
-| Checks | API 177 passed · web unit 20 passed · e2e 8 passed · ruff/mypy strict/eslint/tsc clean · pnpm audit + pip-audit: 0 known vulnerabilities |
+| M3: assistant with 10 typed tools, grounding guard, permission-filtered tools, clarification, honest refusals, golden + adversarial evals | `test_agent.py`, `evals/*.yaml`, e2e `assistant` |
+| Checks | API 220 passed · web unit 20 passed · e2e 11 passed · ruff/mypy strict/eslint/tsc clean · pnpm audit + pip-audit: 0 known vulnerabilities |
 
 ## What is simulated (not evidence of customer readiness)
 - **All data is synthetic.** Valuation price = the generator's own moving average; ABC classes and reorder policies are synthetic stand-ins for customer master data.
 - **Authentication is development-only.** The API refuses to start in production with dev auth, and refuses OIDC mode until it is built (M6).
+- **The external AI provider has never been called.** Only the built-in matcher is verified; the Anthropic adapter is tested with a fake client (ISSUES #13).
 - **The only connector is DuckDB.** No PostgreSQL, SQL Server, Oracle or SAP connector exists or has been tested.
 
 ## Not built yet
-LIFO rule, ageing buckets, price-movement alerts, value maps · AI chat agent (M3) · reports/exports/guided menu (M4) · schema discovery, mapping studio, reconciliation, admin UIs (M5) · OIDC, rate limiting, Postgres app DB, containers, CI, CSP (M6) · real customer integration (M7).
+LIFO rule, ageing buckets, price-movement alerts, value maps · editable query chips, glossary, capability matrix · reports/exports/guided menu (M4) · schema discovery, mapping studio, reconciliation, admin UIs (M5) · OIDC, rate limiting, Postgres app DB, containers, CI, CSP (M6) · real customer integration (M7).
 
 ## Known limitations
 See `../logs/ISSUES.md` (open: #1 no local enterprise DBs, #2 conservative pins, #3 no value maps, #4 no rate limiting, #5 master data tenant-wide, #6 no cost-based query limits, #8 test-client deprecation, #9 no CSP on web, #10 animations pause in background tabs).

@@ -16,3 +16,5 @@ Open items first. Close an item by changing its status and adding the date and f
 | 10 | Cosmetic | Entrance animations (`.rise`) pause while a tab is in the background, so content can look faded until the tab is shown | None functionally | Open | 2026-10-27 |
 | 11 | Fixed | API crashed on first run because migrations ran before the SQLite folder existed | Fresh installs failed | **Fixed 2026-10-27** (`audit/store.py`, `test_audit_store.py`) | 2026-10-27 |
 | 12 | Fixed | Inventory search debounce could overwrite a filter chosen during the debounce window | Wrong filters applied | **Fixed 2026-10-27** (`explorer.tsx`, e2e `inventory search, filters and paging`) | 2026-10-27 |
+| 13 | Not verified | The external Anthropic provider path has only been tested with a fake client; never against the live API | Request/response shapes could differ in production | Open | 2026-10-27 |
+| 14 | Limitation | Built-in matcher covers a fixed set of question shapes (10 tools); unmatched questions get suggestions, not guesses | Free-form questions need the external provider (approval Q-013) | Open | 2026-10-27 |

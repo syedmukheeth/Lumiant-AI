@@ -16,3 +16,10 @@ User-visible changes per milestone. Format loosely follows Keep a Changelog.
 - Analyses: excess stock, dormant stock, expiring lots, master-data quality, cost comparison with reconciliation, computed vs assigned ABC.
 - Web: Risks and Costs pages; navigation adapts to cost permission.
 - Tests: 177 API, 8 end-to-end.
+
+## [M3] — 2026-10-27
+### Added
+- Assistant: ask questions in plain language; answers come from checked queries with tables, charts, sources and follow-ups.
+- Ten typed analysis tools, clarification when an item or warehouse is ambiguous, honest refusals (e.g. obsolescence prediction).
+- Numeric grounding guard, external-AI approval gate per tenant, disclosure and feedback audit records.
+- Golden and adversarial evaluation sets; 220 API tests, 11 end-to-end tests.

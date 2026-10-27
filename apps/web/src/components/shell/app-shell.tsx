@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { clsx } from "clsx";
-import { Boxes, Clock, Coins, LayoutDashboard, LogOut, ShieldAlert } from "lucide-react";
+import { Boxes, Clock, Coins, LayoutDashboard, LogOut, MessageSquareText, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -18,6 +18,7 @@ const NAV = [
   { section: "inventory", href: "/inventory", label: "Inventory", icon: Boxes },
   { section: "risks", href: "/risks", label: "Risks", icon: ShieldAlert },
   { section: "costs", href: "/costs", label: "Costs", icon: Coins },
+  { section: "assistant", href: "/assistant", label: "Assistant", icon: MessageSquareText },
 ] as const;
 
 function scopeLabel(me: Me) {

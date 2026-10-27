@@ -13,10 +13,10 @@ Status as of 2026-10-27 (end of M1). "Verified (synthetic)" = proven on generate
 | 6 | Warehouse-level summaries can be calculated | M1 | **Verified (synthetic)** | `inventory_value_by_warehouse` vs raw SQL tests |
 | 7 | ABC classifications follow configurable, tested rules | M2 | **Verified (synthetic, draft method)** | `test_costing.py::test_abc_*`, `test_m2_analyses.py::test_abc_*` |
 | 8 | Cost comparisons use documented calculations | M2 | **Verified (synthetic, draft definitions)** | `test_costing.py` hand-computed cases, `test_cost_comparison_reconciles_with_source_valuation` |
-| 9 | Chat supports a defined set of inventory questions | M3 | Not started (designed: `01-product/AGENT_DESIGN.md`) | M3 |
+| 9 | Chat supports a defined set of inventory questions | M3 | **Verified (synthetic, built-in matcher)** | `evals/golden.yaml`, `test_agent.py`, e2e `assistant` |
 | 10 | Queries execute only against approved datasets | M1 | **Verified** | validator `dataset_not_available`/`join_not_allowed`, SQL guard tests |
 | 11 | Unauthorized data requests are rejected | M1 | **Verified** | scope/cost/tenant tests (API + e2e) |
-| 12 | Missing data produces an honest, useful response | M1 (dashboard) / M3 (chat) | **Verified for M1 scope** | missing valuation price warning, no-policy counts, UoM mismatch warning, `analysis_unavailable`, stale/unknown freshness warnings |
+| 12 | Missing data produces an honest, useful response | M1 (dashboard) / M3 (chat) | **Verified (dashboard + chat)** | missing valuation price warning, no-policy counts, UoM mismatch warning, `analysis_unavailable`, stale/unknown freshness warnings |
 | 13 | Results displayed as tables and appropriate charts | M1 | **Verified (synthetic)** | overview + inventory pages, e2e |
 | 14 | Provenance and timestamps visible where relevant | M1 | **Verified** | provenance slip (unit + e2e), data as-of in header |
 | 15 | Relevant automated tests pass | every M | **Verified for M1** | `logs/TEST_RUNS.md` (134 API, 20 web unit, 5 e2e) |
