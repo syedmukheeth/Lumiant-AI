@@ -17,3 +17,4 @@ One line per decision. Details in the linked ADR.
 | 2026-10-27 | DEC-011 | Web fetches data client-side through the same-origin `/api` proxy; no server component reads cookies | `02-architecture/FRONTEND.md` |
 | 2026-10-27 | DEC-012 | Audit writes fail closed (no audit row → no data returned) | `02-architecture/QUERY_ENGINE.md` §7 |
 | 2026-10-27 | DEC-013 | Keep pnpm's minimum-release-age gate; pin older versions instead of adding exclusions | `00-context/ENVIRONMENT.md` |
+| 2026-10-27 | DEC-014 | Nonce-based CSP with per-request rendering (`cacheComponents` off); optional Redis shared rate-limit store with in-process fallback | `02-architecture/adr/0007-nonce-csp-and-shared-rate-limit.md` |

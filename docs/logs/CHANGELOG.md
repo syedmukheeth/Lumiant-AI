@@ -40,3 +40,12 @@ User-visible changes per milestone. Format loosely follows Keep a Changelog.
 - OIDC sign-in support (customer identity provider via bearer tokens, groups mapped to roles and warehouse scope).
 - Content-Security-Policy on the web app; SSO-aware login page.
 - Container files, compose demo, CI workflow, production-readiness checklist, deployment guide, runbook, user and administrator guides.
+
+## [cloud-verify] — 2026-10-27
+### Added
+- Optional Redis-backed shared rate limiter (`LUMIANT_RATE_LIMIT_REDIS_URL`, `redis` extra) with in-process fallback.
+- Per-request nonce Content-Security-Policy (no `'unsafe-inline'` scripts).
+- CI jobs for PostgreSQL + Redis and for building/running the Docker demo stack; test switches `LUMIANT_TEST_PG_ADMIN_URL`, `LUMIANT_TEST_REDIS_URL`.
+### Fixed
+- API image/compose: the non-root user could not write generated data (`/data` is now provided and owned).
+- CI: `pnpm/action-setup` no longer conflicts with the `packageManager` field.

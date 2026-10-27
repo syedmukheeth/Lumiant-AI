@@ -1,6 +1,6 @@
 # Frontend
 
-Status: **Implemented and tested (M1)**. Code in `apps/web/`: Next.js 16.4 App Router (with `cacheComponents` and `partialPrefetching`), React 19.3, TypeScript 5.9, Tailwind 4 (Turbopack loader), React Query 5.104, Recharts 3.10, Radix popover, lucide icons.
+Status: **Implemented and tested (M1)**. Code in `apps/web/`: Next.js 16.4 App Router (per-request rendering; `cacheComponents`/`partialPrefetching` were turned off for the nonce CSP, ADR-0007), React 19.3, TypeScript 5.9, Tailwind 4 (Turbopack loader), React Query 5.104, Recharts 3.10, Radix popover, lucide icons.
 
 ## Routes (M1)
 
@@ -17,7 +17,7 @@ Navigation shows only routes that exist **and** that the user may access. No pla
 - `src/lib/api.ts`: typed fetch wrapper (same-origin `/api/*`, `credentials: "same-origin"`, `X-Requested-With: lumiant` on POST); throws `ApiError{status, code, message, requestId}` (status 0 = network).
 - React Query for caching, retries off for 4xx, loading/error states per widget.
 - The error envelope is validated with zod (`lib/api.ts`); success payloads are typed. Non-JSON error bodies are never shown to users.
-- Pages are client components; no server component reads cookies, so Cache Components never needs request data and the API stays the only enforcement point.
+- Pages are client components; no server component reads cookies, so the API stays the only enforcement point.
 - `usePageMe()` reads the session only after hydration (the shell may resolve it first), which prevents hydration mismatches.
 - The shell always renders page content (Next 16 instant-navigation validation requires it); the session state only affects the chrome.
 - Next keeps the previous route mounted but hidden (React Activity): tests must scope locators to visible regions.

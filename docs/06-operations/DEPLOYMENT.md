@@ -37,6 +37,7 @@ Public hosting is not assumed: everything runs in the customer's private network
 | `LUMIANT_AUTO_MIGRATE` | `false` in production; run `alembic upgrade head` as a release step |
 | `LUMIANT_TENANT_CONFIG_DIR` | mounted directory of tenant YAML (mappings, roles, `oidc`, `ai`) |
 | `LUMIANT_RATE_LIMIT_*_PER_MIN` | tune per tenant size |
+| `LUMIANT_RATE_LIMIT_REDIS_URL` | optional: Redis (from the secret manager) so limits hold across replicas; the image includes the client. If Redis is unreachable each replica falls back to its own limits (logged) |
 | `FORWARDED_ALLOW_IPS` | the proxy's address, so rate limiting sees client addresses |
 | `LUMIANT_AGENT_PROVIDER` | `rules` unless the customer has approved an external provider |
 

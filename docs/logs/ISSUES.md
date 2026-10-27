@@ -4,15 +4,15 @@ Open items first. Close an item by changing its status and adding the date and f
 
 | # | Type | Description | Impact | Status | Opened |
 |---|---|---|---|---|---|
-| 1 | Limitation | No Docker/PostgreSQL/SQL Server/Oracle on the dev machine; only the DuckDB connector can be tested locally | Postgres app DB and customer connectors untested | Open | 2026-10-26 |
+| 1 | Limitation | Only the DuckDB connector exists; no SQL Server/Oracle/PostgreSQL *warehouse* connector (Docker and PostgreSQL 16 for the app DB are available in the Linux cloud environment — see #17, #20) | Customer connectors untested | Open (narrowed 2026-10-27) | 2026-10-26 |
 | 2 | Tech debt | Conservative pins (TS 5.9, DuckDB 1.5, SQLAlchemy 2.0) need an upgrade review | Upgrade work in M6 | Open | 2026-10-26 |
 | 3 | Gap | No value-level mapping yet (e.g. source `ROH` → canonical `RAW`); synthetic writer stores canonical codes | Real customers need value maps (M5) | Open | 2026-10-26 |
-| 4 | Gap | No rate limiting until M6 | DoS risk in shared environments | Open | 2026-10-26 |
+| 4 | Gap | No rate limiting until M6 | DoS risk in shared environments | **Fixed 2026-10-27** (M6 limiter; shared store: #18) | 2026-10-26 |
 | 5 | Design note | Datasets without a warehouse key (item master, suppliers, departments) are visible tenant-wide to anyone with `inventory:read` | Customer may require item-level restrictions (Q-011) | Open | 2026-10-27 |
 | 6 | Gap | Expensive-query protection is row cap + timeout only; no cost estimation / concurrency limit per tenant | Large customer warehouses (M6) | Open | 2026-10-27 |
 | 7 | Fixed | SQLAlchemy Numeric result processing rounded aggregated decimals to the declared scale | Totals off in the 5th+ decimal | **Fixed 2026-10-27** (`ExactDecimal` in `query/compiler.py`, test `test_alpha_value_matches_independent_sql`) | 2026-10-27 |
 | 8 | Tech debt | Starlette warns that `httpx` in `TestClient` is deprecated in favour of `httpx2` | Test-only; revisit with dependency upgrades (M6) | Open | 2026-10-27 |
-| 9 | Gap | Web app sends X-Frame-Options/nosniff/Referrer-Policy/Permissions-Policy but no Content-Security-Policy yet (Next inline scripts need nonces) | XSS defence-in-depth (React escaping still applies) | Open | 2026-10-27 |
+| 9 | Gap | Web app sent no Content-Security-Policy | XSS defence-in-depth | **Fixed 2026-10-27** (M6 CSP; nonce policy: #19) | 2026-10-27 |
 | 10 | Cosmetic | Entrance animations (`.rise`) pause while a tab is in the background, so content can look faded until the tab is shown | None functionally | Open | 2026-10-27 |
 | 11 | Fixed | API crashed on first run because migrations ran before the SQLite folder existed | Fresh installs failed | **Fixed 2026-10-27** (`audit/store.py`, `test_audit_store.py`) | 2026-10-27 |
 | 12 | Fixed | Inventory search debounce could overwrite a filter chosen during the debounce window | Wrong filters applied | **Fixed 2026-10-27** (`explorer.tsx`, e2e `inventory search, filters and paging`) | 2026-10-27 |
@@ -20,7 +20,8 @@ Open items first. Close an item by changing its status and adding the date and f
 | 14 | Limitation | Built-in matcher covers a fixed set of question shapes (10 tools); unmatched questions get suggestions, not guesses | Free-form questions need the external provider (approval Q-013) | Open | 2026-10-27 |
 | 15 | Gap | M5 left out value maps, mapping editor with approval workflow, AI-suggested mappings, column profiling, drill-through, saved views, query chips and tenant glossary | Real-customer onboarding still needs config edits in YAML | Open | 2026-10-27 |
 | 16 | Not verified | OIDC provider has only run against locally generated keys and a fake JWKS client | Real IdP quirks (claim names, key rotation, clock skew) unknown | Open | 2026-10-27 |
-| 17 | Not verified | Dockerfiles, docker-compose and the CI workflow were written but never built/run (no Docker locally; workflow not yet executed) | May need fixes on first run | Open | 2026-10-27 |
-| 18 | Limitation | Rate limiter is in-process memory: limits are per replica and reset on restart | Weak with several replicas | Open | 2026-10-27 |
-| 19 | Limitation | CSP allows inline scripts (`'unsafe-inline'`) because Next.js bootstraps inline; nonce-based CSP not adopted | Reduced XSS defence-in-depth | Open (ISSUES #9 partly closed) | 2026-10-27 |
-| 20 | Not verified | PostgreSQL app database (psycopg extra) untested | Migration/audit behaviour on PostgreSQL unproven | Open | 2026-10-27 |
+| 17 | Not verified | Dockerfiles, docker-compose and the CI workflow were never built/run | May need fixes on first run | **Partly closed 2026-10-27**: both images built, compose stack ran, sign-in + overview verified, one real bug fixed (non-root user could not write data); workflow passes actionlint and its commands were run locally. **Still open: the workflow has not run on GitHub Actions; images were built here with stand-in base images (ghcr.io blocked, Docker Hub rate-limited) — see TEST_RUNS** | 2026-10-27 |
+| 18 | Limitation | Rate limiter was in-process memory: limits per replica, reset on restart | Weak with several replicas | **Fixed 2026-10-27**: optional `RedisRateLimiter` (`LUMIANT_RATE_LIMIT_REDIS_URL`), tested against Redis 7.0, two-replica test; default and Redis-outage behaviour remain in-process (ADR-0007). Not tested against a managed/clustered Redis | 2026-10-27 |
+| 19 | Limitation | CSP allowed inline scripts (`'unsafe-inline'`) | Reduced XSS defence-in-depth | **Fixed 2026-10-27**: per-request nonce CSP, e2e-verified (ADR-0007). Remaining: `style-src` keeps `'unsafe-inline'` (style attributes); pages are rendered per request (`cacheComponents` off) | 2026-10-27 |
+| 20 | Not verified | PostgreSQL app database untested | Migration/audit behaviour on PostgreSQL unproven | **Fixed 2026-10-27**: Alembic up/down/up and the full API suite (275 tests) pass on PostgreSQL 16; no PostgreSQL-specific defect found. Not tested on other versions or a managed service | 2026-10-27 |
+| 21 | Limitation | Playwright's browser CDN is blocked in the cloud sandbox, so e2e ran on the preinstalled Chromium 1243 (Playwright 1.64.1 expects 1248) via an uncommitted local config; `playwright install --with-deps chromium` itself was not exercised | CI will use the matching build | Open | 2026-10-27 |

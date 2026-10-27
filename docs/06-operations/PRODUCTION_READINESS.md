@@ -1,6 +1,6 @@
 # Production Readiness Checklist
 
-**Verdict (2026-10-27): NOT production-ready.** The platform is complete and tested on synthetic data with development
+**Verdict (2026-10-27, after cloud verification): NOT production-ready.** The platform is complete and tested on synthetic data with development
 authentication, but nothing here has been exercised against a customer system, a customer identity provider, a customer AI
 approval, or a production deployment. Items below are marked honestly; "Verified" means proven by an automated test or recorded check.
 
@@ -25,11 +25,11 @@ Legend: **Verified** · **Implemented, unverified** (code exists, cannot be prov
 | Dev auth cannot run in production | Verified | `test_config.py` |
 | OIDC bearer authentication with group → role/scope mapping | Implemented, unverified against a real IdP | `test_oidc.py` uses local keys; Q-010 |
 | Algorithm-confusion and `alg:none` tokens rejected | Verified | `test_oidc.py` |
-| Rate limiting (chat, query, export, sign-in) | Verified (single process) | `test_hardening.py`; per-replica memory, no shared store |
-| Strict CSP on the web app | Verified, with `'unsafe-inline'` for scripts | e2e CSP test; nonce-based CSP is Open |
+| Rate limiting (chat, query, export, sign-in) | Verified, incl. shared Redis store | `test_hardening.py`, `test_ratelimit_redis.py` (Redis 7.0.15, two-replica test). Default is per-replica memory; Redis opt-in via `LUMIANT_RATE_LIMIT_REDIS_URL`; outage degrades to per-replica. Not tested on a managed/clustered Redis |
+| Strict CSP on the web app | Verified, per-request nonce, no `'unsafe-inline'` for scripts | e2e CSP test (nonce on every inline script, differs per request, no violations on any page); `style-src` still `'unsafe-inline'` (ADR-0007) |
 | Spreadsheet formula-injection protection, audited exports | Verified | `test_reports.py` |
 | AI: grounded numbers, tool permissions, tenant approval gate, disclosure log | Verified (fake external client) | `test_agent.py`; external provider never called live (ISSUES #13) |
-| Dependency audits | Verified (2026-10-27, 0 findings) | `pnpm audit`, `pip-audit`; CI will repeat |
+| Dependency audits | Verified (2026-10-27, 0 findings, re-run on Linux incl. postgres/redis extras) | `pnpm audit`, `pip-audit`; CI repeats |
 | Secret scanning in CI | Open | add a scanner to CI |
 | Penetration test / third-party review | Open | recommended before go-live |
 | TLS, HSTS, encryption at rest | Open | deployment platform responsibility |
@@ -40,10 +40,10 @@ Legend: **Verified** · **Implemented, unverified** (code exists, cannot be prov
 | Health endpoints | Verified | `/api/health`, `/api/health/ready` |
 | Structured JSON logs with request ids, no secrets or values | Verified | logging design + tests of error bodies |
 | Audit trail (allow and deny), explorer, fail-closed writes | Verified | `test_admin.py`, `test_query_service.py` |
-| Migrations | Verified on SQLite | Alembic `0001`; PostgreSQL untested |
-| PostgreSQL for the app database | Implemented, unverified | `postgres` extra; no local PostgreSQL |
-| Container images | Implemented, unverified | `Dockerfile`s written; no Docker available to build them |
-| CI pipeline | Implemented, unverified | `.github/workflows/ci.yml` not yet run |
+| Migrations | Verified on SQLite and PostgreSQL 16 | Alembic `0001` up/down/up; `test_audit_store.py` |
+| PostgreSQL for the app database | Verified on PostgreSQL 16 (self-hosted, apt) | whole API suite (275 tests) passes with `LUMIANT_TEST_PG_ADMIN_URL`; not tried on a managed service or other versions |
+| Container images | Built and run, with caveats | Both images built; compose stack ran; sign-in and overview verified in a browser; API container runs as uid 10001, healthcheck passes. One real bug found and fixed. **Caveat:** built here with stand-in base images (ghcr.io blocked, Docker Hub rate-limited — TEST_RUNS CV-2), so a build against the real upstream images is still to be seen (the CI `docker` job does it). Production-mode container (OIDC, PostgreSQL) was only checked to refuse to start without config |
+| CI pipeline | Linted, not run | `actionlint` clean; a `pnpm/action-setup` conflict was fixed; commands of every job were run locally. **Not executed on GitHub Actions** |
 | Metrics / tracing (OpenTelemetry) | Open | logs only |
 | Backups, restore drill, rollback rehearsal | Open | see `RUNBOOK.md` |
 | Audit/chat retention policy | **Blocked** | Q-014 |

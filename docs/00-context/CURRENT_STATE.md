@@ -1,6 +1,6 @@
 # Current State
 
-_Rewritten at the end of every session. Last update: 2026-10-27, session 01 (M6 done)._
+_Rewritten at the end of every session. Last update: 2026-10-27, cloud-verify (Linux verification + hardening)._
 
 ## Milestone
 **M1 (foundation), M2 (intelligence engine), M3 (AI agent) M4 (reports, exports, guided menu) and most of M5 (schema drift check, capability matrix, reconciliation gate, audit explorer) complete on synthetic data.** Code is on GitHub (`syedmukheeth/Lumiant-AI`, `main`).
@@ -22,27 +22,32 @@ _Rewritten at the end of every session. Last update: 2026-10-27, session 01 (M6 
 | M4: six reports, CSV/Excel export with metadata and `export:data`, print view, guided menu | `test_reports.py`, e2e `guided menu`, `reduced role` |
 | M5: schema drift detection, capability matrix, reconciliation gate, audit explorer | `test_admin.py`, e2e `admin` |
 | M6: rate limits, OIDC bearer auth (local keys), strict CSP | `test_hardening.py`, `test_oidc.py`, e2e CSP test |
-| Checks | API 266 passed · web unit 20 passed · e2e 15 passed · ruff/mypy strict/eslint/tsc clean · pnpm audit + pip-audit: 0 known vulnerabilities |
+| Cloud verification (Linux) | API 269 passed + 6 env-gated skipped (**275 pass** with PostgreSQL 16 + Redis 7) · web unit 23 · e2e 16 · ruff/mypy strict/eslint/tsc clean · audits 0 findings — `../logs/TEST_RUNS.md` CV-1…CV-6 |
+| Containers | API and web images built, compose demo ran, sign-in + overview verified in a browser; bug fixed (non-root data dir). Built with stand-in base images (registries restricted) |
+| PostgreSQL 16 app DB | Alembic up/down/up + whole API suite (`LUMIANT_TEST_PG_ADMIN_URL`) |
+| Shared rate limit | Optional Redis store (`LUMIANT_RATE_LIMIT_REDIS_URL`), tested on Redis 7.0; in-process default and outage fallback |
+| Nonce CSP | Per-request nonce, no `'unsafe-inline'` scripts; e2e-verified (ADR-0007) |
 
 ## What is simulated (not evidence of customer readiness)
 - **All data is synthetic.** Valuation price = the generator's own moving average; ABC classes and reorder policies are synthetic stand-ins for customer master data.
+- **CI has not run on GitHub Actions** (workflow passes `actionlint`; every job's commands were run locally). Real upstream base images were not used for the image builds here.
 - **Authentication is development-only in practice.** OIDC is implemented and tested with locally generated keys, never against a real identity provider (Q-010). The API refuses dev auth in production.
 - **The external AI provider has never been called.** Only the built-in matcher is verified; the Anthropic adapter is tested with a fake client (ISSUES #13).
 - **The only connector is DuckDB.** No PostgreSQL, SQL Server, Oracle or SAP connector exists or has been tested.
 
 ## Not built yet
-LIFO rule, ageing buckets, price-movement alerts, value maps · editable query chips, glossary, capability matrix · drill-through, saved views, background reports · value maps, mapping editor/approval, profiling (rest of M5) · verification of containers, CI, PostgreSQL and a real IdP; shared rate-limit store; nonce CSP · real customer integration (M7).
+LIFO rule, ageing buckets, price-movement alerts, value maps · editable query chips, glossary, capability matrix · drill-through, saved views, background reports · value maps, mapping editor/approval, profiling (rest of M5) · a real IdP; a first GitHub Actions run; managed PostgreSQL/Redis · real customer integration (M7).
 
 ## Known limitations
-See `../logs/ISSUES.md` (open: #1 no local enterprise DBs, #2 conservative pins, #3 no value maps, #4 no rate limiting, #5 master data tenant-wide, #6 no cost-based query limits, #8 test-client deprecation, #9 no CSP on web, #10 animations pause in background tabs).
+See `../logs/ISSUES.md` (open: #1 no enterprise warehouse connectors, #2 conservative pins, #3 no value maps, #5 master data tenant-wide, #6 no cost-based query limits, #8 test-client deprecation, #10 animations pause in background tabs, #13 live AI provider, #14, #15, #16 real IdP, #17 first GitHub Actions run, #21 Playwright browser download blocked in sandbox).
 
 ## Blocked on the customer
 Everything production-related: `../07-customer/OPEN_QUESTIONS.md` — highest priority Q-001 (warehouse technology/access), Q-003 (schema), Q-006–Q-008 (costing policy), Q-010 (IdP), Q-012 (hosting), Q-013 (AI provider approval).
 
 ## Next step
-1. Owner review of M1 in the browser (`docs/06-operations/DEV_SETUP.md`) and decision on the first commit.
-2. Start **M2**: write hand-verified financial fixtures first (`../04-domain/INVENTORY_CALCULATIONS.md` § fixtures), then MWA / periodic WA / FIFO layers / lot cost / latest price (draft definitions), computed-vs-assigned ABC, excess / slow-moving / dormant / ageing / expiry / master-data-quality analyses, item-code parser; reconcile the MWA engine against the generator's valuation price with independent code.
-3. In parallel, send Q-001 … Q-017 to Lumiant/the customer.
+1. Owner: review the `cloud-verify` branch, merge when satisfied, and watch the first GitHub Actions run (fix the workflow, not the tests, if it fails).
+2. Send Q-001 … Q-017 to Lumiant/the customer (`../07-customer/OPEN_QUESTIONS.md`); M7 cannot start without them.
+3. Optional without the customer: value maps and mapping editor (ISSUES #3, #15), non-nonce CSP leftovers (`style-src`), a live-API check of the Anthropic adapter once a key and approval exist.
 
 ## How to run
 `docs/06-operations/DEV_SETUP.md` (setup) · `docs/06-operations/TESTING.md` (tests).

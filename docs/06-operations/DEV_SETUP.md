@@ -51,10 +51,11 @@ API (`services/api/.env`, see `.env.example`; prefix `LUMIANT_`):
 | `LUMIANT_SESSION_TTL_MINUTES` | 480 | |
 | `LUMIANT_COOKIE_SECURE` | `false` | must be `true` in production |
 | `LUMIANT_DATA_DIR` | `services/api` | base for tenant connection paths |
-| `LUMIANT_APP_DB_URL` | `sqlite:///…/services/api/var/app.db` | PostgreSQL in production (untested locally) |
+| `LUMIANT_APP_DB_URL` | `sqlite:///…/services/api/var/app.db` | PostgreSQL in production (verified on PostgreSQL 16; needs the `postgres` extra) |
 | `LUMIANT_AUTO_MIGRATE` | `true` | |
 | `LUMIANT_LOG_LEVEL` | `INFO` | JSON logs to stdout |
 | `LUMIANT_RATE_LIMIT_{CHAT,QUERY,EXPORT,LOGIN}_PER_MIN` | 20 / 120 / 10 / 10 | per-user (login: per address) sliding-minute limits; `LUMIANT_RATE_LIMIT_ENABLED=false` disables |
+| `LUMIANT_RATE_LIMIT_REDIS_URL` | unset | share limits across replicas via Redis (secret; `redis` extra); unset = in-process limits |
 | `LUMIANT_AGENT_PROVIDER` | `rules` | `rules` (built-in, no data leaves) or `anthropic` (needs `LUMIANT_ANTHROPIC_API_KEY`, `LUMIANT_AGENT_MODEL`, **and** `ai.external_provider_approved: true` in the tenant YAML) |
 
 Web: `LUMIANT_API_ORIGIN` (default `http://127.0.0.1:8000`; read at build time for `next build`).

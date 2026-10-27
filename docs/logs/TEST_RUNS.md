@@ -46,3 +46,30 @@ Every test, lint, type-check or audit run is recorded here: date, step, exact co
 | 2026-10-27 | M6 | `uv run pytest -q` | 250 passed → 266 passed after OIDC | rate limiting, then OIDC; 1 test-side failure fixed (hand-built forged HS256 token) |
 | 2026-10-27 | M6 | `pnpm exec playwright test` | **15 passed** | production build with strict CSP; no CSP violations on any page |
 | 2026-10-27 | M6 | `uvx pip-audit` / `pnpm audit` | **0 known vulnerabilities** | after adding anthropic, openpyxl, pyjwt[crypto], psycopg extra |
+| 2026-10-27 | CV-1 | Linux (cloud sandbox, Python 3.13.17, Node 22.22, uv 0.11.32, pnpm 11.10.0): `uv sync --frozen && ruff check . && ruff format --check . && mypy && pytest -q` | **clean · 95 files formatted · mypy 70 files OK · 266 passed** | no Linux-only problems (paths, line endings, case) found |
+| 2026-10-27 | CV-1 | `pnpm install --frozen-lockfile && pnpm lint && pnpm typecheck && pnpm test` | **clean · 20 passed** | |
+| 2026-10-27 | CV-1 | `pnpm exec playwright install --with-deps chromium` | **FAILED**: `cdn.playwright.dev` blocked (403) by the sandbox network policy | environment limit, not a repo defect (ISSUES #21) |
+| 2026-10-27 | CV-1 | `pnpm e2e` | **15 failed** (browser build 1248 missing) | |
+| 2026-10-27 | CV-1 | `playwright test -c playwright.local.config.ts` (uncommitted config pointing at preinstalled Chromium 1243) | **15 passed** (53 s) | production build + isolated API |
+| 2026-10-27 | CV-2 | `docker info` | daemon not running → started `dockerd` manually → `hello-world` ran | |
+| 2026-10-27 | CV-2 | `docker build services/api` | **FAILED**: `ghcr.io/astral-sh/uv` blob blocked (403); Docker Hub `429 Too Many Requests` | environment limit |
+| 2026-10-27 | CV-2 | Workaround for the sandbox only: `python:3.13-slim` / `node:22-alpine` pulled from `mirror.gcr.io` and re-tagged with the sandbox TLS CA added; a local stand-in `ghcr.io/astral-sh/uv:0.11` holding the host's uv 0.11.32 binary | | Dockerfiles themselves unmodified for these steps. **Not the real upstream images** |
+| 2026-10-27 | CV-2 | `docker build services/api` (first try after CA fix) | **built** | |
+| 2026-10-27 | CV-2 | `docker build apps/web` | **built** (Next production build inside the image) | |
+| 2026-10-27 | CV-2 | `docker compose up --build -d` | **FAILED**: api crashed `PermissionError: /app/data` — **real bug**: non-root user cannot write | fixed: `/data` owned by `lumiant`, `LUMIANT_DATA_DIR=/data` |
+| 2026-10-27 | CV-2 | `docker compose up --build -d --wait` after fix | api **healthy** (uid 10001), web up | |
+| 2026-10-27 | CV-2 | Browser against http://127.0.0.1:3000: sign in as `alpha.admin` → overview | **OK**: items 585, value `USD 2,767,451.83`, SYNTHETIC badge, **0 CSP violations** | also curl smoke: `/login`, `/api/health`, dev-login, `/api/auth/me` |
+| 2026-10-27 | CV-2 | `docker run lumiant-ai-api` (production defaults) | refuses to start: OIDC mode needs a tenant `oidc` block | expected; `psycopg` 3.3.6 and `redis` 7.4.1 import OK in the image |
+| 2026-10-27 | CV-3 | `uvx --from actionlint-py actionlint .github/workflows/ci.yml` (1.7.12) | **clean** (and a deliberately bad file is rejected) | first-pass review found `pnpm/action-setup` `version:` + `packageManager` conflict → removed |
+| 2026-10-27 | CV-3 | After adding postgres/redis/docker jobs: actionlint | **clean**; the new jobs' commands were run locally (alembic up/down/up, pytest with env, compose smoke) | the workflow has **not** run on GitHub Actions |
+| 2026-10-27 | CV-4 | PostgreSQL 16.x (apt) + `alembic upgrade head`, `downgrade base`, `upgrade head` | **OK**, `alembic_version` = `0001`; table/index DDL as expected | one false start: role lacked rights on the `postgres` DB's `public` schema (PG ≥15 default) — local setup only |
+| 2026-10-27 | CV-4 | `LUMIANT_TEST_PG_ADMIN_URL=… uv run pytest -q` (every API test app gets a fresh PostgreSQL database) | **266 passed**; with new PostgreSQL test **267 passed** | no PostgreSQL-specific defect found |
+| 2026-10-27 | CV-5 | `pytest tests/unit/test_ratelimit_redis.py tests/integration/test_hardening.py` against Redis 7.0.15 | **14 passed** (shared window across instances, slide/recover, TTL, 2-replica API 401×4→429, outage fallback) | |
+| 2026-10-27 | CV-5 | `uv run pytest -q` with PG + Redis env | **275 passed** | |
+| 2026-10-27 | CV-5 | `uv run pytest -q` default (SQLite, no Redis) | **269 passed, 6 skipped** (4 Redis + 1 Redis API + 1 PG, need env) | |
+| 2026-10-27 | CV-5 | `ruff check` / `ruff format --check` / `mypy` | 5 lint findings (SIM105, S110, PT018×3) in new code → fixed → **clean** | |
+| 2026-10-27 | CV-5 | Nonce CSP: first build | **static shell had inline scripts without a nonce** (PPR) → `cacheComponents` off + `connection()` in root layout | ADR-0007 |
+| 2026-10-27 | CV-5 | `pnpm lint` | 1 error (`no-sync-scripts` on a raw `<script src>`) + 1 warning → `next/script`, optional catch binding → **clean** | |
+| 2026-10-27 | CV-5 | `pnpm test` / `pnpm typecheck` | **23 passed** (+3 `buildCsp`) · clean | |
+| 2026-10-27 | CV-5 | `playwright test -c playwright.local.config.ts` | **16 passed** (CSP test strengthened: no `unsafe-inline` in script-src, every inline script carries the response nonce, nonce differs per request; +1 saved-theme test) | |
+| 2026-10-27 | CV-6 | `pnpm audit` · `uvx pip-audit` on `uv export --extra postgres --extra redis` | **0 known vulnerabilities** both | |
