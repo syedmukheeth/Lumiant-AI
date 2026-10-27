@@ -61,6 +61,7 @@ ignore = ["S101", "RUF001", "RUF002", "RUF003"]
 "tests/**" = ["S105", "S106", "S311", "S608", "E501", "N817"]
 "src/lumiant/synthetic/**" = ["S311"]
 "src/lumiant/analyses/risks.py" = ["E501"]
+"src/lumiant/admin/service.py" = ["E501"]
 "src/lumiant/agent/*.py" = ["E501", "RUF012"]
 
 [tool.mypy]

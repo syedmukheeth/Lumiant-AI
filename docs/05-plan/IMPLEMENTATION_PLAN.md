@@ -77,5 +77,12 @@ Order follows dependencies. Milestone detail: `ROADMAP.md`, `MILESTONE_01.md`.
 - [x] Guided menu using the same services
 - [ ] Drill-through, saved views, background generation (moved to M5/M6)
 
-## M5 – M7
+## M5 — Admin and onboarding (partly done)
+- [x] Schema discovery and drift detection (metadata only)
+- [x] Capability readiness matrix
+- [x] Reconciliation harness with go-live verdict
+- [x] Audit explorer
+- [ ] Value maps, mapping editor + approval workflow, AI-suggested mappings, profiling, drill-through, saved views, query chips, glossary (ISSUES #15)
+
+## M6 – M7
 See `ROADMAP.md`. Detailed checklists are added when each milestone starts.

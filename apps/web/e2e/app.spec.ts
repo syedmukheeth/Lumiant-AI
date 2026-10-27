@@ -194,3 +194,31 @@ test("a role without export or cost access sees a reduced menu and cannot export
   expect((await page.request.get("/api/reports/below_reorder/export")).status()).toBe(403);
   expect((await page.request.get("/api/reports/value_by_warehouse")).status()).toBe(403);
 });
+
+test("admin: schema check, capability matrix, reconciliation gate and audit log", async ({ page }) => {
+  await signIn(page, "alpha.admin");
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Admin" }).click();
+  await expect(page.getByTestId("schema-result")).toContainText("Mapping matches the source");
+  await page.getByRole("tab", { name: "Capabilities" }).click();
+  await expect(page.getByTestId("capabilities")).toContainText("Below-reorder analysis");
+
+  const report = await (await page.request.get("/api/reports/value_by_warehouse")).json();
+  const csv = report.rows.map((r: { warehouse_id: string; currency: string; value: string }) => `${r.warehouse_id},${r.currency},${r.value}`).join("\n");
+  await page.getByRole("tab", { name: "Reconciliation" }).click();
+  await page.getByLabel("Customer report rows").fill(csv);
+  await page.getByRole("button", { name: "Reconcile" }).click();
+  await expect(page.getByTestId("recon-result")).toContainText("Go-live gate passed");
+  await page.getByLabel("Customer report rows").fill(csv + "\n9999,USD,1");
+  await page.getByRole("button", { name: "Reconcile" }).click();
+  await expect(page.getByTestId("recon-result")).toContainText("Go-live gate NOT passed");
+
+  await page.getByRole("tab", { name: "Audit log" }).click();
+  await expect(page.getByText("admin:reconciliation").first()).toBeVisible();
+});
+
+test("admin area is hidden from non-admin roles and refused by the API", async ({ page }) => {
+  await signIn(page, "alpha.north_manager");
+  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Admin" })).toHaveCount(0);
+  expect((await page.request.get("/api/admin/schema")).status()).toBe(403);
+  expect((await page.request.get("/api/admin/audit")).status()).toBe(403);
+});

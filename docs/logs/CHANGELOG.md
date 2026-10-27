@@ -29,3 +29,7 @@ User-visible changes per milestone. Format loosely follows Keep a Changelog.
 - Reports page: six reports with preview, CSV and Excel export, print view; each carries filters, data time, access scope and notices.
 - Explore page: guided menu of analyses (only options your role allows).
 - `export:data` permission; exports are audited and safe against spreadsheet formula injection.
+
+## [M5] — 2026-10-27
+### Added
+- Admin page: source/mapping drift check, capability readiness with exact missing fields, reconciliation against a customer report with a go-live verdict, tenant-scoped audit log.

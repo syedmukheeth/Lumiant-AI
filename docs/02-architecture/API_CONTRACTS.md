@@ -41,6 +41,10 @@ Status: **Implemented and tested (M1)** in `services/api/src/lumiant/api/`. Base
 | GET | `/api/reports` | `inventory:read` | reports visible to the user + `can_export` |
 | GET | `/api/reports/{id}` | `inventory:read` (+ report permissions) | preview (≤ 200 rows) with `metadata`; `days` for windowed reports |
 | GET | `/api/reports/{id}/export` | `inventory:read` + `export:data` | `format=csv\|xlsx`; attachment with metadata header |
+| GET | `/api/admin/schema` | `admin:tenant` | mapping vs source: drift, unmapped columns, health |
+| GET | `/api/admin/capabilities` | `admin:tenant` | capability matrix with missing fields |
+| GET | `/api/admin/audit` | `audit:read` | tenant's audit events; filters `decision`, `action` prefix |
+| POST | `/api/admin/reconciliation` | `admin:tenant` + `cost:read` | `{tolerance, rows[{warehouse_id,currency,value}]}` → per-line status + `passed` |
 | GET | `/api/agent/suggestions` | `chat:use` | starter questions |
 | POST | `/api/agent/chat` | `chat:use` | `{message}` (2–500 chars) → `{mode, notice, kind (tools/clarify/unsupported), answer, blocks[], tool_calls[], provenance[], warnings[], follow_ups[], choices[], grounding}` |
 | POST | `/api/agent/feedback` | `chat:use` | `{rating: up/down, reason?}` recorded in the audit trail |

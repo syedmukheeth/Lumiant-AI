@@ -128,5 +128,17 @@ class AuditStore:
             )
             return list(session.scalars(stmt))
 
+    def search(
+        self, tenant_id: str, *, limit: int, offset: int, decision: str | None, action_prefix: str | None
+    ) -> list[AuditEvent]:
+        stmt = sa.select(AuditEvent).where(AuditEvent.tenant_id == tenant_id)
+        if decision:
+            stmt = stmt.where(AuditEvent.decision == decision)
+        if action_prefix:
+            stmt = stmt.where(AuditEvent.action.startswith(action_prefix, autoescape=True))
+        stmt = stmt.order_by(AuditEvent.id.desc()).limit(limit).offset(offset)
+        with Session(self.engine) as session:
+            return list(session.scalars(stmt))
+
     def dispose(self) -> None:
         self.engine.dispose()

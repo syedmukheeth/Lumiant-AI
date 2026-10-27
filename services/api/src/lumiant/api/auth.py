@@ -21,6 +21,7 @@ SECTIONS = (
     ("costs", Permission.COST_READ),
     ("assistant", Permission.CHAT_USE),
     ("reports", Permission.INVENTORY_READ),
+    ("admin", Permission.ADMIN_TENANT),
 )
 
 

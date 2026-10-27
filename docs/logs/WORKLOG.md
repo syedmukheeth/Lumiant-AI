@@ -131,3 +131,11 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 - **Decisions:** Export is a separate permission from viewing. Exports include up to the tenant row limit and say so when truncated; previews show 200 rows. Spreadsheet cells never contain computed floating-point numbers; amounts remain exact text.
 - **Not done (moved to M5):** drill-through from charts, saved views, report scheduling and background generation for very large reports, editable query chips.
 - **Next:** M5 — admin and onboarding.
+
+## 2026-10-27 · S01 · M5 · Admin and onboarding
+- **Goal:** Tools to onboard a source safely: detect mapping drift, show what a mapping unlocks, prove numbers against the customer's own report, review access.
+- **Done:** `admin/service.py` (schema discovery comparing mapped columns and type categories with the source: missing table/column, type mismatch, unmapped candidate columns; capability matrix of 12 capabilities with the exact missing fields; reconciliation of the value-by-warehouse report against a pasted customer report, per currency, with a tolerance and a go-live verdict; tenant-scoped audit explorer with decision/action filters), `AuditStore.search`, `api/admin.py` (`/api/admin/{schema,capabilities,audit,reconciliation}`; `admin:tenant`, `audit:read`, `cost:read` + CSRF), `admin` section. Web: Admin page with four tabs.
+- **Commands + results:** `uv run pytest -q` → **244 passed** (+10 admin tests: no drift on both generated warehouses, injected drift detected, capability gaps explained, role gating, reconciliation pass/variance/missing/currency-mismatch, audit scoping and filter validation); ruff + mypy strict clean; Playwright **14 passed**.
+- **Decisions:** Discovery reads metadata only. Reconciliation is a gate, not an adjustment: it never changes data. A figure reported in the wrong currency does not match.
+- **Not done:** value maps (e.g. source `ROH` → canonical `RAW`), mapping editor/approval workflow, AI-suggested mappings, column profiling, saved views, drill-through, editable query chips, tenant glossary. These remain open (ISSUES #3, #15).
+- **Next:** M6 — hardening and deployment preparation.
