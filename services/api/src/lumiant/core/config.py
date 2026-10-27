@@ -43,6 +43,8 @@ class Settings(BaseSettings):
     rate_limit_query_per_min: int = Field(default=120, ge=1)
     rate_limit_export_per_min: int = Field(default=10, ge=1)
     rate_limit_login_per_min: int = Field(default=10, ge=1)
+    # Optional shared store so limits hold across replicas (needs the "redis" extra). Unset = in-process limits.
+    rate_limit_redis_url: SecretStr | None = None
     agent_provider: Literal["rules", "anthropic"] = "rules"
     agent_model: str = "claude-opus-5-5"
     anthropic_api_key: SecretStr | None = None

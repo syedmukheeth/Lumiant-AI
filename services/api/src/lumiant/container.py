@@ -11,7 +11,7 @@ from lumiant.auth.oidc import OidcAuthProvider
 from lumiant.auth.provider import DevAuthProvider
 from lumiant.connectors.registry import ConnectorRegistry
 from lumiant.core.config import Settings
-from lumiant.core.ratelimit import RateLimiter
+from lumiant.core.ratelimit import Limiter
 from lumiant.metrics.service import MetricsService
 from lumiant.query.service import QueryService
 from lumiant.reports.service import ReportService
@@ -31,8 +31,9 @@ class Container:
     admin: AdminService
     dev_auth: DevAuthProvider | None
     oidc: OidcAuthProvider | None
-    limiter: RateLimiter
+    limiter: Limiter
 
     def close(self) -> None:
         self.connectors.dispose_all()
         self.audit.dispose()
+        self.limiter.close()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -121,3 +122,38 @@ def test_limits_can_be_disabled(data_dir: Path, tmp_path: Path) -> None:
             c.post("/api/auth/dev-login", json={"username": "mallory"}, headers=CSRF).status_code == 401
             for _ in range(3)
         )
+
+
+@pytest.mark.security
+@pytest.mark.skipif(not os.environ.get("LUMIANT_TEST_REDIS_URL"), reason="needs LUMIANT_TEST_REDIS_URL")
+def test_limits_are_shared_between_replicas_via_redis(data_dir: Path, tmp_path: Path) -> None:
+    import redis
+
+    url = os.environ["LUMIANT_TEST_REDIS_URL"]
+    cleaner = redis.Redis.from_url(url)
+    for k in cleaner.scan_iter("lumiant:rl:*"):
+        cleaner.delete(k)
+
+    def replica(name: str) -> TestClient:
+        settings = Settings(
+            _env_file=None,  # type: ignore[call-arg]
+            app_env="test",
+            auth_mode="dev",
+            dev_jwt_secret="limit-secret-" + "x" * 40,
+            data_dir=data_dir,
+            app_db_url=app_db_url(tmp_path / f"{name}.db"),
+            log_level="WARNING",
+            rate_limit_login_per_min=4,
+            rate_limit_redis_url=url,
+        )
+        return TestClient(create_app(settings))
+
+    with replica("a") as a, replica("b") as b:
+        attempts = [a, b, a, b, a]  # alternating replicas share one allowance of 4
+        codes = [
+            c.post("/api/auth/dev-login", json={"username": "mallory"}, headers=CSRF).status_code for c in attempts
+        ]
+    assert codes == [401, 401, 401, 401, 429]
+    for k in cleaner.scan_iter("lumiant:rl:*"):
+        cleaner.delete(k)
+    cleaner.close()

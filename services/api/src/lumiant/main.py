@@ -19,7 +19,7 @@ from lumiant.container import Container
 from lumiant.core.config import AuthMode, Settings, get_settings
 from lumiant.core.errors import install_error_handlers
 from lumiant.core.logging import configure_logging
-from lumiant.core.ratelimit import RateLimiter
+from lumiant.core.ratelimit import build_limiter
 from lumiant.core.request_context import RequestContextMiddleware
 from lumiant.metrics.service import MetricsService
 from lumiant.query.service import QueryService
@@ -48,7 +48,7 @@ def build_container(settings: Settings) -> Container:
         admin=AdminService(query_service, reports),
         dev_auth=DevAuthProvider(settings, tenants) if settings.dev_auth_enabled else None,
         oidc=oidc,
-        limiter=RateLimiter(),
+        limiter=build_limiter(settings),
     )
 
 

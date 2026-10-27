@@ -20,8 +20,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# PostgreSQL for the app metadata database in production. NOT tested here (no local PostgreSQL).
+# PostgreSQL for the app metadata database in production (verified on PostgreSQL 16, see docs/logs/TEST_RUNS.md).
 postgres = ["psycopg[binary]>=3.2,<4"]
+# Shared rate-limit store across API replicas (optional; in-process limits are the default).
+redis = ["redis>=5,<8"]
 
 [project.scripts]
 lumiant-synthetic = "lumiant.synthetic.cli:main"
