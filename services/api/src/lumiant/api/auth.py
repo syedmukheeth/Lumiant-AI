@@ -14,7 +14,12 @@ from lumiant.core.errors import NotFoundError
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-SECTIONS = (("overview", Permission.DASHBOARD_READ), ("inventory", Permission.INVENTORY_READ))
+SECTIONS = (
+    ("overview", Permission.DASHBOARD_READ),
+    ("inventory", Permission.INVENTORY_READ),
+    ("risks", Permission.INVENTORY_READ),
+    ("costs", Permission.COST_READ),
+)
 
 
 class DevLogin(BaseModel):

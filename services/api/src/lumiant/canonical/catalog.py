@@ -187,6 +187,7 @@ CATALOG: dict[str, DatasetDef] = {
                 "reorder_policy",
                 (("item_id", "item_id"), ("warehouse_id", "warehouse_id")),
             ),
+            "lot": JoinDef("lot", "lot", (("lot_id", "lot_id"),)),
         },
     ),
     "reorder_policy": DatasetDef(

@@ -81,6 +81,30 @@ class DatasetMapping(StrictModel):
     attributes: dict[CanonicalName, AttributeMapping] = Field(default_factory=dict)
 
 
+class CodeSegment(StrictModel):
+    name: CanonicalName
+    start: int = Field(ge=0, le=200)
+    length: int = Field(ge=1, le=200)
+    allowed: list[str] | None = None  # None = any value matching the pattern is accepted
+
+
+class ItemCoding(StrictModel):
+    """Customer item-code rules. Nothing about segment meaning is assumed: it is all configuration."""
+
+    pattern: str = Field(max_length=200)
+    segments: list[CodeSegment] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _regex(self) -> ItemCoding:
+        import re
+
+        try:
+            re.compile(self.pattern)
+        except re.error as exc:
+            raise ValueError(f"item_coding.pattern is not a valid regex: {exc}") from exc
+        return self
+
+
 class TenantConfig(StrictModel):
     id: Annotated[str, StringConstraints(pattern=r"^[a-z0-9][a-z0-9-]{1,40}$")]
     display_name: str = Field(min_length=1, max_length=120)
@@ -94,6 +118,8 @@ class TenantConfig(StrictModel):
     roles: dict[CanonicalName, list[Permission]]
     dev_users: list[DevUser] = Field(default_factory=list)
     datasets: dict[CanonicalName, DatasetMapping]
+    item_coding: ItemCoding | None = None
+    latest_price_statuses: list[str] = Field(default_factory=lambda: ["RECEIVED"])
 
     @property
     def synthetic(self) -> bool:

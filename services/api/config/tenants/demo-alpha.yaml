@@ -40,6 +40,14 @@ dev_users:
   - {username: alpha.north_manager, display_name: "Noor North (dept admin)", roles: [dept_admin], departments: [NORTH]}
   - {username: alpha.analyst, display_name: "Ana Analyst (no cost access)", roles: [viewer_no_cost], warehouses: ["3100"]}
 
+# Illustrative synthetic rule: 2-digit category, 2-digit material, 6-digit serial.
+item_coding:
+  pattern: '^\d{10}$'
+  segments:
+    - {name: category, start: 0, length: 2}
+    - {name: material, start: 2, length: 2}
+    - {name: serial, start: 4, length: 6}
+
 datasets:
   item:
     source: ZV_MATERIAL

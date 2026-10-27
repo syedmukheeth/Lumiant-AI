@@ -32,6 +32,12 @@ Status: **Implemented and tested (M1)** in `services/api/src/lumiant/api/`. Base
 | GET | `/api/inventory/filters` | `inventory:read` | scoped options: warehouses, item groups, ABC, stages |
 | GET | `/api/inventory/balances` | `inventory:read` | paginated stock lines; query: `warehouse`, `item_group`, `abc`, `stage` (repeatable), `q` (≤ 100 chars; code / description / id), `sort` (`item_code`, `description`, `item_group`, `abc_class`, `warehouse`, `quantity`, `value`), `dir`, `offset`, `limit` (≤ 200). Cost columns only with `cost:read`; `page.total` included |
 | GET | `/api/analyses/below-reorder` | `inventory:read` | items under reorder level in scope; same filters as balances plus `offset`/`limit`; `summary {flagged, pairs_without_policy, uom_mismatched_lines}` |
+| GET | `/api/analyses/excess-stock` | `inventory:read` | on hand above customer maximum; same envelope as below-reorder |
+| GET | `/api/analyses/dormant` | `inventory:read` | `days` (1–3650, default 270); stock with no ISSUE in that window |
+| GET | `/api/analyses/expiring-lots` | `inventory:read` | `days` (0–3650, default 60); expired and expiring lots on hand |
+| GET | `/api/analyses/data-quality` | `inventory:read` | list of checks with status/count/examples (value checks need `cost:read`) |
+| GET | `/api/analyses/abc` | `inventory:read` + `cost:read` | `a`, `b` cutoffs required (no defaults), optional `currency`; 409 `abc_mixed_currency` if several |
+| GET | `/api/analyses/cost-comparison` | `inventory:read` + `cost:read` | `item_id`, `warehouse_id`; MWA, FIFO, latest receipt cost, latest valid purchase price, source valuation, reconciliation, lots |
 | POST | `/api/query` | `query:run` | body = QueryPlan → envelope |
 
 Exact request/response models: FastAPI OpenAPI at `/api/docs` (enabled only when `APP_ENV != production`).

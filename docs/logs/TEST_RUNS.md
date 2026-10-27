@@ -33,3 +33,6 @@ Every test, lint, type-check or audit run is recorded here: date, step, exact co
 | 2026-10-27 | M1-8 | `uv run pytest -q` after warning fix | **134 passed**, 1 warning | |
 | 2026-10-27 | M1-8 | `pnpm audit` (apps/web) | **0 known vulnerabilities** | |
 | 2026-10-27 | M1-8 | `uvx pip-audit -r <exported requirements>` | **0 known vulnerabilities** | first attempt not run: a safety check blocked a temp-file path outside the project; rerun with the scratchpad |
+| 2026-10-27 | M2 | `uv run pytest -q` | **177 passed** | +26 costing/ABC hand-computed, +5 item-code, +10 analysis integration tests vs raw SQL |
+| 2026-10-27 | M2 | `uv run ruff check .` / `mypy` | clean (E501 exempted in `analyses/risks.py`) | |
+| 2026-10-27 | M2 | `pnpm exec playwright test` | **8 passed** | +3: risks, costs, role-hidden nav |

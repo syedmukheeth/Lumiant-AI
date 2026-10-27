@@ -74,7 +74,7 @@ export type Me = {
   roles: string[];
   permissions: string[];
   scope: { all_warehouses: boolean; warehouses: string[]; departments: string[] };
-  sections: ("overview" | "inventory")[];
+  sections: ("overview" | "inventory" | "risks" | "costs")[];
   auth_mode: string;
 };
 
@@ -144,4 +144,70 @@ export type InventoryFilters = {
   item_groups: string[];
   abc_classes: string[];
   stages: string[];
+};
+
+export type DataQualityCheck = {
+  id: string;
+  title: string;
+  status: "ok" | "issue" | "not_mapped" | "restricted" | "no_rules";
+  count: number | null;
+  examples?: { item_id: string; item_code: string; problems: string[] }[];
+  checked?: number;
+  partial?: boolean;
+};
+
+export type DataQuality = {
+  checks: DataQualityCheck[];
+  total_items: number;
+  warnings: ResultWarning[];
+  synthetic: boolean;
+  data_as_of: string | null;
+};
+
+export type CostMethods = {
+  moving_weighted_average?: { quantity: string; unit_cost: string | null; value: string };
+  fifo?: {
+    quantity: string;
+    unit_cost: string | null;
+    value: string;
+    layers: { receipt_date: string; quantity: string; unit_cost: string; source: string }[];
+  };
+  latest_receipt_cost: { unit_cost: string; date: string; reference: string } | null;
+  latest_valid_purchase_price: { unit_price: string; order_date: string; reference: string } | null;
+  source_valuation: { quantity: string | null; unit_cost: string | null; value: string | null };
+};
+
+export type CostComparison = {
+  item_id: string;
+  warehouse_id: string;
+  currency: string | null;
+  uom: string | null;
+  movements_used: number;
+  methods: CostMethods;
+  errors: Record<string, string>;
+  reconciliation: {
+    status: string;
+    difference_unit_cost?: string;
+    tolerance?: string;
+    quantity_matches?: boolean;
+    note?: string;
+  };
+  lots: { lot_id: string; quantity: string; receipt_date: string | null; unit_cost: string | null }[];
+  rules: Record<string, string>;
+  status: string;
+  warnings: ResultWarning[];
+  provenance: Provenance;
+};
+
+export type AbcResult = {
+  currency: string | null;
+  config: { a_cutoff: string; b_cutoff: string; value_definition: string };
+  items: { item_id: string; value: string | null; computed: string | null; assigned: string | null; differs: boolean }[];
+  item_count: number;
+  differences: number;
+  matrix: Record<string, Record<string, number>>;
+  assigned_available: boolean;
+  rule: string;
+  provenance: Provenance;
+  warnings: ResultWarning[];
 };

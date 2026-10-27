@@ -26,7 +26,11 @@ For every item–warehouse in scope that has a customer reorder policy: `on_hand
 - Items without a policy are **not** flagged; they are counted as `no_policy`.
 - Each row explains itself: on-hand, reorder level, shortfall, UoM.
 
-## M2 — designed, not implemented
+## M2 — implemented as DRAFT definitions (`services/api/src/lumiant/costing/`, hand-computed tests in `tests/unit/test_costing.py`)
+
+Still pending customer approval (D-002). Implemented: moving WA, periodic WA, FIFO layers + pick suggestion, lot cost display, both latest-price definitions, computed ABC (value = on-hand value; cutoffs supplied per request), item-code rules, excess/dormant/expiry/data-quality analyses. Not yet: LIFO (operational rule only, needs customer configuration), ageing buckets, price-movement alerts, periodic average UI.
+
+### Original design notes
 
 | Method | Definition | Open question |
 |---|---|---|

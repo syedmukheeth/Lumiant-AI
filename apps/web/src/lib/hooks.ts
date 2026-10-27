@@ -5,6 +5,9 @@ import { useSyncExternalStore } from "react";
 
 import {
   api,
+  type AbcResult,
+  type CostComparison,
+  type DataQuality,
   type DevUser,
   type Envelope,
   type InventoryFilters,
@@ -77,4 +80,31 @@ export const useBelowReorder = (query: { offset: number; limit: number }) =>
     queryKey: ["below-reorder", query],
     queryFn: () => api.get<Envelope>("/api/analyses/below-reorder", query),
     placeholderData: keepPreviousData,
+  });
+
+export type RiskKind = "excess-stock" | "dormant" | "expiring-lots";
+
+export const useRisk = (kind: RiskKind, params: Record<string, string | number>) =>
+  useQuery({
+    queryKey: ["risk", kind, params],
+    queryFn: () => api.get<Envelope>(`/api/analyses/${kind}`, params),
+    placeholderData: keepPreviousData,
+  });
+
+export const useDataQuality = () =>
+  useQuery({ queryKey: ["data-quality"], queryFn: () => api.get<DataQuality>("/api/analyses/data-quality") });
+
+export const useCostComparison = (item: string, warehouse: string) =>
+  useQuery({
+    queryKey: ["cost", item, warehouse],
+    queryFn: () => api.get<CostComparison>("/api/analyses/cost-comparison", { item_id: item, warehouse_id: warehouse }),
+    enabled: item.length > 0 && warehouse.length > 0,
+    retry: false,
+  });
+
+export const useAbc = (a: string, b: string, currency: string) =>
+  useQuery({
+    queryKey: ["abc", a, b, currency],
+    queryFn: () => api.get<AbcResult>("/api/analyses/abc", { a, b, currency: currency || undefined }),
+    retry: false,
   });

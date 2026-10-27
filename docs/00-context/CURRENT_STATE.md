@@ -3,7 +3,7 @@
 _Rewritten at the end of every session. Last update: 2026-10-27, end of session 01._
 
 ## Milestone
-**M1 — Foundation: complete** (all exit criteria in `../05-plan/MILESTONE_01.md` met on synthetic data). Nothing is committed to git yet; the owner decides when.
+**M1 complete; M2 — Intelligence engine complete on synthetic data (draft definitions)** (all exit criteria in `../05-plan/MILESTONE_01.md` met on synthetic data). Nothing is committed to git yet; the owner decides when.
 **Next:** M2 — intelligence engine (costing, computed ABC, risk analyses). See "Next step" below.
 
 ## What works (verified by automated tests and manual browser checks)
@@ -17,7 +17,8 @@ _Rewritten at the end of every session. Last update: 2026-10-27, end of session 
 | Dev-only auth (signed httpOnly cookie), RBAC, warehouse scope, tenant isolation, CSRF header, safe errors | `tests/integration/test_api.py` |
 | Below-reorder analysis incl. zero-stock pairs | `test_below_reorder_matches_independent_sql` |
 | Web: login, permission-aware shell, overview, inventory explorer, provenance slips, synthetic badge, data as-of, light/dark, mobile | `apps/web/tests/unit`, `apps/web/e2e/app.spec.ts`, browser checks in WORKLOG M1-step-7 |
-| Checks | API 134 passed · web unit 20 passed · e2e 5 passed · ruff/mypy strict/eslint/tsc clean · pnpm audit + pip-audit: 0 known vulnerabilities |
+| M2: costing (MWA/periodic/FIFO/latest price), computed ABC, item-code rules, excess/dormant/expiry/data-quality, cost comparison reconciled to the source | `test_costing.py`, `test_m2_analyses.py`, e2e `risks`/`costs` |
+| Checks | API 177 passed · web unit 20 passed · e2e 8 passed · ruff/mypy strict/eslint/tsc clean · pnpm audit + pip-audit: 0 known vulnerabilities |
 
 ## What is simulated (not evidence of customer readiness)
 - **All data is synthetic.** Valuation price = the generator's own moving average; ABC classes and reorder policies are synthetic stand-ins for customer master data.
@@ -25,7 +26,7 @@ _Rewritten at the end of every session. Last update: 2026-10-27, end of session 
 - **The only connector is DuckDB.** No PostgreSQL, SQL Server, Oracle or SAP connector exists or has been tested.
 
 ## Not built yet
-Costing engine, computed ABC, other risk analyses (M2) · AI chat agent (M3) · reports/exports/guided menu (M4) · schema discovery, mapping studio, reconciliation, admin UIs (M5) · OIDC, rate limiting, Postgres app DB, containers, CI, CSP (M6) · real customer integration (M7).
+LIFO rule, ageing buckets, price-movement alerts, value maps · AI chat agent (M3) · reports/exports/guided menu (M4) · schema discovery, mapping studio, reconciliation, admin UIs (M5) · OIDC, rate limiting, Postgres app DB, containers, CI, CSP (M6) · real customer integration (M7).
 
 ## Known limitations
 See `../logs/ISSUES.md` (open: #1 no local enterprise DBs, #2 conservative pins, #3 no value maps, #4 no rate limiting, #5 master data tenant-wide, #6 no cost-based query limits, #8 test-client deprecation, #9 no CSP on web, #10 animations pause in background tabs).

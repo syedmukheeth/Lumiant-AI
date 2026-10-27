@@ -31,6 +31,13 @@ dev_users:
   - {username: beta.admin, display_name: "Bram Admin", roles: [super_admin], warehouses: ["*"]}
   - {username: beta.user, display_name: "Lucy Leeds (UK user)", roles: [standard_user], warehouses: [LDS1]}
 
+item_coding:
+  pattern: '^[A-Z]{2}-\d{4}-[A-C]$'
+  segments:
+    - {name: group_prefix, start: 0, length: 2}
+    - {name: serial, start: 3, length: 4}
+    - {name: variant, start: 8, length: 1, allowed: [A, B, C]}
+
 datasets:
   item:
     source: inv.item_master

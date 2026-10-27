@@ -52,13 +52,13 @@ Order follows dependencies. Milestone detail: `ROADMAP.md`, `MILESTONE_01.md`.
 - [x] Docs synced; CURRENT_STATE rewritten; ACCEPTANCE_CRITERIA updated
 
 ## M2 — Intelligence engine (next; detailed when started)
-- [ ] Hand-verified financial fixtures (all edge cases in `04-domain/INVENTORY_CALCULATIONS.md`)
-- [ ] Moving weighted average engine + independent reconciliation against the generator's valuation price
-- [ ] Periodic weighted average, FIFO cost layers, lot cost, latest-price definitions (draft, configurable)
-- [ ] Computed vs assigned ABC (configurable method, period, thresholds)
-- [ ] Analyses: excess, slow-moving, dormant, ageing, expiring lots, master-data quality, price movement
-- [ ] Item-code parser per tenant
-- [ ] Value maps in tenant mapping (ISSUES #3)
+- [x] Hand-verified financial fixtures (zero qty, negative stock, duplicates, returns, mixed currency/UoM, period boundaries, rounding)
+- [x] Moving weighted average engine + reconciliation against the source valuation price
+- [x] Periodic weighted average, FIFO cost layers, lot cost, latest-price definitions (draft)
+- [x] Computed vs assigned ABC (caller-supplied cutoffs; period/value definition fixed to on-hand value as a draft)
+- [x] Analyses: excess, dormant, expiring lots, master-data quality (ageing and price movement deferred)
+- [x] Item-code parser per tenant
+- [ ] Value maps in tenant mapping (ISSUES #3) — moved to M5
 
 ## M3 – M7
 See `ROADMAP.md`. Detailed checklists are added when each milestone starts.

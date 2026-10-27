@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from lumiant import __version__
-from lumiant.api import auth, health, inventory, meta, metrics, query
+from lumiant.api import analyses, auth, health, inventory, meta, metrics, query
 from lumiant.audit.store import AuditStore, run_migrations
 from lumiant.auth.provider import DevAuthProvider
 from lumiant.connectors.registry import ConnectorRegistry
@@ -65,6 +65,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.container = container
     app.add_middleware(RequestContextMiddleware)
     install_error_handlers(app)
-    for module in (health, auth, meta, metrics, inventory, query):
+    for module in (health, auth, meta, metrics, inventory, analyses, query):
         app.include_router(module.router)
     return app

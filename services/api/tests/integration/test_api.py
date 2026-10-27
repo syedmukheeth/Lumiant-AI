@@ -146,7 +146,7 @@ def test_me_describes_principal(client: TestClient) -> None:
     assert me["tenant"]["id"] == "demo-alpha"
     assert me["scope"]["warehouses"] == ["1100", "1110", "1120"]
     assert me["scope"]["departments"] == ["NORTH"]
-    assert me["sections"] == ["overview", "inventory"]
+    assert me["sections"] == ["overview", "inventory", "risks", "costs"]
     assert "cost:read" in me["permissions"]
 
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import ROUND_HALF_EVEN, Decimal
-from typing import Any
+from typing import Any, Literal
 
 import sqlalchemy as sa
 from sqlalchemy.sql.elements import ColumnElement
@@ -23,6 +23,11 @@ from lumiant.query.service import MetricRef, QueryService, meta_warnings
 from lumiant.query.validator import AppliedFilter, FieldRef
 
 ID, VERSION = "below_reorder", 1
+EXCESS_ID = "excess_stock"
+EXCESS_RULE = (
+    "Item–warehouse pairs that have a customer maximum-stock policy, where on-hand quantity (sum of stock lines "
+    "in the item's base unit) is above that maximum. Pairs without a maximum are never flagged."
+)
 RULE = (
     "Item–warehouse pairs that have a customer reorder policy, where on-hand quantity (sum of stock lines "
     "in the item's base unit; 0 when there are none) is below the reorder level. Pairs without a policy "
@@ -44,11 +49,21 @@ class BelowReorderFilters:
 
 
 def run_below_reorder(
-    query: QueryService, principal: Principal, filters: BelowReorderFilters, *, limit: int, offset: int
+    query: QueryService,
+    principal: Principal,
+    filters: BelowReorderFilters,
+    *,
+    limit: int,
+    offset: int,
+    mode: Literal["below", "excess"] = "below",
 ) -> QueryResult:
     mapping = query.mapping(principal.tenant_id)
-    action = f"analysis:{ID}"
-    for ds, needed in REQUIRED.items():
+    below = mode == "below"
+    analysis_id, rule = (ID, RULE) if below else (EXCESS_ID, EXCESS_RULE)
+    limit_field = "reorder_level" if below else "max_stock"
+    action = f"analysis:{analysis_id}"
+    required = {**REQUIRED, "reorder_policy": ("item_id", "warehouse_id", limit_field)}
+    for ds, needed in required.items():
         if not mapping.is_mapped(ds) or any(mapping.field(ds, f) is None for f in needed):
             raise AppError(
                 "analysis_unavailable",
@@ -96,7 +111,7 @@ def run_below_reorder(
         .cte("onhand")
     )
     on_hand = sa.func.coalesce(onhand.c.on_hand, 0)
-    level = c("reorder_policy", "reorder_level", rp)
+    level = c("reorder_policy", limit_field, rp)
     joined = rp.outerjoin(
         onhand,
         sa.and_(
@@ -107,7 +122,11 @@ def run_below_reorder(
     if wh is not None:
         joined = joined.outerjoin(wh, c("warehouse", "warehouse_id", wh) == c("reorder_policy", "warehouse_id", rp))
 
-    conditions = [level.is_not(None), on_hand < level, *scoped(c("reorder_policy", "warehouse_id", rp))]
+    conditions = [
+        level.is_not(None),
+        (on_hand < level) if below else (on_hand > level),
+        *scoped(c("reorder_policy", "warehouse_id", rp)),
+    ]
     for values, field in (
         (filters.item_groups, "item_group"),
         (filters.abc_classes, "abc_class"),
@@ -131,15 +150,17 @@ def run_below_reorder(
             (c("warehouse", "name", wh) if wh is not None else sa.null()).label("warehouse_name"),
             c("item", "base_uom", it).label("uom"),
             sa.type_coerce(on_hand, exact).label("on_hand"),
-            sa.type_coerce(level, exact).label("reorder_level"),
-            sa.type_coerce(level - on_hand, exact).label("shortfall"),
+            sa.type_coerce(level, exact).label(limit_field),
+            sa.type_coerce((level - on_hand) if below else (on_hand - level), exact).label(
+                "shortfall" if below else "excess"
+            ),
         )
         .select_from(joined)
         .where(*conditions)
     )
     stmt = (
         base.order_by(
-            (on_hand / sa.func.nullif(level, 0)).asc(),
+            ((on_hand / sa.func.nullif(level, 0)).asc() if below else (on_hand / sa.func.nullif(level, 0)).desc()),
             c("reorder_policy", "item_id", rp),
             c("reorder_policy", "warehouse_id", rp),
         )
@@ -196,7 +217,7 @@ def run_below_reorder(
     truncated = len(raw.rows) > limit
     rows = [dict(zip(raw.columns, r, strict=True)) for r in raw.rows[:limit]]
     for row in rows:
-        lvl, oh = row["reorder_level"], row["on_hand"]
+        lvl, oh = row[limit_field], row["on_hand"]
         row["coverage_pct"] = (
             (Decimal(oh) / Decimal(lvl) * 100).quantize(Decimal("0.1"), ROUND_HALF_EVEN) if lvl else None
         )
@@ -228,7 +249,7 @@ def run_below_reorder(
         if values and (fdef := mapping.field(ds, ref.rpartition(".")[2])) is not None
     ]
     fields = {
-        "reorder_level": mapping.physical_ref("reorder_policy", "reorder_level"),
+        limit_field: mapping.physical_ref("reorder_policy", limit_field),
         "on_hand": f"SUM({mapping.physical_ref('stock_balance', 'quantity')}) where unit = item base unit",
         "uom": mapping.physical_ref("item", "base_uom"),
     }
@@ -241,12 +262,12 @@ def run_below_reorder(
         fields=fields,
         filters=[*user_filters, *injected],
         auto_grouped=[],
-        metric=MetricRef(ID, VERSION, "draft", RULE),
+        metric=MetricRef(analysis_id, VERSION, "draft", rule),
         row_count=len(rows),
         truncated=truncated,
         duration_ms=raw.duration_ms,
         stmt=stmt,
-        rule=RULE,
+        rule=rule,
     )
     query.record(principal, action, "reorder_policy", "allow", "ok", rows=len(rows), ms=raw.duration_ms)
     columns = [
@@ -262,8 +283,8 @@ def run_below_reorder(
             ("warehouse_name", "string"),
             ("uom", "string"),
             ("on_hand", "decimal"),
-            ("reorder_level", "decimal"),
-            ("shortfall", "decimal"),
+            (limit_field, "decimal"),
+            ("shortfall" if below else "excess", "decimal"),
             ("coverage_pct", "decimal"),
         )
     ]

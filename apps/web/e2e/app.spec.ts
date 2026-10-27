@@ -91,3 +91,44 @@ test("a user of another tenant only sees their own warehouse", async ({ page }) 
   const forbidden = await page.request.get("/api/inventory/balances?warehouse=1100");
   expect(forbidden.status()).toBe(403);
 });
+
+test("risks: excess, dormant, expiring and data quality views load with provenance", async ({ page }) => {
+  await signIn(page, "alpha.admin");
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Risks" }).click();
+  await expect(page.getByRole("heading", { name: "Inventory risks" })).toBeVisible();
+  const region = (name: string) => page.getByRole("region", { name });
+  await expect(region("Excess stock").locator("tbody tr").first()).toBeVisible();
+  await page.getByRole("tab", { name: "Dormant stock" }).click();
+  await expect(region("Dormant stock").locator("tbody tr").first()).toBeVisible();
+  await page.getByRole("tab", { name: "Expiring lots" }).click();
+  await expect(region("Expiring lots").locator("tbody tr").first()).toBeVisible();
+  await expect(region("Expiring lots")).toContainText(/Expired|d left/);
+  await page.getByRole("tab", { name: "Data quality" }).click();
+  await expect(page.getByTestId("dq-invalid_item_codes")).toContainText("3");
+  await expect(page.getByTestId("dq-pairs_without_policy")).toBeVisible();
+});
+
+test("costs: comparison reconciles with the source and ABC compares with assigned", async ({ page }) => {
+  await signIn(page, "alpha.admin");
+  const pair = await page.request.get("/api/inventory/balances?sort=value&dir=desc&limit=1");
+  const top = (await pair.json()).data[0];
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Costs" }).click();
+  await page.getByLabel("Item id").fill(String(top.item_id));
+  await page.getByRole("combobox", { name: "Warehouse" }).selectOption(String(top.warehouse_id));
+  await page.getByRole("button", { name: "Compare" }).click();
+  const result = page.getByTestId("cost-result");
+  await expect(result).toContainText("Moving weighted average");
+  await expect(result).toContainText("Reconciliation with the source valuation");
+  await expect(result).toContainText(/USD/);
+  await page.getByRole("button", { name: "Classify" }).click();
+  await expect(page.getByTestId("abc-result")).toContainText("differ from the class assigned in the source");
+});
+
+test("costs and value-based pages are not offered to roles without cost access", async ({ page }) => {
+  await signIn(page, "alpha.analyst");
+  const nav = page.getByRole("navigation", { name: "Main" });
+  await expect(nav.getByRole("link", { name: "Risks" })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "Costs" })).toHaveCount(0);
+  const forbidden = await page.request.get("/api/analyses/cost-comparison?item_id=x&warehouse_id=3100");
+  expect(forbidden.status()).toBe(403);
+});
