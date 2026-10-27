@@ -233,6 +233,18 @@ test("the web app sends a strict CSP and the pages run without CSP violations", 
   expect(csp).toContain("frame-ancestors 'none'");
   expect(csp).toContain("object-src 'none'");
   expect(csp).not.toContain("unsafe-eval");
+  // Nonce-based script policy: no 'unsafe-inline' for scripts, a fresh nonce per request, and every inline script
+  // in the served HTML carries the nonce of that response.
+  const scriptSrc = csp.split(";").find((d) => d.trim().startsWith("script-src")) ?? "";
+  expect(scriptSrc).not.toContain("unsafe-inline");
+  const nonce = /'nonce-([^']+)'/.exec(scriptSrc)?.[1];
+  expect(nonce).toBeTruthy();
+  const html = await login!.text();
+  const inline = [...html.matchAll(/<script(?![^>]*\ssrc=)([^>]*)>/g)];
+  expect(inline.length).toBeGreaterThan(0);
+  for (const m of inline) expect(m[1]).toContain(`nonce="${nonce}"`);
+  const again = await page.request.get("/login");
+  expect(/'nonce-([^']+)'/.exec(again.headers()["content-security-policy"] ?? "")?.[1]).not.toBe(nonce);
   await signIn(page, "alpha.admin");
   for (const name of ["Inventory", "Risks", "Costs", "Assistant", "Reports", "Explore"]) {
     await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name }).click();
@@ -241,4 +253,14 @@ test("the web app sends a strict CSP and the pages run without CSP violations", 
   await page.getByRole("link", { name: "Overview" }).click();
   await expect(page.getByTestId("kpi-items")).toContainText(/\d/);
   expect(violations).toEqual([]);
+});
+
+test("a saved theme is applied by the external theme script under the CSP", async ({ page }) => {
+  await page.goto("/login");
+  await page.evaluate(() => localStorage.setItem("lumiant-theme", "dark"));
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.evaluate(() => localStorage.setItem("lumiant-theme", "light"));
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 });

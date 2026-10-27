@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Script from "next/script";
+import { connection } from "next/server";
 import { Archivo, IBM_Plex_Mono } from "next/font/google";
 
 import { Providers } from "@/components/providers";
@@ -19,16 +21,14 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-// Applies a saved theme before first paint (no flash). Static string, no user input.
-const THEME_SCRIPT = `try{var t=localStorage.getItem("lumiant-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
-
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+// Every page is rendered per request: the CSP nonce (src/proxy.ts) only exists at request time, and Next.js can
+// only put it on its own inline scripts when it renders the page for that request. Prerendered shells cannot be nonced.
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  await connection();
   return (
     <html lang="en" className={`${archivo.variable} ${plexMono.variable}`} suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
-      </head>
       <body className="min-h-dvh antialiased">
+        <Script src="/theme-init.js" strategy="beforeInteractive" />
         <Providers>{children}</Providers>
       </body>
     </html>
