@@ -222,3 +222,23 @@ test("admin area is hidden from non-admin roles and refused by the API", async (
   expect((await page.request.get("/api/admin/schema")).status()).toBe(403);
   expect((await page.request.get("/api/admin/audit")).status()).toBe(403);
 });
+
+test("the web app sends a strict CSP and the pages run without CSP violations", async ({ page }) => {
+  const violations: string[] = [];
+  page.on("console", (m) => {
+    if (/content security policy/i.test(m.text())) violations.push(m.text());
+  });
+  const login = await page.goto("/login");
+  const csp = login?.headers()["content-security-policy"] ?? "";
+  expect(csp).toContain("frame-ancestors 'none'");
+  expect(csp).toContain("object-src 'none'");
+  expect(csp).not.toContain("unsafe-eval");
+  await signIn(page, "alpha.admin");
+  for (const name of ["Inventory", "Risks", "Costs", "Assistant", "Reports", "Explore"]) {
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name }).click();
+    await page.waitForLoadState("networkidle");
+  }
+  await page.getByRole("link", { name: "Overview" }).click();
+  await expect(page.getByTestId("kpi-items")).toContainText(/\d/);
+  expect(violations).toEqual([]);
+});

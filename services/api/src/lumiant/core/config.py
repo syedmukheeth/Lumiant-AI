@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     data_dir: Path = BASE_DIR
     app_db_url: str = f"sqlite:///{(BASE_DIR / 'var' / 'app.db').as_posix()}"
     auto_migrate: bool = True
+    rate_limit_enabled: bool = True
+    rate_limit_chat_per_min: int = Field(default=20, ge=1)
+    rate_limit_query_per_min: int = Field(default=120, ge=1)
+    rate_limit_export_per_min: int = Field(default=10, ge=1)
+    rate_limit_login_per_min: int = Field(default=10, ge=1)
     agent_provider: Literal["rules", "anthropic"] = "rules"
     agent_model: str = "claude-opus-5-5"
     anthropic_api_key: SecretStr | None = None

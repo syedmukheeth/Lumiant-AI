@@ -1,10 +1,10 @@
 # Current State
 
-_Rewritten at the end of every session. Last update: 2026-10-27, session 01 (M5 done)._
+_Rewritten at the end of every session. Last update: 2026-10-27, session 01 (M6 done)._
 
 ## Milestone
 **M1 (foundation), M2 (intelligence engine), M3 (AI agent) M4 (reports, exports, guided menu) and most of M5 (schema drift check, capability matrix, reconciliation gate, audit explorer) complete on synthetic data.** Code is on GitHub (`syedmukheeth/Lumiant-AI`, `main`).
-**Next:** M6 — hardening and deployment preparation (OIDC, rate limiting, CSP, CI, containers, production checklist).
+**Next:** nothing further can be completed without the customer: M7 needs the answers in `../07-customer/OPEN_QUESTIONS.md`. See `../06-operations/PRODUCTION_READINESS.md` for what is verified and what is not.
 
 ## What works (verified by automated tests and manual browser checks)
 
@@ -21,16 +21,17 @@ _Rewritten at the end of every session. Last update: 2026-10-27, session 01 (M5 
 | M3: assistant with 10 typed tools, grounding guard, permission-filtered tools, clarification, honest refusals, golden + adversarial evals | `test_agent.py`, `evals/*.yaml`, e2e `assistant` |
 | M4: six reports, CSV/Excel export with metadata and `export:data`, print view, guided menu | `test_reports.py`, e2e `guided menu`, `reduced role` |
 | M5: schema drift detection, capability matrix, reconciliation gate, audit explorer | `test_admin.py`, e2e `admin` |
-| Checks | API 244 passed · web unit 20 passed · e2e 14 passed · ruff/mypy strict/eslint/tsc clean · pnpm audit + pip-audit: 0 known vulnerabilities |
+| M6: rate limits, OIDC bearer auth (local keys), strict CSP | `test_hardening.py`, `test_oidc.py`, e2e CSP test |
+| Checks | API 266 passed · web unit 20 passed · e2e 15 passed · ruff/mypy strict/eslint/tsc clean · pnpm audit + pip-audit: 0 known vulnerabilities |
 
 ## What is simulated (not evidence of customer readiness)
 - **All data is synthetic.** Valuation price = the generator's own moving average; ABC classes and reorder policies are synthetic stand-ins for customer master data.
-- **Authentication is development-only.** The API refuses to start in production with dev auth, and refuses OIDC mode until it is built (M6).
+- **Authentication is development-only in practice.** OIDC is implemented and tested with locally generated keys, never against a real identity provider (Q-010). The API refuses dev auth in production.
 - **The external AI provider has never been called.** Only the built-in matcher is verified; the Anthropic adapter is tested with a fake client (ISSUES #13).
 - **The only connector is DuckDB.** No PostgreSQL, SQL Server, Oracle or SAP connector exists or has been tested.
 
 ## Not built yet
-LIFO rule, ageing buckets, price-movement alerts, value maps · editable query chips, glossary, capability matrix · drill-through, saved views, background reports · value maps, mapping editor/approval, profiling (rest of M5) · OIDC, rate limiting, Postgres app DB, containers, CI, CSP (M6) · real customer integration (M7).
+LIFO rule, ageing buckets, price-movement alerts, value maps · editable query chips, glossary, capability matrix · drill-through, saved views, background reports · value maps, mapping editor/approval, profiling (rest of M5) · verification of containers, CI, PostgreSQL and a real IdP; shared rate-limit store; nonce CSP · real customer integration (M7).
 
 ## Known limitations
 See `../logs/ISSUES.md` (open: #1 no local enterprise DBs, #2 conservative pins, #3 no value maps, #4 no rate limiting, #5 master data tenant-wide, #6 no cost-based query limits, #8 test-client deprecation, #9 no CSP on web, #10 animations pause in background tabs).

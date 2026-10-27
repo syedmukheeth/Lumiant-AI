@@ -73,6 +73,21 @@ def cross_validate(cfg: TenantConfig, catalog: dict[str, DatasetDef] = CATALOG) 
         if not user.departments and not user.warehouses:
             problems.append(f"dev_users.{user.username}: no data scope (departments or warehouses)")
 
+    if cfg.oidc is not None:
+        for group, role in cfg.oidc.group_roles.items():
+            if role not in cfg.roles:
+                problems.append(f"oidc.group_roles.{group}: unknown role '{role}'")
+        for group, scope in cfg.oidc.group_scopes.items():
+            if group not in cfg.oidc.group_roles:
+                problems.append(f"oidc.group_scopes.{group}: group has no role mapping")
+            problems += [
+                f"oidc.group_scopes.{group}: unknown department '{d}'" for d in scope.departments if d not in dept_ids
+            ]
+            problems += [
+                f"oidc.group_scopes.{group}: unknown warehouse '{w}'"
+                for w in scope.warehouses
+                if w != "*" and w not in wh_ids
+            ]
     if cfg.data_classification == "customer" and cfg.dev_users:
         problems.append("dev_users are not allowed for customer tenants")
     return problems

@@ -55,7 +55,13 @@ export default function LoginPage() {
           Signing in…
         </p>
       )}
-      {users.error && (
+      {users.error instanceof ApiError && users.error.status === 404 && (
+        <p className="mt-8 rounded-md border border-line bg-surface p-4 text-sm text-ink-2" role="status">
+          Sign-in is handled by your organisation&apos;s identity provider. Open this application through your organisation&apos;s
+          gateway or portal.
+        </p>
+      )}
+      {users.error && !(users.error instanceof ApiError && users.error.status === 404) && (
         <p className="mt-8 text-sm text-signal" role="alert">
           {users.error instanceof ApiError ? users.error.message : "Could not load users."} Is the API running on port
           8000?

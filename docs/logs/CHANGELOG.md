@@ -33,3 +33,10 @@ User-visible changes per milestone. Format loosely follows Keep a Changelog.
 ## [M5] — 2026-10-27
 ### Added
 - Admin page: source/mapping drift check, capability readiness with exact missing fields, reconciliation against a customer report with a go-live verdict, tenant-scoped audit log.
+
+## [M6] — 2026-10-27
+### Added
+- Rate limits on chat, queries, exports and sign-in.
+- OIDC sign-in support (customer identity provider via bearer tokens, groups mapped to roles and warehouse scope).
+- Content-Security-Policy on the web app; SSO-aware login page.
+- Container files, compose demo, CI workflow, production-readiness checklist, deployment guide, runbook, user and administrator guides.

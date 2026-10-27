@@ -4,7 +4,7 @@ Status: **Implemented and tested (M1)** in `services/api/src/lumiant/api/`. Base
 
 ## Conventions
 
-- Auth: httpOnly cookie `lumiant_session` (dev provider). State-changing requests must send header `X-Requested-With: lumiant` (CSRF defence alongside SameSite=Lax).
+- Auth: development mode uses the httpOnly cookie `lumiant_session`; OIDC mode expects `Authorization: Bearer <IdP token>` (the cookie is ignored). Rate-limited endpoints return 429 `rate_limited` with `Retry-After`. State-changing requests must send header `X-Requested-With: lumiant` (CSRF defence alongside SameSite=Lax).
 - Decimals (quantities, prices, values) are **strings** (`"1234.5600"`). Dates ISO-8601; timestamps UTC with `Z`.
 - Data responses share one envelope:
 ```json

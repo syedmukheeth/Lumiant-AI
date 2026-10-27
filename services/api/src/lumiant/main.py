@@ -12,12 +12,14 @@ from lumiant.admin.service import AdminService
 from lumiant.agent.service import AgentService
 from lumiant.api import admin, agent, analyses, auth, health, inventory, meta, metrics, query, reports
 from lumiant.audit.store import AuditStore, run_migrations
+from lumiant.auth.oidc import OidcAuthProvider
 from lumiant.auth.provider import DevAuthProvider
 from lumiant.connectors.registry import ConnectorRegistry
 from lumiant.container import Container
 from lumiant.core.config import AuthMode, Settings, get_settings
 from lumiant.core.errors import install_error_handlers
 from lumiant.core.logging import configure_logging
+from lumiant.core.ratelimit import RateLimiter
 from lumiant.core.request_context import RequestContextMiddleware
 from lumiant.metrics.service import MetricsService
 from lumiant.query.service import QueryService
@@ -26,10 +28,8 @@ from lumiant.tenancy.registry import TenantRegistry
 
 
 def build_container(settings: Settings) -> Container:
-    if settings.auth_mode is AuthMode.OIDC:
-        # Refuse to start rather than run without authentication (ADR-0004; OIDC lands in M6).
-        raise RuntimeError("LUMIANT_AUTH_MODE=oidc is not implemented yet (milestone M6)")
     tenants = TenantRegistry.load(settings.tenant_config_dir)
+    oidc = OidcAuthProvider(tenants) if settings.auth_mode is AuthMode.OIDC else None  # fails fast if unconfigured
     if settings.auto_migrate:
         run_migrations(settings.app_db_url)
     audit = AuditStore(settings.app_db_url)
@@ -47,6 +47,8 @@ def build_container(settings: Settings) -> Container:
         reports=reports,
         admin=AdminService(query_service, reports),
         dev_auth=DevAuthProvider(settings, tenants) if settings.dev_auth_enabled else None,
+        oidc=oidc,
+        limiter=RateLimiter(),
     )
 
 

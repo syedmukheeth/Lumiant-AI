@@ -325,5 +325,5 @@ def test_unknown_metric_is_404(client: TestClient) -> None:
 @pytest.mark.security
 def test_oidc_mode_refuses_to_start(app_settings: Settings) -> None:
     settings = app_settings.model_copy(update={"auth_mode": AuthMode.OIDC})
-    with pytest.raises(RuntimeError, match="not implemented"):
+    with pytest.raises(RuntimeError, match="needs at least one tenant"):
         create_app(Settings.model_validate(settings.model_dump()))

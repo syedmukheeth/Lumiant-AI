@@ -43,3 +43,6 @@ Every test, lint, type-check or audit run is recorded here: date, step, exact co
 | 2026-10-27 | M4 | `pnpm exec playwright test` | **12 passed** | +2 (guided menu + reports; reduced role) |
 | 2026-10-27 | M5 | `uv run pytest -q` | **244 passed** | +10 admin tests |
 | 2026-10-27 | M5 | `pnpm exec playwright test` | **14 passed** | +2 admin (workflow, role hiding) |
+| 2026-10-27 | M6 | `uv run pytest -q` | 250 passed → 266 passed after OIDC | rate limiting, then OIDC; 1 test-side failure fixed (hand-built forged HS256 token) |
+| 2026-10-27 | M6 | `pnpm exec playwright test` | **15 passed** | production build with strict CSP; no CSP violations on any page |
+| 2026-10-27 | M6 | `uvx pip-audit` / `pnpm audit` | **0 known vulnerabilities** | after adding anthropic, openpyxl, pyjwt[crypto], psycopg extra |

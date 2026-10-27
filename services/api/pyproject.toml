@@ -13,11 +13,15 @@ dependencies = [
   "duckdb-engine==0.17.0",
   "sqlglot>=30.25,<31",
   "alembic>=1.20,<1.21",
-  "pyjwt>=2.15,<3",
+  "pyjwt[crypto]>=2.15,<3",
   "pyyaml>=6.0.3,<7",
   "anthropic>=1,<2",
   "openpyxl>=3.1,<4",
 ]
+
+[project.optional-dependencies]
+# PostgreSQL for the app metadata database in production. NOT tested here (no local PostgreSQL).
+postgres = ["psycopg[binary]>=3.2,<4"]
 
 [project.scripts]
 lumiant-synthetic = "lumiant.synthetic.cli:main"

@@ -29,6 +29,8 @@ export default defineConfig({
         LUMIANT_DATA_DIR: "var/e2e",
         LUMIANT_APP_DB_URL: "sqlite:///var/e2e/app.db",
         LUMIANT_LOG_LEVEL: "WARNING",
+        // The e2e suite signs in many times from one address.
+        LUMIANT_RATE_LIMIT_LOGIN_PER_MIN: "1000",
       },
     },
     {

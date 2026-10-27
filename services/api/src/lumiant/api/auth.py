@@ -5,7 +5,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel, ConfigDict, StringConstraints
 
-from lumiant.auth.deps import current_principal, get_container, require_csrf
+from lumiant.auth.deps import current_principal, get_container, rate_limit_by_ip, require_csrf
 from lumiant.auth.permissions import Permission
 from lumiant.auth.principal import Principal
 from lumiant.auth.provider import COOKIE_NAME
@@ -58,7 +58,7 @@ def dev_users(container: Container = Depends(get_container)) -> dict[str, Any]: 
     return {"users": _dev_auth(container).users(), "notice": "Development authentication — not for production."}
 
 
-@router.post("/dev-login", dependencies=[Depends(require_csrf)])
+@router.post("/dev-login", dependencies=[Depends(require_csrf), Depends(rate_limit_by_ip("login"))])
 def dev_login(body: DevLogin, response: Response, container: Container = Depends(get_container)) -> dict[str, Any]:  # noqa: B008
     provider = _dev_auth(container)
     token, principal = provider.issue(body.username)

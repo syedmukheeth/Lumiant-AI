@@ -105,6 +105,24 @@ class ItemCoding(StrictModel):
         return self
 
 
+class GroupScope(StrictModel):
+    departments: list[Code] = Field(default_factory=list)
+    warehouses: list[str] = Field(default_factory=list)  # "*" = every warehouse of the tenant
+
+
+class OidcConfig(StrictModel):
+    """Customer IdP trust: which tokens are accepted and how IdP groups map to roles and warehouse scope."""
+
+    issuer: Annotated[str, StringConstraints(pattern=r"^https://[^\s]+$", max_length=300)]
+    audience: Annotated[str, StringConstraints(min_length=1, max_length=300)]
+    jwks_url: Annotated[str, StringConstraints(pattern=r"^https://[^\s]+$", max_length=400)]
+    groups_claim: str = "groups"
+    username_claim: str = "preferred_username"
+    name_claim: str = "name"
+    group_roles: dict[str, CanonicalName]
+    group_scopes: dict[str, GroupScope] = Field(default_factory=dict)
+
+
 class AiPolicy(StrictModel):
     """Whether data may leave the deployment for an external AI provider. Off until the customer approves (Q-013)."""
 
@@ -126,6 +144,7 @@ class TenantConfig(StrictModel):
     datasets: dict[CanonicalName, DatasetMapping]
     item_coding: ItemCoding | None = None
     ai: AiPolicy = AiPolicy()
+    oidc: OidcConfig | None = None
     latest_price_statuses: list[str] = Field(default_factory=lambda: ["RECEIVED"])
 
     @property

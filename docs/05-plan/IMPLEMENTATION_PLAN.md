@@ -84,5 +84,13 @@ Order follows dependencies. Milestone detail: `ROADMAP.md`, `MILESTONE_01.md`.
 - [x] Audit explorer
 - [ ] Value maps, mapping editor + approval workflow, AI-suggested mappings, profiling, drill-through, saved views, query chips, glossary (ISSUES #15)
 
-## M6 – M7
-See `ROADMAP.md`. Detailed checklists are added when each milestone starts.
+## M6 — Hardening and deployment preparation (done where possible without the customer)
+- [x] Rate limiting
+- [x] OIDC provider (tested with local keys only)
+- [x] CSP
+- [x] Dockerfiles, compose, CI workflow (unverified)
+- [x] Production-readiness checklist, deployment guide, runbook, user/admin guides
+- [ ] Verify containers, CI, PostgreSQL, real IdP, shared rate-limit store, nonce CSP, load test, pen-test, secret scanning, OpenTelemetry
+
+## M7 — Customer integration (blocked)
+See `ROADMAP.md` and `07-customer/OPEN_QUESTIONS.md`.

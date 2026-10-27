@@ -7,9 +7,11 @@ from dataclasses import dataclass
 from lumiant.admin.service import AdminService
 from lumiant.agent.service import AgentService
 from lumiant.audit.store import AuditStore
+from lumiant.auth.oidc import OidcAuthProvider
 from lumiant.auth.provider import DevAuthProvider
 from lumiant.connectors.registry import ConnectorRegistry
 from lumiant.core.config import Settings
+from lumiant.core.ratelimit import RateLimiter
 from lumiant.metrics.service import MetricsService
 from lumiant.query.service import QueryService
 from lumiant.reports.service import ReportService
@@ -28,6 +30,8 @@ class Container:
     reports: ReportService
     admin: AdminService
     dev_auth: DevAuthProvider | None
+    oidc: OidcAuthProvider | None
+    limiter: RateLimiter
 
     def close(self) -> None:
         self.connectors.dispose_all()

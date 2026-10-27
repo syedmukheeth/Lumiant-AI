@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from datetime import date
 from pathlib import Path
 
@@ -14,6 +15,11 @@ from lumiant.core.config import BASE_DIR
 from lumiant.query.service import QueryService
 from lumiant.synthetic.cli import generate_tenant
 from lumiant.tenancy.registry import TenantRegistry
+
+# Tests sign in many times from one address; rate-limit behaviour has its own tests with explicit settings.
+os.environ.setdefault("LUMIANT_RATE_LIMIT_LOGIN_PER_MIN", "100000")
+os.environ.setdefault("LUMIANT_RATE_LIMIT_EXPORT_PER_MIN", "100000")
+os.environ.setdefault("LUMIANT_RATE_LIMIT_CHAT_PER_MIN", "100000")
 
 TENANT_DIR = BASE_DIR / "config" / "tenants"
 AS_OF = date(2026, 10, 1)

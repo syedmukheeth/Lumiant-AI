@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from lumiant.agent.providers import SUGGESTIONS
-from lumiant.auth.deps import get_container, require, require_csrf
+from lumiant.auth.deps import get_container, rate_limit, require, require_csrf
 from lumiant.auth.permissions import Permission
 from lumiant.auth.principal import Principal
 from lumiant.container import Container
@@ -31,7 +31,7 @@ def suggestions(principal: Chatter) -> dict[str, Any]:
     return {"suggestions": SUGGESTIONS}
 
 
-@router.post("/chat", dependencies=[Depends(require_csrf)])
+@router.post("/chat", dependencies=[Depends(require_csrf), Depends(rate_limit("chat"))])
 def chat(
     body: ChatRequest, principal: Chatter, container: Annotated[Container, Depends(get_container)]
 ) -> dict[str, Any]:

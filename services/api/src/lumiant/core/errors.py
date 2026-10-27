@@ -17,8 +17,9 @@ log = logging.getLogger("lumiant.errors")
 class AppError(Exception):
     """An error whose code and message are safe to show to the client."""
 
-    def __init__(self, code: str, message: str, status_code: int = 400) -> None:
+    def __init__(self, code: str, message: str, status_code: int = 400, headers: dict[str, str] | None = None) -> None:
         super().__init__(message)
+        self.headers = headers
         self.code = code
         self.message = message
         self.status_code = status_code
@@ -49,7 +50,7 @@ def error_body(code: str, message: str, details: list[dict[str, object]] | None 
 def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def _app_error(_: Request, exc: AppError) -> JSONResponse:
-        return JSONResponse(error_body(exc.code, exc.message), status_code=exc.status_code)
+        return JSONResponse(error_body(exc.code, exc.message), status_code=exc.status_code, headers=exc.headers)
 
     @app.exception_handler(RequestValidationError)
     async def _validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:

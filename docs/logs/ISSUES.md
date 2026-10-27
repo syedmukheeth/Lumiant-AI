@@ -19,3 +19,8 @@ Open items first. Close an item by changing its status and adding the date and f
 | 13 | Not verified | The external Anthropic provider path has only been tested with a fake client; never against the live API | Request/response shapes could differ in production | Open | 2026-10-27 |
 | 14 | Limitation | Built-in matcher covers a fixed set of question shapes (10 tools); unmatched questions get suggestions, not guesses | Free-form questions need the external provider (approval Q-013) | Open | 2026-10-27 |
 | 15 | Gap | M5 left out value maps, mapping editor with approval workflow, AI-suggested mappings, column profiling, drill-through, saved views, query chips and tenant glossary | Real-customer onboarding still needs config edits in YAML | Open | 2026-10-27 |
+| 16 | Not verified | OIDC provider has only run against locally generated keys and a fake JWKS client | Real IdP quirks (claim names, key rotation, clock skew) unknown | Open | 2026-10-27 |
+| 17 | Not verified | Dockerfiles, docker-compose and the CI workflow were written but never built/run (no Docker locally; workflow not yet executed) | May need fixes on first run | Open | 2026-10-27 |
+| 18 | Limitation | Rate limiter is in-process memory: limits are per replica and reset on restart | Weak with several replicas | Open | 2026-10-27 |
+| 19 | Limitation | CSP allows inline scripts (`'unsafe-inline'`) because Next.js bootstraps inline; nonce-based CSP not adopted | Reduced XSS defence-in-depth | Open (ISSUES #9 partly closed) | 2026-10-27 |
+| 20 | Not verified | PostgreSQL app database (psycopg extra) untested | Migration/audit behaviour on PostgreSQL unproven | Open | 2026-10-27 |

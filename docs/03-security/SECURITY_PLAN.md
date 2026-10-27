@@ -28,7 +28,7 @@ Each control has a status (vocabulary in `docs/README.md`) and a target mileston
 | C-11 | No string SQL; SQLAlchemy bound params; escaped LIKE; sqlglot guard | SQL injection | M1 | Verified |
 | C-12 | React escaping; no `dangerouslySetInnerHTML`; CSP; sanitized AI text (M3) | XSS | M1 / M3 | Implemented (React escaping, no raw HTML except the static theme script); CSP pending |
 | C-13 | SameSite=Lax + required `X-Requested-With` on state-changing requests; same-origin proxy | CSRF | M1 | Verified |
-| C-14 | Rate limiting per user/tenant | Rate limiting | M6 | Not started |
+| C-14 | Rate limiting per user/tenant | Rate limiting | M6 | Verified (per process; ISSUES #18) |
 | C-15 | Query timeouts and row caps per tenant policy | Timeouts, resource limits | M1 | Verified |
 | C-16 | Audit event for every data access, allowed and denied | Audit logging | M1 | Verified |
 | C-17 | Safe errors: code + request id; no SQL, stack traces, paths or secrets | Safe errors | M1 | Verified |

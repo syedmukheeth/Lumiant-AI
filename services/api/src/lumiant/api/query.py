@@ -4,7 +4,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
 
-from lumiant.auth.deps import get_container, require, require_csrf
+from lumiant.auth.deps import get_container, rate_limit, require, require_csrf
 from lumiant.auth.permissions import Permission
 from lumiant.auth.principal import Principal
 from lumiant.container import Container
@@ -13,7 +13,7 @@ from lumiant.query.plan import QueryPlan
 router = APIRouter(prefix="/api/query", tags=["query"])
 
 
-@router.post("", dependencies=[Depends(require_csrf)])
+@router.post("", dependencies=[Depends(require_csrf), Depends(rate_limit("query"))])
 def run_query(
     plan: QueryPlan,
     principal: Annotated[Principal, Depends(require(Permission.QUERY_RUN))],

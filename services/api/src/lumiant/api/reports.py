@@ -4,7 +4,7 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Path, Query, Response
 
-from lumiant.auth.deps import get_container, require
+from lumiant.auth.deps import get_container, rate_limit, require
 from lumiant.auth.permissions import Permission
 from lumiant.auth.principal import Principal
 from lumiant.container import Container
@@ -37,7 +37,7 @@ def preview(
     return container.reports.build(report_id, principal, _params(days), limit=200)
 
 
-@router.get("/{report_id}/export")
+@router.get("/{report_id}/export", dependencies=[Depends(rate_limit("export"))])
 def export(
     principal: Reader,
     report_id: ReportId,
