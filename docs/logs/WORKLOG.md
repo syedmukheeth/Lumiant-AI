@@ -1,0 +1,105 @@
+# Work Log
+
+Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW.md` §B.
+
+---
+
+## 2026-10-26 · S01 · Phase-1 · Investigation
+- **Goal:** Investigate the repository before any coding (brief §24).
+- **Done:** Listed the working directory (empty, not a git repo). Checked toolchain: Node 22.20, pnpm 11.10, npm 11.8, uv 0.11.15 with CPython 3.13.13/3.12.13, git 2.50, Java 24. Missing: Docker, WSL, PostgreSQL, SQL Server, Oracle tools, system python. Machine: 8 logical CPUs, 7.8 GB RAM, ~235 GB free on E:. Checked latest versions on npm and PyPI (see `00-context/ENVIRONMENT.md`).
+- **Files changed:** none.
+- **Commands + results:** `ls -la` → empty; `git status` → not a repo; `npm view <pkg> version` ×24; PyPI JSON for 17 packages; `uv python list --only-installed`.
+- **Decisions:** Pin TS 5.9.3, DuckDB 1.5.x, SQLAlchemy 2.0.x pending spike (→ ADR-0005).
+- **Issues / limitations:** No local enterprise DB available → connectors other than DuckDB cannot be tested here (→ ISSUES #1).
+- **Next:** Plan approval.
+
+## 2026-10-26 · S01 · Phase-1 · Plan approved
+- **Goal:** Agent analysis, value-adds, roadmap, M1 scope.
+- **Done:** Plan written and approved on the second submission. The owner asked that all knowledge, flow and logs be kept as Markdown in the repo → knowledge-base section added to the plan.
+- **Decisions:** ADR-0001 … ADR-0006.
+- **Next:** M1 step 1.
+
+## 2026-10-26/27 · S01 · M1-step-1 · Repo + knowledge base
+- **Goal:** `git init` and a complete knowledge base before code.
+- **Done:** `git init -b main`. Wrote `docs/` (context, product, architecture + 6 ADRs, security, domain, plan, operations, customer questions, logs). The session was interrupted part-way (four security/domain doc writes were rejected); resumed on 2026-10-27 with "continue and complete the work" and the missing files were rewritten.
+- **Files changed:** `docs/**`.
+- **Commands + results:** `git init -b main` → initialized.
+- **Decisions:** none new.
+- **Issues / limitations:** `DEV_SETUP.md` and `TESTING.md` are written once real commands exist (step 3+).
+- **Next:** Root files, then the dependency spike (step 2).
+
+## 2026-10-27 · S01 · M1-step-1 · Root files
+- **Done:** `CLAUDE.md` (imports CURRENT_STATE), `AGENTS.md`, `.gitignore`, `.editorconfig`, `.gitattributes`, session log `logs/sessions/2026-10-26-session-01.md`, `CURRENT_STATE.md`.
+- **Next:** Spike.
+
+## 2026-10-27 · S01 · M1-step-2 · Dependency spike
+- **Goal:** Prove duckdb 1.5 + duckdb-engine 0.17 + SQLAlchemy 2.0 do what the query core needs.
+- **Done:** Scratch script (outside the repo) built a DuckDB file with SAP-style DECIMAL columns, compiled a grouped/filtered SQLAlchemy select, executed read-only, attempted a write, interrupted a long query, parsed the SQL with sqlglot.
+- **Files changed:** ADR-0003 status, ADR-0005 spike table.
+- **Commands + results:** `uv run --no-project --with duckdb<1.6 --with duckdb-engine==0.17.0 --with sqlalchemy<2.1 --with sqlglot==30.25.0 python spike.py` → PASS after two script fixes (see ADR-0005).
+- **Decisions:** Pins confirmed. LIKE escape char = `!` (backslash breaks on DuckDB via the PG dialect). Rollback the connection after an interrupt or error.
+- **Issues / limitations:** none new.
+- **Next:** Step 3 — API core.
+
+## 2026-10-27 · S01 · M1-step-3 · API core
+- **Goal:** Settings, logging, errors, request context, tenant config, canonical catalog, mapping resolver.
+- **Done:** `services/api` uv project (Python 3.13, pinned deps). `core/` (fail-fast settings with production guards, JSON logging with request/user/tenant context, safe error envelope, request-id + security-header middleware). `auth/permissions.py`. `canonical/catalog.py` (10 datasets, field metadata, approved joins, computed `stock_value`). `tenancy/` (strict Pydantic schema + cross-validation + registry). `mapping/resolver.py` (canonical → SQLAlchemy tables, attributes as `attr_*`, schema-qualified sources). Two tenant YAMLs (`demo-alpha` SAP-style, `demo-beta` snake_case in `inv` schema, EUR+GBP).
+- **Files changed:** `services/api/pyproject.toml`, `.env.example`, `config/tenants/*.yaml`, `src/lumiant/{core,auth,canonical,tenancy,mapping}/**`, `tests/unit/test_{config,tenancy,mapping}.py`.
+- **Commands + results:** `uv sync` → ok; `uv run pytest -q` → 27 passed; `ruff check` → 11 findings fixed (1 manual rename); `ruff format`; `mypy` (strict) → 7 typing errors fixed → clean.
+- **Decisions:** Extension attributes are addressed as `attr_<name>`; computed fields can't be mapped; customer tenants may not define dev users; connection paths must stay inside the API directory.
+- **Issues / limitations:** none new.
+- **Next:** Step 4 — synthetic generator.
+
+## 2026-10-27 · S01 · M1-step-4 · Synthetic data
+- **Goal:** Deterministic synthetic warehouses for two tenants with different physical schemas.
+- **Done:** `synthetic/profiles.py` (7 item groups, warehouse specs matching tenant YAML), `generator.py` (seeded `random.Random`, `Decimal`; per item–warehouse event simulation over N months: receipts create lots and update moving weighted average, FIFO issues skip expired lots, internal transfers, ± adjustments, returns; balances derived from movements; customer-style reorder policies; planted scenarios), `writer.py` (maps canonical records onto the tenant's physical tables through `TenantMapping`, bulk loads via CSV `COPY`, `_dataset_info` + freshness table, atomic replace), `cli.py` (`lumiant-synthetic generate --all | --tenant`). Refuses non-synthetic tenants.
+- **Files changed:** `src/lumiant/synthetic/*`, `tests/conftest.py`, `tests/unit/test_synthetic.py`, `pyproject.toml` (E501 ignored in tests for SQL strings).
+- **Commands + results:** `uv run lumiant-synthetic generate --all` → alpha 600 items, 81,935 movements, 1,160 stock lines in 3.8 s; beta 250 items, 32,686 movements, 454 stock lines in 2.1 s. `uv run pytest -q` → 43 passed (16 new). ruff → 20 findings fixed; mypy → 3 fixed → clean.
+- **Decisions:** Valuation price = generator's own MWA per item–warehouse, rounded half-even to 4 dp. ABC class is a synthetic stand-in for a customer-maintained field (80/95 % cumulative value with 5 % drift) — not a rule. Max stock kept ≥ 1.1× on-hand except planted over-stock pairs (first run had 11 % above max — unrealistic).
+- **Issues / limitations:** Regenerating requires the API to be stopped (DuckDB file lock) — documented in DEV_SETUP.
+- **Next:** Step 5 — connector + query engine.
+
+## 2026-10-27 · S01 · M1-step-5 · Connector + query engine + audit
+- **Goal:** The single secured path to data: plan → validate → compile → guard → read-only execute → provenance → audit.
+- **Done:** `auth/principal.py` (Principal, WarehouseScope, dev-user → principal). `connectors/` (protocol with no string-SQL entry point; DuckDB connector: read-only engine, timer + `interrupt()` timeout, rollback after errors, safe error codes; per-tenant registry). `query/plan.py` (strict QueryPlan, floats rejected, `AnyOf` groups), `validator.py` (all rules in QUERY_ENGINE.md §2 incl. scope injection, explicit out-of-scope → 403, cost-field check across select/filter/aggregate, currency/UoM companions auto-added, stable default ordering), `compiler.py` (SQLAlchemy Core, outer joins on approved paths only, bound params, `!` LIKE escape, limit+1, count-only variant), `sql_guard.py` (sqlglot: one SELECT, function allowlist, mapped tables + CTEs only, system objects refused), `service.py` (QueryService: tenant meta with synthetic marker + freshness, execution, provenance, warnings, audit), `results.py` (Decimal → string envelope). `audit/store.py` + Alembic migration 0001 (fail-closed writes, no values stored).
+- **Files changed:** `src/lumiant/{auth/principal.py,connectors/*,query/*,audit/*}`, `alembic.ini`, `alembic/**`, `tests/conftest.py`, `tests/helpers.py`, `tests/unit/test_validator.py`, `tests/unit/test_compiler_and_guard.py`, `tests/integration/test_query_service.py`, `pyproject.toml` (line length 120).
+- **Commands + results:** first full run 98 passed / 6 failed → fixed → **104 passed**; ruff clean; mypy strict clean.
+- **Decisions / findings:**
+  - **Bug caught by the independent-SQL test:** SQLAlchemy's `Numeric(18,4)` result processing rounded aggregated values to 4 dp (e.g. `146708.07823930` → `146708.0782`). Output columns now use an `ExactDecimal` type with no result processing, so values arrive exactly as the database computed them.
+  - DuckDB refuses a second in-process connection to the same file with a different config; duckdb-engine sets `custom_user_agent`. Test raw-SQL connections mirror it (`tests/helpers.py`). Production is unaffected (only the connector opens the file).
+  - The SQL guard must parse SQL rendered with the connector's own dialect (`$n` params); `pyformat` params from a bare dialect don't parse.
+  - Master-data datasets without a warehouse key (item, supplier, department) are tenant-wide, not warehouse-scoped.
+- **Issues / limitations:** → ISSUES #5 (master data visible tenant-wide), #6 (row-limit only; no cost-based query planning).
+- **Next:** Step 6 — auth, routes, metrics, below-reorder, API tests.
+
+## 2026-10-27 · S01 · M1-step-6 · Auth, RBAC, routes, metrics, below-reorder
+- **Goal:** Expose the query core over HTTP with server-side authentication and authorization.
+- **Done:** `auth/provider.py` (DevAuthProvider: HS256 JWT in httpOnly SameSite=Lax cookie, claims sub/tid/iss/aud/iat/exp/jti, roles + scope re-resolved per request), `auth/deps.py` (current principal, `require(*permissions)` with audited denials, CSRF header check), `container.py`, `main.py` (app factory; refuses to start in OIDC mode until M6; docs disabled in production), `metrics/` (7 versioned draft metrics; value metrics warn about lines without valuation price), `analyses/below_reorder.py` (policy LEFT JOIN on-hand so zero-stock pairs appear; base-UoM only with mismatch warning; pairs without policy counted, never flagged), routes `api/{health,auth,meta,metrics,inventory,query}.py`.
+- **Files changed:** `src/lumiant/{auth/provider.py,auth/deps.py,container.py,main.py,metrics/*,analyses/*,api/*}`, `src/lumiant/query/{results.py,sql_guard.py}`, `tests/integration/test_api.py`, `tests/unit/test_compiler_and_guard.py`.
+- **Commands + results:** first run 127 passed / **6 failed** (guard refused `AND`/`OR` — sqlglot models them as `Func`); allowlist fixed + unit case added → **133 passed**; ruff + mypy strict clean.
+- **Decisions:** `/api/health/ready` is unauthenticated, so it returns counts only. The inventory listing hides cost columns (and value sort) for users without `cost:read` instead of failing. Explicit filters on out-of-scope warehouses return 403 rather than an empty result (clearer for users, no information leak since ids are the caller's own input).
+- **Issues / limitations:** Starlette deprecation warning for `httpx` in TestClient (→ ISSUES #8).
+- **Next:** Step 7 — Next.js web app.
+
+## 2026-10-27 · S01 · M1-step-7 · Next.js web app
+- **Goal:** Login, permission-aware shell, overview dashboard, inventory explorer — on the secured API, with tests.
+- **Done:** Scaffolded with `create-next-app@16.4.3` (TS 5.9.3, Tailwind 4 via the Turbopack loader, ESLint 9, `cacheComponents` + `partialPrefetching` defaults kept). Read the bundled Next 16 docs (proxy, cache components auth, instant navigation, flash prevention) before writing code. Built: `/api/*` rewrite to FastAPI (same-origin cookie), `src/proxy.ts` (optimistic redirect only), "ledger" design system (Archivo + IBM Plex Mono tabular figures, warm paper / graphite themes, hazard-tape SYNTHETIC badge, no-flash theme script), typed API client with safe error parsing, decimal-string formatting via `Intl.NumberFormat` (never floats), provenance "slip" popover (Radix), KPI strip (per-currency values, never summed), value bar charts with currency switcher, below-reorder table with coverage bars, inventory explorer (URL-state filters, debounced search, server sort/paging, cost columns hidden without `cost:read`).
+- **Files changed:** `apps/web/**` (`next.config.ts`, `src/proxy.ts`, `src/app/**`, `src/components/**`, `src/lib/**`, `tests/unit/**`, `e2e/app.spec.ts`, `vitest.config.ts`, `playwright.config.ts`, `package.json`), `.claude/launch.json`, `services/api/src/lumiant/audit/store.py`, `services/api/tests/unit/test_audit_store.py`.
+- **Commands + results:** `pnpm typecheck` / `pnpm lint` → clean. `pnpm test` → 14/20 then **20 passed** (test fixes: Intl NBSP, jsdom ResizeObserver stub). `pnpm exec playwright test` → 2/5, 3/5, 4/5, then **5 passed** (production build + isolated API on 8100 with freshly generated data). Manual checks in the browser pane: login, overview (alpha admin, analyst, beta admin, beta user), inventory filters/sort, light + dark, 375 px mobile (no horizontal scroll).
+- **Bugs found and fixed:**
+  1. **API first run crashed**: Alembic ran before the SQLite `var/` folder existed → `_ensure_sqlite_dir` + regression test `test_first_run_creates_missing_directory_and_schema`.
+  2. **Hydration mismatch**: page content read the session query the shell had already resolved → `usePageMe()` reads it only after hydration.
+  3. **Next 16 instant-navigation validation** dropped the page segment because the shell withheld children while the session loaded → the shell now always renders page content.
+  4. **Stale-closure filter bug (found by e2e)**: the debounced search rebuilt the URL from a render-time snapshot and could wipe a warehouse filter chosen meanwhile → reads `window.location.search` at update time; e2e regression added.
+  5. pnpm's release-age gate flagged `@tanstack/react-query@5.105.0` (published the day before) and auto-added an exclusion → exclusion removed, pinned 5.104.5, lockfile rebuilt so the gate passes.
+- **Decisions:** Client-side data fetching (React Query) through the same-origin proxy; no server component reads cookies (keeps Cache Components simple and the API the only enforcement point). Chart bar lengths use numbers for geometry only; every printed amount is the exact decimal string.
+- **Issues / limitations:** Entrance animations pause in background tabs (cosmetic). No CSP on the web app yet (→ ISSUES #9). Next keeps the previous route mounted but hidden (React Activity) — tests must scope locators to visible regions.
+- **Next:** Step 8 — full checks, docs sync, report.
+
+## 2026-10-27 · S01 · M1-step-8 · Close milestone
+- **Goal:** Full check run, dependency audits, docs synced to the code, honest report.
+- **Done:** Root `package.json` (data/dev/test/check scripts) and `README.md`; `DEV_SETUP.md`, `TESTING.md`; rewrote `CURRENT_STATE.md`; updated `ACCEPTANCE_CRITERIA` (rows 1–6, 10–18 verified for M1 scope; 7–9 pending M2/M3), `FEATURE_CATALOG`, `CONNECTORS` support matrix, `API_CONTRACTS`, `FRONTEND`, `QUERY_ENGINE`, `MAPPING`, `SYNTHETIC_DATA`, `SECURITY_PLAN` statuses, `ENVIRONMENT` resolved versions, `FACTS_ASSUMPTIONS` (F-011–F-013, A-010–A-011), decisions DEC-008–DEC-013, `CHANGELOG`. Removed two test warnings (enum in test, Vite config → `.mts`).
+- **Commands + results:** `pnpm run check` → all green (134 API, 20 web); `pnpm audit` → 0; `pip-audit` → 0; e2e 5/5 (step 7).
+- **Decisions:** DEC-008 … DEC-013 (see DECISION_LOG).
+- **Issues / limitations:** First audit command was blocked by a safety check (temp file path outside the project); nothing ran; rerun with the session scratchpad.
+- **Next:** Owner review + first commit (owner's call); then M2.

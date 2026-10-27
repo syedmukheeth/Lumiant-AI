@@ -1,0 +1,42 @@
+# Current State
+
+_Rewritten at the end of every session. Last update: 2026-10-27, end of session 01._
+
+## Milestone
+**M1 — Foundation: complete** (all exit criteria in `../05-plan/MILESTONE_01.md` met on synthetic data). Nothing is committed to git yet; the owner decides when.
+**Next:** M2 — intelligence engine (costing, computed ABC, risk analyses). See "Next step" below.
+
+## What works (verified by automated tests and manual browser checks)
+
+| Capability | Evidence |
+|---|---|
+| Two synthetic tenants generated deterministically into DuckDB (alpha: SAP-style, USD; beta: snake_case `inv` schema, EUR + GBP) | `tests/unit/test_synthetic.py` |
+| Tenant config + canonical model + mapping, validated at startup | `test_tenancy.py`, `test_mapping.py` |
+| Query engine: plan validation, scope injection, cost-field control, currency/UoM rails, parameterized SQL, sqlglot guard, read-only DuckDB, timeouts, provenance, audit | `test_validator.py`, `test_compiler_and_guard.py`, `test_query_service.py` |
+| Totals equal independent raw SQL on the physical tables | `test_alpha_value_matches_independent_sql`, `test_beta_value_matches_independent_sql_per_currency`, `test_value_by_warehouse_matches_raw_sql` |
+| Dev-only auth (signed httpOnly cookie), RBAC, warehouse scope, tenant isolation, CSRF header, safe errors | `tests/integration/test_api.py` |
+| Below-reorder analysis incl. zero-stock pairs | `test_below_reorder_matches_independent_sql` |
+| Web: login, permission-aware shell, overview, inventory explorer, provenance slips, synthetic badge, data as-of, light/dark, mobile | `apps/web/tests/unit`, `apps/web/e2e/app.spec.ts`, browser checks in WORKLOG M1-step-7 |
+| Checks | API 134 passed · web unit 20 passed · e2e 5 passed · ruff/mypy strict/eslint/tsc clean · pnpm audit + pip-audit: 0 known vulnerabilities |
+
+## What is simulated (not evidence of customer readiness)
+- **All data is synthetic.** Valuation price = the generator's own moving average; ABC classes and reorder policies are synthetic stand-ins for customer master data.
+- **Authentication is development-only.** The API refuses to start in production with dev auth, and refuses OIDC mode until it is built (M6).
+- **The only connector is DuckDB.** No PostgreSQL, SQL Server, Oracle or SAP connector exists or has been tested.
+
+## Not built yet
+Costing engine, computed ABC, other risk analyses (M2) · AI chat agent (M3) · reports/exports/guided menu (M4) · schema discovery, mapping studio, reconciliation, admin UIs (M5) · OIDC, rate limiting, Postgres app DB, containers, CI, CSP (M6) · real customer integration (M7).
+
+## Known limitations
+See `../logs/ISSUES.md` (open: #1 no local enterprise DBs, #2 conservative pins, #3 no value maps, #4 no rate limiting, #5 master data tenant-wide, #6 no cost-based query limits, #8 test-client deprecation, #9 no CSP on web, #10 animations pause in background tabs).
+
+## Blocked on the customer
+Everything production-related: `../07-customer/OPEN_QUESTIONS.md` — highest priority Q-001 (warehouse technology/access), Q-003 (schema), Q-006–Q-008 (costing policy), Q-010 (IdP), Q-012 (hosting), Q-013 (AI provider approval).
+
+## Next step
+1. Owner review of M1 in the browser (`docs/06-operations/DEV_SETUP.md`) and decision on the first commit.
+2. Start **M2**: write hand-verified financial fixtures first (`../04-domain/INVENTORY_CALCULATIONS.md` § fixtures), then MWA / periodic WA / FIFO layers / lot cost / latest price (draft definitions), computed-vs-assigned ABC, excess / slow-moving / dormant / ageing / expiry / master-data-quality analyses, item-code parser; reconcile the MWA engine against the generator's valuation price with independent code.
+3. In parallel, send Q-001 … Q-017 to Lumiant/the customer.
+
+## How to run
+`docs/06-operations/DEV_SETUP.md` (setup) · `docs/06-operations/TESTING.md` (tests).

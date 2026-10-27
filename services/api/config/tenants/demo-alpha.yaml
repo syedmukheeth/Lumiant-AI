@@ -1,0 +1,136 @@
+# SYNTHETIC demo tenant. SAP-*style* physical names are illustrative only — they are not a claim about
+# any real customer's system (docs/00-context/FACTS_ASSUMPTIONS.md F-004).
+id: demo-alpha
+display_name: "Demo Alpha Manufacturing (synthetic)"
+data_classification: synthetic
+source_system: "Synthetic DuckDB warehouse — SAP-style naming"
+connection:
+  type: duckdb
+  path: data/synthetic/demo-alpha.duckdb
+freshness:
+  object: _extract_metadata
+  column: extracted_at
+policies:
+  max_rows: 1000
+  default_rows: 100
+  query_timeout_s: 15
+  stale_after_hours: 36
+
+departments:
+  - {id: NORTH, name: "North Plant Operations"}
+  - {id: SOUTH, name: "South Plant Operations"}
+  - {id: DIST, name: "Central Distribution"}
+warehouses:
+  - {id: "1100", department: NORTH}
+  - {id: "1110", department: NORTH}
+  - {id: "1120", department: NORTH}
+  - {id: "2100", department: SOUTH}
+  - {id: "2110", department: SOUTH}
+  - {id: "3100", department: DIST}
+
+roles:
+  super_admin: [dashboard:read, inventory:read, cost:read, query:run, query:view_sql, audit:read, admin:tenant]
+  dept_admin: [dashboard:read, inventory:read, cost:read, query:run]
+  standard_user: [dashboard:read, inventory:read, cost:read, query:run]
+  viewer_no_cost: [dashboard:read, inventory:read]
+
+# Development authentication only. Ignored (and the login endpoint disabled) outside dev mode.
+dev_users:
+  - {username: alpha.admin, display_name: "Alex Admin", roles: [super_admin], warehouses: ["*"]}
+  - {username: alpha.north_manager, display_name: "Noor North (dept admin)", roles: [dept_admin], departments: [NORTH]}
+  - {username: alpha.analyst, display_name: "Ana Analyst (no cost access)", roles: [viewer_no_cost], warehouses: ["3100"]}
+
+datasets:
+  item:
+    source: ZV_MATERIAL
+    fields:
+      item_id: MATNR
+      item_code: MATNR
+      description: MAKTX
+      item_group: MATKL
+      inventory_stage: MTART
+      abc_class: ABCKZ
+      base_uom: MEINS
+      status: MSTAE
+      lot_tracked: XCHPF
+      shelf_life_days: MHDHB
+      storage_temp_min: ZZTEMP_MIN
+      storage_temp_max: ZZTEMP_MAX
+      flammability_class: GEFKL
+      default_supplier_id: LIFNR
+    attributes:
+      colour: {column: ZZCOLOR, type: string, description: "Colour"}
+      material: {column: ZZMATERIAL, type: string, description: "Material specification"}
+      handling_note: {column: ZZHANDLING, type: string, description: "Special handling instructions"}
+  warehouse:
+    source: ZV_PLANT
+    fields:
+      warehouse_id: WERKS
+      name: NAME1
+      department_id: ZZDEPT
+      site: ORT01
+      temperature_controlled: ZZCOLD
+      flammable_storage: ZZHAZMAT
+  storage_location:
+    source: ZV_SLOC
+    fields: {location_id: LGORT, warehouse_id: WERKS, name: LGOBE}
+  stock_balance:
+    source: ZV_STOCK
+    fields:
+      item_id: MATNR
+      warehouse_id: WERKS
+      location_id: LGORT
+      lot_id: CHARG
+      quantity: LABST
+      uom: MEINS
+      valuation_price: VERPR
+      currency: WAERS
+  reorder_policy:
+    source: ZV_REORDER
+    fields: {item_id: MATNR, warehouse_id: WERKS, reorder_level: MINBE, min_stock: EISBE, max_stock: MABST}
+  lot:
+    source: ZV_BATCH
+    fields:
+      lot_id: CHARG
+      item_id: MATNR
+      warehouse_id: WERKS
+      receipt_date: ZZWEDAT
+      expiry_date: VFDAT
+      supplier_id: LIFNR
+      unit_cost: ZZCOST
+      currency: WAERS
+  inventory_transaction:
+    source: ZV_MOVEMENT
+    fields:
+      txn_id: MBLNR
+      txn_type: BWART
+      item_id: MATNR
+      warehouse_id: WERKS
+      location_id: LGORT
+      lot_id: CHARG
+      quantity: MENGE
+      uom: MEINS
+      unit_cost: ZZUNITCOST
+      currency: WAERS
+      posting_date: BUDAT
+  purchase_record:
+    source: ZV_PURCHASE
+    fields:
+      po_id: EBELN
+      line: EBELP
+      item_id: MATNR
+      supplier_id: LIFNR
+      warehouse_id: WERKS
+      order_date: BEDAT
+      receipt_date: ZZWEDAT
+      quantity: MENGE
+      uom: MEINS
+      unit_price: NETPR
+      currency: WAERS
+      status: ZZSTATUS
+  supplier:
+    source: ZV_VENDOR
+    fields: {supplier_id: LIFNR, name: NAME1, country: LAND1}
+  department:
+    source: ZV_DEPT
+    fields: {department_id: ZZDEPT, name: ZZDEPT_TEXT}

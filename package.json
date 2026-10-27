@@ -1,0 +1,17 @@
+{
+  "name": "lumiant",
+  "private": true,
+  "description": "Lumiant inventory intelligence platform — convenience scripts for the API (uv) and web app (pnpm).",
+  "scripts": {
+    "data": "uv --directory services/api run lumiant-synthetic generate --all",
+    "dev:api": "uv --directory services/api run uvicorn --factory lumiant.main:create_app --host 127.0.0.1 --port 8000",
+    "dev:web": "pnpm --dir apps/web dev",
+    "test:api": "uv --directory services/api run pytest -q",
+    "check:api": "uv --directory services/api run ruff check . && uv --directory services/api run ruff format --check . && uv --directory services/api run mypy",
+    "test:web": "pnpm --dir apps/web test",
+    "check:web": "pnpm --dir apps/web lint && pnpm --dir apps/web typecheck",
+    "e2e": "pnpm --dir apps/web e2e",
+    "check": "pnpm run check:api && pnpm run test:api && pnpm run check:web && pnpm run test:web"
+  },
+  "packageManager": "pnpm@11.10.0"
+}

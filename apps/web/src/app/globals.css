@@ -1,0 +1,168 @@
+@import "tailwindcss";
+
+/*
+ * Lumiant "ledger" design tokens.
+ * Light = warm ledger paper with ink; dark = graphite control room. One working accent (teal) for data,
+ * one signal accent (orange) reserved for things that need attention. Contrast pairs meet WCAG AA.
+ */
+:root {
+  --bg: #f4f2ec;
+  --surface: #fbfaf6;
+  --surface-2: #efece4;
+  --ink: #17191c;
+  --ink-2: #474c54;
+  --ink-3: #6a6f7a;
+  --line: #ddd9ce;
+  --line-strong: #b8b2a2;
+  --accent: #0e5c58;
+  --accent-soft: #d7e8e5;
+  --signal: #b93c0b;
+  --signal-soft: #fbe8dc;
+  --ok: #2f6b3a;
+  --tape: #f2c230;
+  --tape-ink: #1b1b1b;
+  --grid: rgb(23 25 28 / 0.035);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1113;
+    --surface: #16191c;
+    --surface-2: #1d2125;
+    --ink: #ece9e1;
+    --ink-2: #b9b5ab;
+    --ink-3: #8e8a81;
+    --line: #2a2f34;
+    --line-strong: #3d444b;
+    --accent: #55b8ad;
+    --accent-soft: #163330;
+    --signal: #f08a4b;
+    --signal-soft: #2c1c12;
+    --ok: #7cc48a;
+    --grid: rgb(236 233 225 / 0.03);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0f1113;
+  --surface: #16191c;
+  --surface-2: #1d2125;
+  --ink: #ece9e1;
+  --ink-2: #b9b5ab;
+  --ink-3: #8e8a81;
+  --line: #2a2f34;
+  --line-strong: #3d444b;
+  --accent: #55b8ad;
+  --accent-soft: #163330;
+  --signal: #f08a4b;
+  --signal-soft: #2c1c12;
+  --ok: #7cc48a;
+  --grid: rgb(236 233 225 / 0.03);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-signal: var(--signal);
+  --color-signal-soft: var(--signal-soft);
+  --color-ok: var(--ok);
+  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+body {
+  font-family: var(--font-sans);
+  /* faint ledger grid */
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.figure {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "zero" 1;
+}
+
+.eyebrow {
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+/* Hazard tape: synthetic data must never be mistaken for customer data. */
+.tape {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--tape) 0 10px,
+    var(--tape-ink) 10px 20px
+  );
+}
+
+.tape-label {
+  background: var(--tape);
+  color: var(--tape-ink);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rise {
+  animation: rise 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -200px 0;
+  }
+  to {
+    background-position: 200px 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 0, var(--line) 50%, var(--surface-2) 100%);
+  background-size: 400px 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise,
+  .skeleton {
+    animation: none;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

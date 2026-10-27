@@ -1,0 +1,128 @@
+# SYNTHETIC demo tenant with a snake_case schema in an `inv` schema, two currencies (EUR, GBP).
+id: demo-beta
+display_name: "Demo Beta Distribution (synthetic)"
+data_classification: synthetic
+source_system: "Synthetic DuckDB warehouse — snake_case schema"
+connection:
+  type: duckdb
+  path: data/synthetic/demo-beta.duckdb
+freshness:
+  object: inv._extract_metadata
+  column: extracted_at
+policies:
+  max_rows: 1000
+  default_rows: 100
+  query_timeout_s: 15
+  stale_after_hours: 36
+
+departments:
+  - {id: OPS_NL, name: "Netherlands Operations"}
+  - {id: OPS_UK, name: "UK Operations"}
+warehouses:
+  - {id: RTM1, department: OPS_NL}
+  - {id: ANT1, department: OPS_NL}
+  - {id: LDS1, department: OPS_UK}
+
+roles:
+  super_admin: [dashboard:read, inventory:read, cost:read, query:run, query:view_sql, audit:read, admin:tenant]
+  standard_user: [dashboard:read, inventory:read, cost:read, query:run]
+
+dev_users:
+  - {username: beta.admin, display_name: "Bram Admin", roles: [super_admin], warehouses: ["*"]}
+  - {username: beta.user, display_name: "Lucy Leeds (UK user)", roles: [standard_user], warehouses: [LDS1]}
+
+datasets:
+  item:
+    source: inv.item_master
+    fields:
+      item_id: item_id
+      item_code: item_code
+      description: item_name
+      item_group: product_group
+      inventory_stage: lifecycle_stage
+      abc_class: abc_code
+      base_uom: stock_uom
+      status: item_status
+      lot_tracked: batch_managed
+      shelf_life_days: shelf_life_days
+      storage_temp_min: min_temp_c
+      storage_temp_max: max_temp_c
+      flammability_class: hazard_class
+      default_supplier_id: preferred_supplier
+    attributes:
+      colour: {column: colour, type: string, description: "Colour"}
+      material: {column: material_spec, type: string, description: "Material specification"}
+      humidity_max_pct: {column: humidity_max_pct, type: decimal, description: "Maximum relative humidity (%)"}
+      handling_note: {column: handling_notes, type: string, description: "Special handling instructions"}
+  warehouse:
+    source: inv.warehouses
+    fields:
+      warehouse_id: warehouse_code
+      name: warehouse_name
+      department_id: business_unit
+      site: site_city
+      temperature_controlled: is_cold_store
+      flammable_storage: is_hazmat_rated
+  storage_location:
+    source: inv.bins
+    fields: {location_id: bin_code, warehouse_id: warehouse_code, name: bin_name}
+  stock_balance:
+    source: inv.stock_on_hand
+    fields:
+      item_id: item_id
+      warehouse_id: warehouse_code
+      location_id: bin_code
+      lot_id: lot_number
+      quantity: qty_on_hand
+      uom: unit
+      valuation_price: unit_value
+      currency: currency_code
+  reorder_policy:
+    source: inv.reorder_rules
+    fields: {item_id: item_id, warehouse_id: warehouse_code, reorder_level: reorder_point, min_stock: min_qty, max_stock: max_qty}
+  lot:
+    source: inv.lots
+    fields:
+      lot_id: lot_number
+      item_id: item_id
+      warehouse_id: warehouse_code
+      receipt_date: received_on
+      expiry_date: expires_on
+      supplier_id: supplier_code
+      unit_cost: lot_unit_cost
+      currency: currency_code
+  inventory_transaction:
+    source: inv.stock_movements
+    fields:
+      txn_id: movement_id
+      txn_type: movement_type
+      item_id: item_id
+      warehouse_id: warehouse_code
+      location_id: bin_code
+      lot_id: lot_number
+      quantity: qty
+      uom: unit
+      unit_cost: unit_cost
+      currency: currency_code
+      posting_date: posted_on
+  purchase_record:
+    source: inv.purchase_lines
+    fields:
+      po_id: po_number
+      line: po_line
+      item_id: item_id
+      supplier_id: supplier_code
+      warehouse_id: warehouse_code
+      order_date: ordered_on
+      receipt_date: received_on
+      quantity: qty_ordered
+      uom: unit
+      unit_price: unit_price
+      currency: currency_code
+      status: line_status
+  supplier:
+    source: inv.suppliers
+    fields: {supplier_id: supplier_code, name: supplier_name, country: country_code}
+  department:
+    source: inv.business_units
+    fields: {department_id: bu_code, name: bu_name}
