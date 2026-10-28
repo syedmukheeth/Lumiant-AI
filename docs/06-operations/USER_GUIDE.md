@@ -14,6 +14,20 @@ demonstration data.
 | **Assistant** | Ask in your own words. It chooses a checked analysis, shows a table or chart and tells you where the numbers came from. It says so when it cannot answer; it never guesses. |
 | **Reports** | Preview, download (CSV or Excel) or print a report. Each carries the filters, data time, access scope and any notices. |
 
+## The Analyst — ask about anything on screen
+- **Open it** with the **Analyst** button in the top bar (or ⌘J / Ctrl+J). It stays open while you move between pages.
+- **Point at something**: right-click a KPI, a chart, a bar, an inventory row or an insight card — or click the small ✦ button
+  that appears on hover. The Analyst shows what you picked as chips and suggests questions for it.
+- **Lens mode** (press **L**, or **Lens** in the Analyst): everything you can ask about is outlined. Click one thing to
+  analyze it; **Shift-click** several to compare them. **Esc** leaves the Lens.
+- **Watch it work**: each answer first shows the steps (which analysis ran, how many rows, how long) and ends with
+  "Checking every number against the results". Then the answer, its table or chart, and **Source** for every figure.
+- **Follow up** in plain words: "what about quantity?", "and by item group?". **Pin** answers you want to keep (kept in
+  this browser; "Ask again" re-runs them with current numbers).
+- **Insights** on the Overview list what needs attention (below reorder, expiring lots, stock tied up in quality inspection
+  or blocked, value concentration, data-quality gaps). **Analyze** sends a finding to the Analyst. "Unlock more analyses"
+  says which further data would add more (e.g. movement history for dormant stock).
+
 ## Reading a number
 Click **Source** next to any figure: it lists the source tables and columns, your filters, the access scope applied by your
 permissions, the rule used, the data time and the number of rows.

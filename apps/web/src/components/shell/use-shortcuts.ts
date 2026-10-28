@@ -17,11 +17,15 @@ type Handlers = {
   onPalette: () => void;
   onNavigate: (href: string) => void;
   onToggleRail: () => void;
+  /** Analyst dock (⌘J / Ctrl+J) and Lens mode (L); omitted when the user cannot chat. */
+  onDock?: () => void;
+  onLens?: () => void;
 };
 
 /**
- * App-wide keyboard shortcuts: ⌘K / Ctrl+K (anywhere) and "/" open the command palette, "G then key" jumps to a
- * page, "[" collapses the rail. Single keys never fire while the user is typing or holding a modifier.
+ * App-wide keyboard shortcuts: ⌘K / Ctrl+K (anywhere) and "/" open the command palette, ⌘J / Ctrl+J toggles the
+ * Analyst, "L" toggles Lens mode, "G then key" jumps to a page, "[" collapses the rail. Single keys never fire while
+ * the user is typing or holding a modifier.
  */
 export function useShortcuts(handlers: Handlers) {
   const live = useRef(handlers);
@@ -36,6 +40,11 @@ export function useShortcuts(handlers: Handlers) {
       if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "k") {
         e.preventDefault();
         h.onPalette();
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "j" && h.onDock) {
+        e.preventDefault();
+        h.onDock();
         return;
       }
       if (e.defaultPrevented || e.repeat || e.metaKey || e.ctrlKey || e.altKey || isTypingTarget(e.target)) return;
@@ -57,6 +66,9 @@ export function useShortcuts(handlers: Handlers) {
       } else if (key === "[") {
         e.preventDefault();
         h.onToggleRail();
+      } else if (key === "l" && h.onLens) {
+        e.preventDefault();
+        h.onLens();
       }
     };
     window.addEventListener("keydown", onKey);

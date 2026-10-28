@@ -344,3 +344,47 @@ test("reduced motion: entrances fade in place instead of travelling", async ({ p
   const names = await page.locator(".rise").evaluateAll((els) => [...new Set(els.map((e) => getComputedStyle(e).animationName))]);
   expect(names).toEqual(["enter-fade"]);
 });
+
+test("insights feed hands a finding to the Analyst, which streams its steps and a grounded answer", async ({ page }) => {
+  await signIn(page, "alpha.admin");
+  const feed = page.getByTestId("insights-feed");
+  const card = feed.getByTestId("insight-card").first();
+  await expect(card).toBeVisible();
+  await card.getByRole("button", { name: "Analyze" }).click();
+  const dock = page.getByTestId("analyst-dock");
+  await expect(dock).toBeVisible();
+  await expect(dock.getByTestId("analyst-answer").last()).toBeVisible();
+  await expect(dock.getByRole("list", { name: "What the assistant did" }).last()).toContainText("Checking every number against the results");
+  await expect(dock.getByTestId("analyst-answer").last().getByRole("button", { name: /how this was calculated/i }).first()).toBeVisible();
+});
+
+test("lens: pick on-screen elements, compare them, and leave with Esc", async ({ page }) => {
+  await signIn(page, "alpha.admin");
+  await page.getByRole("heading", { name: "Inventory position" }).click();
+  await page.keyboard.press("l");
+  await expect(page.getByTestId("lens-banner")).toBeVisible();
+  await page.getByTestId("kpi-items").click();
+  await page.getByTestId("kpi-lines").click({ modifiers: ["Shift"] });
+  const dock = page.getByTestId("analyst-dock");
+  const chips = dock.getByLabel("Analyzing");
+  await expect(chips).toContainText("Items in stock");
+  await expect(chips).toContainText("Stock lines");
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("lens-banner")).toHaveCount(0);
+  await dock.getByLabel("Ask the Analyst").fill("break this down");
+  await dock.getByRole("button", { name: "Send" }).click();
+  await expect(dock.getByTestId("analyst-answer").last()).toContainText(/warehouse/i);
+});
+
+test("insights and the Analyst never show values to a role without cost access", async ({ page }) => {
+  await signIn(page, "alpha.analyst");
+  const feed = page.getByTestId("insights-feed");
+  await expect(feed.getByTestId("insight-card").first()).toBeVisible();
+  await expect(feed).not.toContainText("USD");
+  await page.getByTestId("analyst-toggle").click();
+  const dock = page.getByTestId("analyst-dock");
+  await dock.getByLabel("Ask the Analyst").fill("Which items make up most of the inventory value?");
+  await dock.getByRole("button", { name: "Send" }).click();
+  await expect(dock.getByTestId("analyst-answer").last()).toContainText("can't view inventory values");
+  await expect(dock).not.toContainText("USD");
+});

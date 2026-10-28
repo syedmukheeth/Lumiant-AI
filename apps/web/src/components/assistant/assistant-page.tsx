@@ -1,198 +1,52 @@
 "use client";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { clsx } from "clsx";
-import { Bot, Send, ThumbsDown, ThumbsUp, TriangleAlert } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Bot, Crosshair, Send, TriangleAlert } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { ProvenanceButton } from "@/components/data/provenance";
-import { SimpleTable, type SimpleColumn } from "@/components/data/simple-table";
-import { api, ApiError, type Provenance, type ResultWarning, type Row } from "@/lib/api";
+import { AnswerBody, BlockView, Trace } from "@/components/analyst/answer-view";
+import { openDock, setLens } from "@/components/analyst/store";
+import { type Block, type ChatAnswer, type Step, streamChat, toHistory } from "@/lib/agent";
+import { api, ApiError } from "@/lib/api";
 import { ASK_EVENT } from "@/lib/ask";
-import { formatMoney, formatNumber, formatQuantity } from "@/lib/format";
 
-type Kind = "text" | "qty" | "money" | "int" | "date";
-type ColumnDef = { key: string; label: string; kind: Kind };
-type TableBlock = { type: "table"; title: string; columns: ColumnDef[]; rows: Row[] };
-type BarBlock = { type: "bar"; title: string; label_key: string; value_key: string; kind: "money" | "qty"; unit_key: string; rows: Row[] };
-type Block = TableBlock | BarBlock;
-type Choice = { label: string; item_id?: string; warehouse_id?: string };
-
-type ChatResponse = {
-  mode: "rules" | "anthropic";
-  notice: string | null;
-  kind: "tools" | "clarify" | "unsupported";
-  answer: string;
-  blocks: Block[];
-  tool_calls: { name: string; args: Record<string, unknown> }[];
-  provenance: Provenance[];
-  warnings: ResultWarning[];
-  follow_ups: string[];
-  choices: Choice[];
-  grounding: { passed: boolean; source: string };
-};
-
-type Turn = { id: number; question: string; response?: ChatResponse; error?: string };
-
-function cell(kind: Kind, row: Row, key: string) {
-  const v = row[key];
-  if (v === null || v === undefined || v === "") return <span className="text-ink-3">—</span>;
-  if (kind === "qty") return <span className="figure">{formatQuantity(v as string, row.uom as string | undefined)}</span>;
-  if (kind === "money") return <span className="figure">{formatMoney(v as string, row.currency as string | undefined)}</span>;
-  if (kind === "int") return <span className="figure">{formatNumber(v as string, { maxFraction: 0 })}</span>;
-  return <span className={kind === "date" ? "figure text-xs" : ""}>{String(v)}</span>;
-}
-
-function TableView({ block }: { block: TableBlock }) {
-  const columns: SimpleColumn[] = block.columns.map((c) => ({
-    key: c.key,
-    label: c.label,
-    align: c.kind === "text" || c.kind === "date" ? undefined : "right",
-    render: (r) => cell(c.kind, r, c.key),
-  }));
-  return (
-    <div>
-      <p className="eyebrow mb-1">{block.title}</p>
-      <SimpleTable columns={columns} rows={block.rows} empty="Nothing to show." rowKey={(_, i) => String(i)} minWidth="30rem" />
-    </div>
-  );
-}
-
-function BarView({ block }: { block: BarBlock }) {
-  const groups = new Map<string, Row[]>();
-  for (const r of block.rows) groups.set(String(r[block.unit_key] ?? ""), [...(groups.get(String(r[block.unit_key] ?? "")) ?? []), r]);
-  return (
-    <div className="space-y-3">
-      <p className="eyebrow">{block.title}</p>
-      {[...groups.entries()].map(([unit, rows]) => {
-        const max = Math.max(...rows.map((r) => Number(r[block.value_key])), 0) || 1;
-        return (
-          <div key={unit} className="space-y-1">
-            {groups.size > 1 && <p className="figure text-xs text-ink-3">{unit}</p>}
-            {rows.map((r, i) => (
-              <div key={i} className="grid grid-cols-[minmax(6rem,12rem)_1fr_auto] items-center gap-3 text-sm">
-                <span className="truncate text-ink-2" title={String(r[block.label_key] ?? "")}>{String(r[block.label_key] ?? "Not set")}</span>
-                <span className="h-3 rounded-sm bg-surface-2">
-                  <span className="block h-full rounded-sm bg-accent" style={{ width: `${(Number(r[block.value_key]) / max) * 100}%` }} />
-                </span>
-                <span className="figure text-xs">
-                  {block.kind === "money" ? formatMoney(r[block.value_key] as string, unit) : formatQuantity(r[block.value_key] as string, unit)}
-                </span>
-              </div>
-            ))}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function Feedback({ turn }: { turn: number }) {
-  const [sent, setSent] = useState<"up" | "down" | null>(null);
-  const send = useMutation({
-    mutationFn: (rating: "up" | "down") => api.post("/api/agent/feedback", { rating, reason: `turn ${turn}` }),
-    onSuccess: (_d, rating) => setSent(rating),
-  });
-  return (
-    <span className="flex items-center gap-1 text-ink-3" role="group" aria-label="Was this helpful?">
-      {sent ? (
-        <span className="text-xs">Thanks for the feedback</span>
-      ) : (
-        <>
-          <button type="button" onClick={() => send.mutate("up")} className="rounded-sm p-1 hover:bg-surface-2 hover:text-ink" aria-label="Helpful"><ThumbsUp size={14} /></button>
-          <button type="button" onClick={() => send.mutate("down")} className="rounded-sm p-1 hover:bg-surface-2 hover:text-ink" aria-label="Not helpful"><ThumbsDown size={14} /></button>
-        </>
-      )}
-    </span>
-  );
-}
-
-function Answer({ turn, onAsk }: { turn: Turn; onAsk: (q: string) => void }) {
-  const r = turn.response;
-  if (turn.error) {
-    return (
-      <p role="alert" className="flex items-start gap-2 text-sm text-signal">
-        <TriangleAlert size={15} className="mt-0.5 shrink-0" aria-hidden /> {turn.error}
-      </p>
-    );
-  }
-  if (!r) return <p className="text-sm text-ink-3" role="status">Thinking…</p>;
-  return (
-    <div className="space-y-3" data-testid="assistant-answer">
-      {r.notice && <p className="text-xs text-ink-3">{r.notice}</p>}
-      <p className="text-sm leading-relaxed text-ink">{r.answer}</p>
-      {r.blocks.map((b, i) => (b.type === "table" ? <TableView key={i} block={b} /> : <BarView key={i} block={b} />))}
-      {r.warnings.length > 0 && (
-        <ul className="space-y-1">
-          {r.warnings.filter((w) => w.code !== "truncated").map((w, i) => (
-            <li key={i} className="flex items-start gap-1.5 text-xs text-ink-2">
-              <TriangleAlert size={13} className="mt-px shrink-0 text-signal" aria-hidden /> {w.message}
-            </li>
-          ))}
-        </ul>
-      )}
-      {r.choices.length > 0 && (
-        <div className="flex flex-wrap gap-2" aria-label="Choose one">
-          {r.choices.map((c, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() =>
-                onAsk(
-                  c.warehouse_id
-                    ? `compare cost of item ${c.item_id} in warehouse ${c.warehouse_id}`
-                    : `how much stock of item ${c.item_id}`,
-                )
-              }
-              className="rounded-sm border border-line-strong px-2.5 py-1.5 text-left text-xs hover:bg-surface-2"
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
-      )}
-      {r.follow_ups.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {r.follow_ups.map((f) => (
-            <button key={f} type="button" onClick={() => onAsk(f)} className="rounded-full border border-line px-3 py-1 text-xs text-ink-2 hover:bg-surface-2">
-              {f}
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line pt-2 text-xs text-ink-3">
-        <span title={r.mode === "rules" ? "Built-in question matching; no data left this system" : "External AI chose the analysis and worded the answer from the results"}>
-          {r.mode === "rules" ? "Built-in matching" : "AI-assisted"}
-        </span>
-        {r.tool_calls.length > 0 && <span className="figure">used: {r.tool_calls.map((c) => c.name).join(", ")}</span>}
-        {r.provenance.map((p, i) => <ProvenanceButton key={i} provenance={p} label={r.provenance.length > 1 ? `Source ${i + 1}` : "Source"} />)}
-        <Feedback turn={turn.id} />
-      </div>
-    </div>
-  );
-}
+type Turn = { id: number; question: string; steps: Step[]; blocks: Block[]; response?: ChatAnswer; error?: string };
 
 export function AssistantPage() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [text, setText] = useState("");
+  const [pending, setPending] = useState(false);
   const suggestions = useQuery({ queryKey: ["agent-suggestions"], queryFn: () => api.get<{ suggestions: string[] }>("/api/agent/suggestions") });
   const end = useRef<HTMLDivElement>(null);
   const next = useRef(1);
-
-  const chat = useMutation({
-    mutationFn: ({ question }: { id: number; question: string }) => api.post<ChatResponse>("/api/agent/chat", { message: question }),
-    onSuccess: (response, { id }) => setTurns((t) => t.map((x) => (x.id === id ? { ...x, response } : x))),
-    onError: (error, { id }) =>
-      setTurns((t) => t.map((x) => (x.id === id ? { ...x, error: error instanceof ApiError ? `${error.message}${error.requestId ? ` (ref ${error.requestId.slice(0, 12)})` : ""}` : "Something went wrong." } : x))),
+  const turnsRef = useRef(turns);
+  useEffect(() => {
+    turnsRef.current = turns;
   });
 
-  const ask = (question: string) => {
+  const update = (id: number, patch: (t: Turn) => Partial<Turn>) => setTurns((all) => all.map((t) => (t.id === id ? { ...t, ...patch(t) } : t)));
+
+  const ask = async (question: string) => {
     const q = question.trim();
-    if (q.length < 2 || chat.isPending) return;
+    if (q.length < 2 || pending) return;
     const id = next.current++;
-    setTurns((t) => [...t, { id, question: q }]);
+    const history = toHistory(turnsRef.current.map((t) => ({ question: t.question, answer: t.response })));
+    setTurns((t) => [...t, { id, question: q, steps: [], blocks: [] }]);
     setText("");
-    chat.mutate({ id, question: q });
+    setPending(true);
+    try {
+      const response = await streamChat({ message: q, context: { page: "assistant" }, history }, (event) => {
+        if (event.type === "step") update(id, (t) => ({ steps: [...t.steps.filter((s) => s.id !== event.id), event] }));
+        else if (event.type === "block") update(id, (t) => ({ blocks: [...t.blocks, event.block] }));
+      });
+      update(id, (t) => ({ response, steps: response.steps ?? t.steps }));
+    } catch (error) {
+      update(id, () => ({
+        error: error instanceof ApiError ? `${error.message}${error.requestId ? ` (ref ${error.requestId.slice(0, 12)})` : ""}` : "Something went wrong.",
+      }));
+    } finally {
+      setPending(false);
+    }
   };
 
   // A guided-menu card links here with ?q=...: ask once, then clean the URL.
@@ -203,7 +57,7 @@ export function AssistantPage() {
     const q = new URLSearchParams(window.location.search).get("q");
     if (q) {
       window.history.replaceState(null, "", window.location.pathname);
-      ask(q);
+      void ask(q);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -214,31 +68,47 @@ export function AssistantPage() {
     askLatest.current = ask;
   });
   useEffect(() => {
-    const onAsk = (e: Event) => askLatest.current(String((e as CustomEvent<string>).detail ?? ""));
+    const onAsk = (e: Event) => void askLatest.current(String((e as CustomEvent<string>).detail ?? ""));
     window.addEventListener(ASK_EVENT, onAsk);
     return () => window.removeEventListener(ASK_EVENT, onAsk);
   }, []);
 
+  const last = turns[turns.length - 1];
   useEffect(() => {
     end.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [turns]);
+  }, [turns.length, last?.steps.length, last?.response]);
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-5">
-      <div className="rise">
-        <p className="eyebrow">Assistant</p>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink sm:text-[1.75rem]">Ask about your inventory</h1>
-        <p className="mt-1 text-sm text-ink-3">
-          Answers come from your permitted data through the same checked queries as the dashboards. The assistant never writes SQL, and every number comes from a result you can inspect.
-        </p>
+      <div className="rise flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="eyebrow">Assistant</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink sm:text-[1.75rem]">Ask about your inventory</h1>
+          <p className="mt-1 max-w-2xl text-sm text-ink-3">
+            Answers come from your permitted data through the same checked queries as the dashboards. The assistant never writes SQL, and every number comes from a result you can inspect.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            openDock(true);
+            setLens(true);
+          }}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs text-ink-2 transition-colors hover:border-accent/50 hover:text-accent"
+          title="Point at anything on any page and ask about it"
+        >
+          <Crosshair size={13} aria-hidden /> Analyze anything on screen
+        </button>
       </div>
 
       {turns.length === 0 && (
-        <div className="rise rounded-md border border-line bg-surface p-4" style={{ animationDelay: "60ms" }}>
-          <p className="eyebrow mb-2 flex items-center gap-1.5"><Bot size={13} aria-hidden /> Try asking</p>
+        <div className="rise panel p-4" style={{ animationDelay: "60ms" }}>
+          <p className="eyebrow mb-2 flex items-center gap-1.5">
+            <Bot size={13} aria-hidden /> Try asking
+          </p>
           <div className="flex flex-wrap gap-2">
             {(suggestions.data?.suggestions ?? []).map((s) => (
-              <button key={s} type="button" onClick={() => ask(s)} className="rounded-full border border-line px-3 py-1.5 text-sm text-ink-2 hover:bg-surface-2">
+              <button key={s} type="button" onClick={() => void ask(s)} className="rounded-full border border-line px-3 py-1.5 text-sm text-ink-2 transition-colors hover:border-accent/50 hover:bg-accent-soft hover:text-accent">
                 {s}
               </button>
             ))}
@@ -247,22 +117,42 @@ export function AssistantPage() {
       )}
 
       <ol className="space-y-5" aria-live="polite">
-        {turns.map((t) => (
-          <li key={t.id} className="space-y-2">
-            <p className={clsx("ml-auto w-fit max-w-[85%] rounded-md bg-ink px-3 py-2 text-sm text-surface")}>{t.question}</p>
-            <div className="rounded-md border border-line bg-surface p-4">
-              <Answer turn={t} onAsk={ask} />
-            </div>
-          </li>
-        ))}
+        {turns.map((t) => {
+          const running = !t.response && !t.error;
+          return (
+            <li key={t.id} className="space-y-2">
+              <p className="ml-auto w-fit max-w-[85%] rounded-xl rounded-br-sm bg-surface-3 px-3 py-2 text-sm text-ink shadow-e1">{t.question}</p>
+              <div className="panel p-4">
+                <Trace steps={t.steps} running={running} />
+                {running && t.blocks.length > 0 && (
+                  <div className="mt-3 space-y-3">
+                    {t.blocks.map((b, i) => (
+                      <BlockView key={i} block={b} />
+                    ))}
+                  </div>
+                )}
+                {t.error && (
+                  <p role="alert" className="flex items-start gap-2 text-sm text-signal">
+                    <TriangleAlert size={15} className="mt-0.5 shrink-0" aria-hidden /> {t.error}
+                  </p>
+                )}
+                {t.response && (
+                  <div className={t.steps.length > 0 ? "mt-3 border-t border-line pt-3" : undefined}>
+                    <AnswerBody answer={t.response} onAsk={(q) => void ask(q)} turnId={t.id} testId="assistant-answer" />
+                  </div>
+                )}
+              </div>
+            </li>
+          );
+        })}
       </ol>
       <div ref={end} />
 
       <form
-        className="sticky bottom-3 flex gap-2 rounded-md border border-line-strong bg-surface p-2 shadow-lg"
+        className="sticky bottom-3 flex gap-2 rounded-xl border border-control-line bg-surface p-2 shadow-e2"
         onSubmit={(e) => {
           e.preventDefault();
-          ask(text);
+          void ask(text);
         }}
       >
         <input
@@ -273,7 +163,11 @@ export function AssistantPage() {
           aria-label="Ask a question"
           className="h-10 min-w-0 flex-1 bg-transparent px-2 text-sm outline-none placeholder:text-ink-3"
         />
-        <button type="submit" disabled={chat.isPending || text.trim().length < 2} className="inline-flex h-10 items-center gap-1.5 rounded-sm bg-ink px-4 text-sm font-medium text-surface disabled:opacity-40">
+        <button
+          type="submit"
+          disabled={pending || text.trim().length < 2}
+          className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-accent px-4 text-sm font-medium text-accent-ink transition-opacity disabled:opacity-40"
+        >
           <Send size={14} aria-hidden /> Ask
         </button>
       </form>

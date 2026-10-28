@@ -3,7 +3,10 @@
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
+import { analyzableProps } from "@/components/analyst/analyzable";
+import { analyze } from "@/components/analyst/store";
 import { ErrorState, Panel, Skeleton } from "@/components/data/widget";
+import type { SelectionKind } from "@/lib/agent";
 import { formatMoney, humanize, toChartNumber } from "@/lib/format";
 import { useMetric } from "@/lib/hooks";
 
@@ -16,9 +19,11 @@ type Props = {
   codeField?: string;
   humanizeLabels?: boolean;
   delay?: number;
+  /** What a bar stands for; clicking it (or picking it in Lens mode) points the Analyst at that category. */
+  selectKind?: SelectionKind;
 };
 
-type Datum = { label: string; value: number; exact: string };
+type Datum = { label: string; value: number; exact: string; id: string };
 
 /** One-line category label in the UI sans (Recharts would wrap it by its own text measurement). */
 function CategoryTick({ x, y, payload }: { x?: number | string; y?: number | string; payload?: { value?: unknown } }) {
@@ -35,7 +40,8 @@ function CategoryTick({ x, y, payload }: { x?: number | string; y?: number | str
  * Horizontal bars of a value metric. Amounts in different currencies are shown one currency at a time;
  * bar lengths use numbers for geometry only — every printed amount is the exact decimal string.
  */
-export function ValueBars({ metricId, title, labelField, codeField, humanizeLabels, delay = 0 }: Props) {
+export function ValueBars({ metricId, title, labelField, codeField, humanizeLabels, delay = 0, selectKind }: Props) {
+  const [hover, setHover] = useState<number | null>(null);
   const { data, error, isPending } = useMetric(metricId);
   const currencies = useMemo(
     () => Array.from(new Set((data?.data ?? []).map((r) => String(r.currency ?? "")))).filter(Boolean).sort(),
@@ -56,6 +62,7 @@ export function ValueBars({ metricId, title, labelField, codeField, humanizeLabe
             label: codeField && r[codeField] ? `${r[codeField]} · ${label}` : label,
             value: toChartNumber(r.value as string),
             exact: String(r.value ?? ""),
+            id: String((codeField ? r[codeField] : raw) ?? ""),
           };
         }),
     [data, currency, labelField, codeField, humanizeLabels],
@@ -96,6 +103,7 @@ export function ValueBars({ metricId, title, labelField, codeField, humanizeLabe
       warnings={data?.warnings.filter((w) => w.code !== "auto_grouped" && w.code !== "missing_valuation_price")}
       actions={switcher}
       style={{ animationDelay: `${delay}ms` }}
+      analyze={{ kind: "metric", id: metricId, label: title }}
     >
       {isPending ? (
         <Skeleton className="h-48 w-full" />
@@ -104,9 +112,22 @@ export function ValueBars({ metricId, title, labelField, codeField, humanizeLabe
       ) : rows.length === 0 ? (
         <p className="text-sm text-ink-3">No stock in your scope.</p>
       ) : (
-        <div style={{ height: Math.max(140, rows.length * 34 + 24) }} className="figure text-[0.6875rem]">
+        <div
+          style={{ height: Math.max(140, rows.length * 34 + 24) }}
+          className="figure text-[0.6875rem]"
+          {...(selectKind && hover !== null && rows[hover]?.id
+            ? analyzableProps({ kind: selectKind, id: rows[hover].id, label: rows[hover].label })
+            : {})}
+        >
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 12, bottom: 0, left: 0 }} barCategoryGap={6}>
+            <BarChart
+              data={rows}
+              layout="vertical"
+              margin={{ top: 0, right: 12, bottom: 0, left: 0 }}
+              barCategoryGap={6}
+              onMouseMove={(s) => setHover(s?.activeTooltipIndex != null ? Number(s.activeTooltipIndex) : null)}
+              onMouseLeave={() => setHover(null)}
+            >
               <CartesianGrid horizontal={false} stroke="var(--viz-grid)" />
               <XAxis
                 type="number"
@@ -140,7 +161,17 @@ export function ValueBars({ metricId, title, labelField, codeField, humanizeLabe
                 labelStyle={{ color: "var(--ink)" }}
               />
               {/* Single series: categorical slot 1, 4 px rounded data end. Recharts animation stays off: it runs on frames, which a hidden tab never produces (ISSUES #10). */}
-              <Bar dataKey="value" fill="var(--viz-1)" radius={[0, 4, 4, 0]} isAnimationActive={false} />
+              <Bar
+                dataKey="value"
+                fill="var(--viz-1)"
+                radius={[0, 4, 4, 0]}
+                isAnimationActive={false}
+                cursor={selectKind ? "pointer" : undefined}
+                onClick={(d) => {
+                  const datum = (d as { payload?: Datum }).payload;
+                  if (selectKind && datum?.id) analyze({ kind: selectKind, id: datum.id, label: datum.label });
+                }}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>

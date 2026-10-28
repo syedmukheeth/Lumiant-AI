@@ -2,13 +2,16 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { clsx } from "clsx";
-import { Clock, LogOut, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
+import { Clock, LogOut, PanelLeftClose, PanelLeftOpen, Search, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Tooltip } from "radix-ui";
 import { Fragment, useEffect, useState, useSyncExternalStore } from "react";
 
+import { AnalystDock } from "@/components/analyst/analyst-dock";
+import { Lens } from "@/components/analyst/lens";
+import { toggleDock, toggleLens, useAnalyst } from "@/components/analyst/store";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { type NavItem, navFor } from "@/components/shell/nav";
 import { toggleRail, useRailCollapsed } from "@/components/shell/rail-state";
@@ -138,6 +141,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const nav = user ? navFor(user.sections) : [];
   const unreachable = me.error && !(me.error instanceof ApiError && me.error.status === 401);
   const canAsk = !!user?.sections.includes("assistant");
+  const canCost = !!user?.permissions.includes("cost:read");
+  const analyst = useAnalyst();
 
   const ask = (question: string) => {
     // Already on the assistant: hand the question over without remounting (keeps the conversation).
@@ -150,6 +155,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     onPalette: () => setPaletteOpen((o) => !o),
     onNavigate: (href) => router.push(href),
     onToggleRail: toggleRail,
+    onDock: canAsk ? toggleDock : undefined,
+    onLens: canAsk ? toggleLens : undefined,
   });
 
   return (
@@ -274,6 +281,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   Data as of <span className="figure text-ink-2">{formatTimestamp(meta.data?.data_as_of)}</span>
                   {meta.data?.stale && " · stale"}
                 </span>
+                {canAsk && (
+                  <button
+                    type="button"
+                    onClick={toggleDock}
+                    aria-pressed={analyst.open}
+                    aria-keyshortcuts="Control+J Meta+J"
+                    title={`Analyst (${apple ? "⌘" : "Ctrl"}+J) · Lens (L)`}
+                    data-testid="analyst-toggle"
+                    className={clsx(
+                      "inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-colors",
+                      analyst.open
+                        ? "border-accent/50 bg-accent-soft text-accent shadow-[var(--glow)]"
+                        : "border-line bg-surface/60 text-ink-2 hover:border-accent/40 hover:text-ink",
+                    )}
+                  >
+                    <Sparkles size={13} aria-hidden /> <span className="hidden sm:inline">Analyst</span>
+                  </button>
+                )}
                 <ThemeToggle />
                 <button type="button" onClick={signOut} className="rounded-md p-1.5 hover:bg-surface-2 md:hidden" aria-label="Sign out">
                   <LogOut size={15} />
@@ -281,7 +306,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             </div>
           </header>
-          <main className="px-4 pt-6 pb-28 sm:px-6 md:pb-10 lg:px-8">
+          <main className="app-main px-4 pt-6 pb-28 transition-[padding] duration-(--dur-slow) sm:px-6 md:pb-10 lg:px-8">
             {unreachable && (
               <p role="alert" className="mb-4 rounded-md border border-signal/40 bg-signal-soft p-3 text-sm text-ink">
                 The service could not be reached. {me.error instanceof ApiError ? me.error.message : ""}
@@ -305,6 +330,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         onAsk={ask}
         onSignOut={signOut}
       />
+      {canAsk && (
+        <>
+          <AnalystDock canCost={canCost} />
+          <Lens />
+        </>
+      )}
     </Tooltip.Provider>
   );
 }

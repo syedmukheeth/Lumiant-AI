@@ -4,6 +4,7 @@ import { Lock } from "lucide-react";
 
 import { ValueBars } from "@/components/data/value-bars";
 import { BelowReorderPanel } from "@/components/overview/below-reorder";
+import { InsightsFeed } from "@/components/overview/insights-feed";
 import { KpiStrip } from "@/components/overview/kpi-strip";
 import { useMetricList, usePageMe } from "@/lib/hooks";
 
@@ -15,10 +16,10 @@ export default function OverviewPage() {
   const scope = me?.scope;
 
   return (
-    <div className="mx-auto max-w-[96rem] space-y-6">
+    <div className="@container mx-auto max-w-[96rem] space-y-6">
       <div className="rise flex flex-wrap items-end justify-between gap-2">
         <div>
-          <p className="eyebrow">Overview</p>
+          <p className="eyebrow">Command center</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink sm:text-[1.75rem]">Inventory position</h1>
         </div>
         {scope && (
@@ -32,12 +33,14 @@ export default function OverviewPage() {
 
       {metrics.isSuccess && <KpiStrip canSeeValue={canSeeValue} />}
 
+      <InsightsFeed />
+
       {metrics.isSuccess && canSeeValue ? (
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <ValueBars metricId="inventory_value_by_warehouse" title="Value by warehouse" labelField="warehouse.name" codeField="warehouse_id" delay={200} />
-          <ValueBars metricId="inventory_value_by_item_group" title="Value by item group" labelField="item.item_group" humanizeLabels delay={240} />
-          <ValueBars metricId="inventory_value_by_abc" title="Value by ABC class (as assigned in source)" labelField="item.abc_class" delay={280} />
-          <ValueBars metricId="inventory_value_by_stage" title="Value by inventory stage" labelField="item.inventory_stage" humanizeLabels delay={320} />
+        <div className="grid grid-cols-1 gap-4 @5xl:grid-cols-2">
+          <ValueBars metricId="inventory_value_by_warehouse" selectKind="warehouse" title="Value by warehouse" labelField="warehouse.name" codeField="warehouse_id" delay={200} />
+          <ValueBars metricId="inventory_value_by_item_group" selectKind="item_group" title="Value by item group" labelField="item.item_group" humanizeLabels delay={240} />
+          <ValueBars metricId="inventory_value_by_abc" selectKind="abc" title="Value by ABC class (as assigned in source)" labelField="item.abc_class" delay={280} />
+          <ValueBars metricId="inventory_value_by_stage" selectKind="stage" title="Value by inventory stage" labelField="item.inventory_stage" humanizeLabels delay={320} />
         </div>
       ) : metrics.isSuccess ? (
         <p className="flex items-center gap-2 rounded-md border border-dashed border-line-strong p-4 text-sm text-ink-3">

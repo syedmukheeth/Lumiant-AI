@@ -90,6 +90,24 @@ Single source of truth: `src/lib/motion.ts` (`EASE`, `DUR`, `STAGGER`, `RISE`, `
 Matching is word-prefix (`paletteFilter`: "inv" → Inventory), not cmdk's default fuzzy subsequence, which matched typed questions to unrelated pages ("valve" → Inventory). The palette never computes or shows a number; it only navigates.
 The inventory explorer mirrors an outside change of the URL `q` (palette, back button) into its search box; its own debounced writes are skipped, so typing during the round trip is never overwritten.
 
+## Analyst Lens (ADR-0010)
+
+The "analyze anything" chat. `components/analyst/`:
+
+| Piece | What it does |
+|---|---|
+| `store.ts` | one external store (no provider): dock open, Lens on, selections (≤ 5), the conversation, pinned answers (localStorage, per browser). `analyze(sel, {additive, ask})` points the Analyst at something; `ask(q)` streams an answer with the page, URL filters (`warehouse`, `item_group`, `stage`, `status`), selections and the last 6 questions/tools as context. Sets `data-dock` / `data-lens` on `<html>`. |
+| `analyzable.tsx` | `analyzableProps(sel)` (data attributes the Lens reads), `<Analyzable>` wrapper, `AnalyzeButton` (spark icon; Shift adds to a comparison). Right-click on an analyzable element opens the Analyst with it selected (Shift + right-click keeps the browser menu); `A` on a focused wrapper does the same. |
+| `lens.tsx` | Lens mode (`L`, or the dock's Lens button): every analyzable element is outlined, hover lifts it with the accent glow, a click selects it (capture phase, so the normal click does not run), Shift-click adds, Esc leaves. A status pill shows the mode. |
+| `analyst-dock.tsx` | right-hand dock that stays open across pages (resizable 22–44 rem, width in `--dock-w`; wide screens pad `.app-main` instead of covering it). Context chips, selection-specific suggestions, streamed trace, answers with sources, Pin / pinned board, new conversation. |
+| `answer-view.tsx` | shared answer rendering for the dock and `/assistant`: tables, bars (grow-in), the step trace, sources, feedback. |
+
+What is analyzable: KPI tiles (`metric`), every value panel (`metric`), each bar (`warehouse` / `item_group` / `abc` / `stage`, picked by hover in Lens mode or by click), explorer rows (`item`), insight cards (`insight`). Labels are shown in chips but never trusted by the API.
+
+`lib/agent.ts`: `streamChat` reads `POST /api/agent/chat/stream` (SSE) and falls back to `/api/agent/chat`; `toWire` trims selections to the API limits; `toHistory` sends questions and tools, never results.
+
+**Insight feed** (`overview/insights-feed.tsx`): `GET /api/insights` as ranked cards (severity edge + icon + label, template title, metrics, Analyze → Analyst with the card's selection and question, Open → the page) and an "Unlock more analyses" list of gaps naming the missing source data.
+
 ## Keyboard shortcuts
 
 | Keys | Action |
@@ -98,9 +116,12 @@ The inventory explorer mirrors an outside change of the URL `q` (palette, back b
 | `/` | open the palette |
 | `G` then `O` / `E` / `I` / `R` / `C` / `A` / `P` / `D` | Overview / Explore / Inventory / Risks / Costs / Assistant / Reports / Admin (granted pages only; 1.2 s window) |
 | `[` | collapse / expand the rail |
+| ⌘J / Ctrl+J | open or close the Analyst |
+| `L` | Lens mode on / off (Esc leaves) |
+| `A` | analyze the focused element (Shift: add to the comparison) |
 
 Single-key shortcuts never fire while typing in an input, textarea, select or editable element, or with a modifier held. Links and buttons carry `aria-keyshortcuts`.
 
 ## Testing
 
-Vitest (`tests/unit`: formatters, API client, CSP, provenance, command palette, shortcuts, theme/rail state, `theme-init.js` visibility handling) and Playwright (`e2e/`: flows on an isolated production build, including the palette, shortcuts and rail, background-tab and reduced-motion entrances). See `06-operations/TESTING.md`.
+Vitest (`tests/unit`: formatters, API client, CSP, provenance, command palette, shortcuts, theme/rail state, `theme-init.js` visibility handling, SSE parsing, selection limits, Analyzable/Lens behaviour) and Playwright (`e2e/`: flows on an isolated production build, including the palette, shortcuts and rail, background-tab and reduced-motion entrances). See `06-operations/TESTING.md`.

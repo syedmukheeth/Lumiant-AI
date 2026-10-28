@@ -3,10 +3,13 @@
 import { clsx } from "clsx";
 import { ArrowDown, ArrowUp, Search } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { AnalyzeButton, analyzableProps } from "@/components/analyst/analyzable";
+import { analyze } from "@/components/analyst/store";
 import { Pager } from "@/components/data/pager";
 import { ErrorState, Panel, Skeleton } from "@/components/data/widget";
+import type { Selection } from "@/lib/agent";
 import type { Row } from "@/lib/api";
 import { formatMoney, formatNumber, humanize } from "@/lib/format";
 import { type BalanceQuery, useBalances, useInventoryFilters, usePageMe } from "@/lib/hooks";
@@ -145,15 +148,23 @@ export function InventoryExplorer() {
   };
   const balances = useBalances(query);
 
+  // The URL most recently requested from the router, until the router has committed it. router.replace is a
+  // transition: window.location can lag behind it, so a debounced search firing meanwhile must build on this one.
+  const pendingQs = useRef<string | null>(null);
+  useEffect(() => {
+    if (pendingQs.current !== null && pendingQs.current === params.toString()) pendingQs.current = null;
+  }, [params]);
+
   const update = (patch: Partial<Record<keyof BalanceQuery, string | number | undefined>>) => {
-    // Read the live URL, not the render-time snapshot: the debounced search can fire after another
-    // filter changed, and must not overwrite it.
-    const next = new URLSearchParams(window.location.search);
+    // Never the render-time snapshot: the debounced search can fire after another filter changed and must not
+    // overwrite it (ISSUES #12).
+    const next = new URLSearchParams(pendingQs.current ?? window.location.search);
     for (const [k, v] of Object.entries(patch)) {
       if (v === undefined || v === "" || (k === "offset" && v === 0)) next.delete(k);
       else next.set(k, String(v));
     }
     if (!("offset" in patch)) next.delete("offset");
+    pendingQs.current = next.toString();
     router.replace(`${pathname}?${next.toString()}`, { scroll: false });
   };
 
@@ -300,15 +311,34 @@ export function InventoryExplorer() {
                       </td>
                     </tr>
                   )}
-                  {balances.data?.data.map((r, i) => (
-                    <tr key={`${r.item_id}-${r.warehouse_id}-${r.location_id}-${r.lot_id}-${i}`} className="border-b border-line/70 hover:bg-surface-2/60">
-                      {columns.map((c) => (
-                        <td key={c.key} className={clsx("px-4 py-2 align-top sm:px-5", c.align === "right" && "text-right")}>
-                          {c.render(r)}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
+                  {balances.data?.data.map((r, i) => {
+                    const sel: Selection = { kind: "item", id: String(r.item_id), label: [r.item_code, r.description].filter(Boolean).join(" · ") };
+                    return (
+                      <tr
+                        key={`${r.item_id}-${r.warehouse_id}-${r.location_id}-${r.lot_id}-${i}`}
+                        className="group/row border-b border-line/70 hover:bg-surface-2/60"
+                        {...analyzableProps(sel)}
+                        onContextMenu={(e) => {
+                          if (e.shiftKey) return;
+                          e.preventDefault();
+                          analyze(sel);
+                        }}
+                      >
+                        {columns.map((c, ci) => (
+                          <td key={c.key} className={clsx("px-4 py-2 align-top sm:px-5", c.align === "right" && "text-right")}>
+                            {ci === 0 ? (
+                              <div className="flex items-start gap-1">
+                                <div className="min-w-0 flex-1">{c.render(r)}</div>
+                                <AnalyzeButton sel={sel} className="-mt-0.5 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100" />
+                              </div>
+                            ) : (
+                              c.render(r)
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

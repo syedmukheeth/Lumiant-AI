@@ -3,7 +3,10 @@
 import { AlertTriangle, Lock, ServerCrash } from "lucide-react";
 import { clsx } from "clsx";
 
+import { AnalyzeButton, analyzableProps } from "@/components/analyst/analyzable";
+import { analyze as analyzeSelection } from "@/components/analyst/store";
 import { ProvenanceButton } from "@/components/data/provenance";
+import type { Selection } from "@/lib/agent";
 import { ApiError, type Provenance, type ResultWarning } from "@/lib/api";
 
 export function Warnings({ warnings }: { warnings?: ResultWarning[] }) {
@@ -51,6 +54,7 @@ export function Panel({
   children,
   className,
   style,
+  analyze,
 }: {
   title: string;
   subtitle?: string;
@@ -60,12 +64,24 @@ export function Panel({
   children: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
+  /** Makes the whole panel something the Analyst can be pointed at (right-click, spark button, Lens). */
+  analyze?: Selection;
 }) {
   return (
     <section
       className={clsx("rise panel flex min-w-0 flex-col p-4 transition-colors hover:border-line-strong sm:p-5", className)}
       style={style}
       aria-label={title}
+      {...(analyze ? analyzableProps(analyze) : {})}
+      onContextMenu={
+        analyze
+          ? (e) => {
+              if (e.shiftKey || (e.target as Element).closest("[data-analyzable]") !== e.currentTarget) return;
+              e.preventDefault();
+              analyzeSelection(analyze);
+            }
+          : undefined
+      }
     >
       <header className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -74,6 +90,7 @@ export function Panel({
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {actions}
+          {analyze && <AnalyzeButton sel={analyze} />}
           <ProvenanceButton provenance={provenance} />
         </div>
       </header>

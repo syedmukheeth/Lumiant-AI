@@ -3,8 +3,11 @@
 import { clsx } from "clsx";
 import { Lock } from "lucide-react";
 
+import { AnalyzeButton, analyzableProps } from "@/components/analyst/analyzable";
+import { analyze } from "@/components/analyst/store";
 import { ProvenanceButton } from "@/components/data/provenance";
 import { ErrorState, Skeleton } from "@/components/data/widget";
+import type { Selection } from "@/lib/agent";
 import type { Envelope, Provenance, ResultWarning } from "@/lib/api";
 import { formatCount, formatMoney } from "@/lib/format";
 import { useBelowReorder, useMetric } from "@/lib/hooks";
@@ -22,9 +25,11 @@ type CellProps = {
   index: number;
   children?: React.ReactNode;
   testId?: string;
+  /** The metric this tile shows, for the Analyst. */
+  analyze?: Selection;
 };
 
-function Cell({ label, footnote, provenance, warnings, pending, error, tone = "default", index, children, testId }: CellProps) {
+function Cell({ label, footnote, provenance, warnings, pending, error, tone = "default", index, children, testId, analyze: sel }: CellProps) {
   const gaps = warnings?.filter((w) => w.code === "missing_valuation_price") ?? [];
   return (
     <div
@@ -36,10 +41,23 @@ function Cell({ label, footnote, provenance, warnings, pending, error, tone = "d
       )}
       style={enterDelay(index)}
       data-testid={testId}
+      {...(sel ? analyzableProps(sel) : {})}
+      onContextMenu={
+        sel
+          ? (e) => {
+              if (e.shiftKey) return;
+              e.preventDefault();
+              analyze(sel);
+            }
+          : undefined
+      }
     >
       <div className="flex items-start justify-between gap-2">
         <span className="eyebrow">{label}</span>
-        <ProvenanceButton provenance={provenance} label="" />
+        <span className="flex items-center">
+          {sel && <AnalyzeButton sel={sel} className="opacity-60 hover:opacity-100" />}
+          <ProvenanceButton provenance={provenance} label="" />
+        </span>
       </div>
       <div className={clsx("min-h-9", tone === "signal" ? "text-signal" : "text-ink")}>
         {pending ? <Skeleton className="h-8 w-32" /> : error ? <ErrorState error={error} /> : children}
@@ -74,7 +92,7 @@ export function KpiStrip({ canSeeValue }: { canSeeValue: boolean }) {
   const below = useBelowReorder({ offset: 0, limit: 1 });
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 @lg:grid-cols-2 @5xl:grid-cols-4">
       <Cell
         label="Inventory value"
         provenance={value.data?.provenance}
@@ -83,6 +101,7 @@ export function KpiStrip({ canSeeValue }: { canSeeValue: boolean }) {
         error={value.error}
         index={0}
         testId="kpi-value"
+        analyze={{ kind: "metric", id: "inventory_value_total", label: "Inventory value" }}
         footnote={canSeeValue ? "On-hand × source valuation price" : undefined}
       >
         {canSeeValue ? (
@@ -107,6 +126,7 @@ export function KpiStrip({ canSeeValue }: { canSeeValue: boolean }) {
         error={items.error}
         index={1}
         testId="kpi-items"
+        analyze={{ kind: "metric", id: "items_in_stock", label: "Items in stock" }}
         footnote="Distinct items with quantity > 0"
       >
         <span className="figure text-[1.625rem] font-semibold leading-tight tracking-tight">{formatCount(firstNumber(items.data, "items"))}</span>
@@ -118,6 +138,7 @@ export function KpiStrip({ canSeeValue }: { canSeeValue: boolean }) {
         error={lines.error}
         index={2}
         testId="kpi-lines"
+        analyze={{ kind: "metric", id: "stock_lines", label: "Stock lines" }}
         footnote="Item × warehouse × location × lot"
       >
         <span className="figure text-[1.625rem] font-semibold leading-tight tracking-tight">{formatCount(firstNumber(lines.data, "lines"))}</span>

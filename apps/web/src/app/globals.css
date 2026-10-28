@@ -88,6 +88,8 @@
 
   /* rail width; public/theme-init.js sets [data-rail="collapsed"] before first paint */
   --rail-w: 15rem;
+  /* Analyst dock width (resizable; the dock writes it on <html>) */
+  --dock-w: 27rem;
   color-scheme: dark;
 }
 
@@ -338,10 +340,77 @@ kbd,
   animation: enter-fade var(--dur-base) var(--ease-out-expo) both;
 }
 
+/* Analyst answers: the card rises, trace steps fade in as they arrive, result bars grow from their axis. */
+@keyframes enter-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.answer-in {
+  animation: enter-rise var(--dur-enter) var(--ease-out-expo) both;
+}
+
+.trace-step {
+  animation: enter-fade var(--dur-base) var(--ease-out-expo) both;
+}
+
+.bar-grow {
+  transform-origin: left center;
+  animation: enter-grow var(--dur-slow) var(--ease-out-expo) both;
+}
+
 :root[data-motion="off"] .rise,
 :root[data-motion="off"] .route-enter,
-:root[data-motion="off"] .pop-enter {
+:root[data-motion="off"] .pop-enter,
+:root[data-motion="off"] .answer-in,
+:root[data-motion="off"] .trace-step,
+:root[data-motion="off"] .bar-grow {
   animation: none;
+}
+
+/*
+ * Analyst Lens (ADR-0010): while [data-lens] is on <html>, everything the user can ask about is outlined; hovering lifts
+ * it with the accent glow, selected elements stay lit. Clicks are captured by lens.tsx.
+ */
+:root[data-lens] [data-analyzable] {
+  cursor: crosshair;
+  outline: 1px dashed color-mix(in oklab, var(--accent) 45%, transparent);
+  outline-offset: 3px;
+  border-radius: 0.75rem;
+  transition:
+    outline-color var(--dur-fast) var(--ease-out-expo),
+    box-shadow var(--dur-fast) var(--ease-out-expo);
+}
+
+:root[data-lens] [data-analyzable]:hover {
+  outline: 2px solid var(--accent);
+  box-shadow: var(--glow);
+}
+
+:root[data-lens] [data-analyzable] [data-analyzable]:hover {
+  outline-offset: 1px;
+}
+
+[data-analyzable][data-selected] {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 0.75rem;
+  box-shadow: var(--glow);
+}
+
+:root[data-lens] main {
+  background-image: radial-gradient(circle at 50% 0, var(--ambient-1), transparent 60%);
+}
+
+/* Wide screens keep the page readable beside the open Analyst dock instead of covering it. */
+@media (min-width: 80rem) {
+  :root[data-dock="open"] .app-main {
+    padding-right: calc(var(--dock-w) + 1.5rem);
+  }
 }
 
 @keyframes shimmer {
@@ -362,9 +431,13 @@ kbd,
 /* Reduced motion: no travel, no loops — content still arrives, by opacity. */
 @media (prefers-reduced-motion: reduce) {
   .rise,
-  .pop-enter {
+  .pop-enter,
+  .answer-in {
     animation-name: enter-fade;
     animation-duration: var(--dur-base);
+  }
+  .bar-grow {
+    animation: none;
   }
   .skeleton {
     animation: none;
