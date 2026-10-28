@@ -276,6 +276,8 @@ test("command palette: permitted pages, material search into the explorer, and A
 
   await signIn(page, "alpha.admin");
   await page.getByRole("button", { name: /Search, jump or ask/ }).click();
+  // Type only once the dialog has mounted and focused its input; keys sent earlier go to the page (CI runners are slow).
+  await expect(palette.getByRole("combobox")).toBeFocused();
   await page.keyboard.type("Gasket");
   const material = palette.getByRole("option").filter({ hasText: "View stock" }).first();
   await expect(material).toContainText("Gasket");
@@ -287,6 +289,7 @@ test("command palette: permitted pages, material search into the explorer, and A
   await expect(table.locator("tbody tr").first()).toContainText(code);
 
   await page.keyboard.press("ControlOrMeta+K");
+  await expect(palette.getByRole("combobox")).toBeFocused();
   await page.keyboard.type("Which items are below reorder level?");
   await palette.getByRole("option", { name: /Ask:/ }).click();
   await page.waitForURL("**/assistant**");
