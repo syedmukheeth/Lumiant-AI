@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { ProvenanceButton } from "@/components/data/provenance";
 import { SimpleTable, type SimpleColumn } from "@/components/data/simple-table";
 import { api, ApiError, type Provenance, type ResultWarning, type Row } from "@/lib/api";
+import { ASK_EVENT } from "@/lib/ask";
 import { formatMoney, formatNumber, formatQuantity } from "@/lib/format";
 
 type Kind = "text" | "qty" | "money" | "int" | "date";
@@ -205,6 +206,17 @@ export function AssistantPage() {
       ask(q);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // The command palette hands over questions while this page is open (no remount, the conversation stays).
+  const askLatest = useRef(ask);
+  useEffect(() => {
+    askLatest.current = ask;
+  });
+  useEffect(() => {
+    const onAsk = (e: Event) => askLatest.current(String((e as CustomEvent<string>).detail ?? ""));
+    window.addEventListener(ASK_EVENT, onAsk);
+    return () => window.removeEventListener(ASK_EVENT, onAsk);
   }, []);
 
   useEffect(() => {

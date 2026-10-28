@@ -28,7 +28,7 @@ export function ProvenanceButton({ provenance, label = "Source" }: { provenance?
   return (
     <Popover.Root>
       <Popover.Trigger
-        className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs font-medium text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink"
+        className="inline-flex items-center gap-1 rounded-md border border-transparent px-1.5 py-0.5 text-xs font-medium text-ink-3 transition-colors hover:border-line hover:bg-surface-2 hover:text-ink data-[state=open]:border-accent/40 data-[state=open]:bg-accent-soft data-[state=open]:text-accent"
         aria-label={`${label}: how this was calculated`}
       >
         <FileSearch size={13} aria-hidden />
@@ -39,14 +39,14 @@ export function ProvenanceButton({ provenance, label = "Source" }: { provenance?
           align="end"
           sideOffset={6}
           collisionPadding={12}
-          className="z-50 w-[min(28rem,calc(100vw-1.5rem))] rounded-md border border-line-strong bg-surface p-4 shadow-xl"
+          className="pop-enter z-(--z-overlay) w-[min(28rem,calc(100vw-1.5rem))] rounded-lg border border-line-strong bg-surface-3 p-4 shadow-e3"
         >
           <div className="mb-2 flex items-start justify-between gap-4">
             <div>
               <p className="eyebrow">Provenance slip</p>
               <p className="mt-0.5 text-sm font-semibold text-ink">{p.metric ? `${p.metric.id} · v${p.metric.version}` : p.dataset}</p>
             </div>
-            <Popover.Close className="rounded-sm p-1 text-ink-3 hover:bg-surface-2" aria-label="Close">
+            <Popover.Close className="rounded-md p-1 text-ink-3 transition-colors hover:bg-surface-2 hover:text-ink" aria-label="Close">
               <X size={14} />
             </Popover.Close>
           </div>
@@ -108,12 +108,12 @@ export function ProvenanceButton({ provenance, label = "Source" }: { provenance?
               <Row label="SQL">
                 <details>
                   <summary className="cursor-pointer text-xs text-accent">show generated SQL</summary>
-                  <pre className="figure mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded-sm bg-surface-2 p-2 text-[0.6875rem] leading-snug">{p.sql}</pre>
+                  <pre className="figure mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded-md border border-line bg-bg p-2 text-[0.6875rem] leading-snug">{p.sql}</pre>
                 </details>
               </Row>
             )}
           </dl>
-          <Popover.Arrow className="fill-line-strong" />
+          <Popover.Arrow className="fill-line-strong" width={12} height={6} />
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

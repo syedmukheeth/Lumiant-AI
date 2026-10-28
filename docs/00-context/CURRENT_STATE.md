@@ -32,6 +32,7 @@ _Rewritten at the end of every session. Last update: 2026-10-28, S03 (M8 client 
 | PostgreSQL 16 app DB | Alembic up/down/up + whole API suite (`LUMIANT_TEST_PG_ADMIN_URL`) |
 | Shared rate limit | Optional Redis store (`LUMIANT_RATE_LIMIT_REDIS_URL`), tested on Redis 7.0; in-process default and outage fallback |
 | Nonce CSP | Per-request nonce, no `'unsafe-inline'` scripts; e2e-verified (ADR-0007) |
+| M10 D1–D2 "command center" UI foundation (branch `claude/epic-feynman-f5e29e`, not committed): dark-first tokens + light opt-in, glass/elevation, validated data-viz palette, self-hosted Geist, motion constants + reduced motion, ISSUES #10 fixed; collapsible rail + command bar, ⌘K palette (pages by permission, material search, Ask), G-key shortcuts, route fade; shared primitives restyled | `apps/web/tests/unit/{command-palette,shell}.test.tsx` (unit 41), e2e palette/shortcuts/background-tab/reduced-motion (20 passed on a fresh production build — TEST_RUNS D2-4…D2-8), `02-architecture/FRONTEND.md` |
 
 ## What is simulated (not evidence of customer readiness)
 - **All data is synthetic.** Valuation price = the generator's own moving average; ABC classes and reorder policies are synthetic stand-ins for customer master data.
@@ -44,7 +45,7 @@ _Rewritten at the end of every session. Last update: 2026-10-28, S03 (M8 client 
 LIFO rule, ageing buckets, price-movement alerts, value maps · editable query chips, glossary, capability matrix · drill-through, saved views, background reports · value maps, mapping editor/approval, profiling (rest of M5) · a real IdP; managed PostgreSQL/Redis · real customer integration (M7).
 
 ## Known limitations
-See `../logs/ISSUES.md` (open: #1 no enterprise warehouse connectors, #2 conservative pins, #3 no value maps, #5 master data tenant-wide, #6 no cost-based query limits, #8 test-client deprecation, #10 animations pause in background tabs, #13 live AI provider, #14, #15, #16 real IdP).
+See `../logs/ISSUES.md` (open: #1 no enterprise warehouse connectors, #2 conservative pins, #3 no value maps, #5 master data tenant-wide, #6 no cost-based query limits, #8 test-client deprecation, #13 live AI provider, #14, #15, #16 real IdP, #31 dev-only nonce hydration warning, #32 palette material search uses the stock-line endpoint, #33 stale Turbopack build cache locally).
 
 ## Blocked on the customer
 Everything production-related: `../07-customer/OPEN_QUESTIONS.md` — highest priority Q-001 (warehouse technology/access), Q-003 (schema), Q-006–Q-008 (costing policy), Q-010 (IdP), Q-012 (hosting), Q-013 (AI provider approval).

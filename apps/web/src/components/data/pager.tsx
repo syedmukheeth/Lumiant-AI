@@ -15,7 +15,7 @@ export function Pager({
   const from = total === 0 ? 0 : offset + 1;
   const to = Math.min(offset + limit, total);
   const btn =
-    "inline-flex items-center rounded-sm border border-line px-2 py-1 text-xs text-ink-2 hover:bg-surface-2 disabled:opacity-40 disabled:hover:bg-transparent";
+    "inline-flex items-center gap-0.5 rounded-md border border-line bg-surface-2/40 px-2 py-1 text-xs text-ink-2 transition-colors hover:border-line-strong hover:bg-surface-2 hover:text-ink disabled:opacity-40 disabled:hover:border-line disabled:hover:bg-surface-2/40 disabled:hover:text-ink-2";
   return (
     <nav aria-label="Pagination" className="mt-3 flex items-center justify-between gap-3 text-xs text-ink-3">
       <span className="figure" data-testid="pager-range">

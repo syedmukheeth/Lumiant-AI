@@ -264,3 +264,80 @@ test("a saved theme is applied by the external theme script under the CSP", asyn
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 });
+
+test("command palette: permitted pages, material search into the explorer, and Ask hands over to the assistant", async ({ page }) => {
+  await signIn(page, "alpha.analyst");
+  await page.keyboard.press("ControlOrMeta+K");
+  const palette = page.getByTestId("command-palette");
+  await expect(palette.getByRole("option", { name: /Risks/ })).toBeVisible();
+  await expect(palette.getByRole("option", { name: /Costs/ })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(palette).toHaveCount(0);
+
+  await signIn(page, "alpha.admin");
+  await page.getByRole("button", { name: /Search, jump or ask/ }).click();
+  await page.keyboard.type("Gasket");
+  const material = palette.getByRole("option").filter({ hasText: "View stock" }).first();
+  await expect(material).toContainText("Gasket");
+  await material.click();
+  await page.waitForURL(/\/inventory\?q=/);
+  const code = new URL(page.url()).searchParams.get("q") ?? "";
+  await expect(page.getByLabel("Search items")).toHaveValue(code);
+  const table = page.getByTestId("balances-table");
+  await expect(table.locator("tbody tr").first()).toContainText(code);
+
+  await page.keyboard.press("ControlOrMeta+K");
+  await page.keyboard.type("Which items are below reorder level?");
+  await palette.getByRole("option", { name: /Ask:/ }).click();
+  await page.waitForURL("**/assistant**");
+  await expect(page.getByTestId("assistant-answer").first()).toContainText("below their reorder level");
+});
+
+test("keyboard shortcuts jump between permitted pages and the rail collapses and is remembered", async ({ page }) => {
+  await signIn(page, "alpha.admin");
+  await page.keyboard.press("g");
+  await page.keyboard.press("i");
+  await page.waitForURL("**/inventory");
+  await expect(page.getByRole("heading", { name: "Stock on hand" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Collapse navigation" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-rail", "collapsed");
+  expect((await page.locator("aside").boundingBox())?.width).toBeLessThan(80);
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-rail", "collapsed");
+  // Labels are visually hidden, never removed: links keep their names.
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Risks" }).click();
+  await expect(page.getByRole("heading", { name: "Inventory risks" })).toBeVisible();
+  await page.getByRole("button", { name: "Expand navigation" }).click();
+  await expect(page.locator("html")).not.toHaveAttribute("data-rail", "collapsed");
+});
+
+test("entrance animations never leave content faded in a background tab (ISSUES #10)", async ({ page }) => {
+  await signIn(page, "alpha.admin");
+  const setVisibility = (state: "hidden" | "visible") =>
+    page.evaluate((s) => {
+      Object.defineProperty(document, "visibilityState", { configurable: true, get: () => s });
+      document.dispatchEvent(new Event("visibilitychange"));
+    }, state);
+  const faded = () =>
+    page.locator(".rise, .route-enter").evaluateAll((els) => els.filter((e) => getComputedStyle(e).opacity !== "1").length);
+
+  await setVisibility("hidden");
+  await expect(page.locator("html")).toHaveAttribute("data-motion", "off");
+  // New content mounts while the tab is in the background.
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Risks" }).click();
+  await expect(page.getByRole("heading", { name: "Inventory risks" })).toBeVisible();
+  expect(await page.locator(".rise").count()).toBeGreaterThan(0);
+  expect(await faded()).toBe(0);
+  // Back in the foreground nothing replays from opacity 0.
+  await setVisibility("visible");
+  await expect(page.locator("html")).not.toHaveAttribute("data-motion", "off");
+  expect(await faded()).toBe(0);
+});
+
+test("reduced motion: entrances fade in place instead of travelling", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await signIn(page, "alpha.admin");
+  const names = await page.locator(".rise").evaluateAll((els) => [...new Set(els.map((e) => getComputedStyle(e).animationName))]);
+  expect(names).toEqual(["enter-fade"]);
+});

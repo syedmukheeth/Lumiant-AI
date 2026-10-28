@@ -11,3 +11,17 @@ class ResizeObserverStub {
   disconnect() {}
 }
 globalThis.ResizeObserver ??= ResizeObserverStub as unknown as typeof ResizeObserver;
+
+// jsdom has no scrollIntoView (cmdk scrolls the selected item into view) and no matchMedia (Motion reads the
+// reduced-motion preference).
+Element.prototype.scrollIntoView ??= function scrollIntoView() {};
+window.matchMedia ??= ((query: string) => ({
+  matches: false,
+  media: query,
+  onchange: null,
+  addListener() {},
+  removeListener() {},
+  addEventListener() {},
+  removeEventListener() {},
+  dispatchEvent: () => false,
+})) as unknown as typeof window.matchMedia;

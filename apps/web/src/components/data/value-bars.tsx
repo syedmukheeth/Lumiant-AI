@@ -20,6 +20,17 @@ type Props = {
 
 type Datum = { label: string; value: number; exact: string };
 
+/** One-line category label in the UI sans (Recharts would wrap it by its own text measurement). */
+function CategoryTick({ x, y, payload }: { x?: number | string; y?: number | string; payload?: { value?: unknown } }) {
+  const v = String(payload?.value ?? "");
+  return (
+    <text x={x} y={y} dy="0.35em" textAnchor="end" fill="var(--ink-2)" fontSize={11} fontFamily="var(--font-sans)">
+      <title>{v}</title>
+      {v.length > 30 ? `${v.slice(0, 29)}…` : v}
+    </text>
+  );
+}
+
 /**
  * Horizontal bars of a value metric. Amounts in different currencies are shown one currency at a time;
  * bar lengths use numbers for geometry only — every printed amount is the exact decimal string.
@@ -52,14 +63,14 @@ export function ValueBars({ metricId, title, labelField, codeField, humanizeLabe
 
   const switcher =
     currencies.length > 1 ? (
-      <div role="tablist" aria-label="Currency" className="flex rounded-sm border border-line p-0.5">
+      <div role="tablist" aria-label="Currency" className="flex rounded-md border border-line bg-surface-2/50 p-0.5">
         {currencies.map((c) => (
           <button
             key={c}
             role="tab"
             aria-selected={c === currency}
             onClick={() => setPicked(c)}
-            className={`figure rounded-[2px] px-1.5 py-0.5 text-[0.6875rem] ${c === currency ? "bg-ink text-surface" : "text-ink-3 hover:text-ink"}`}
+            className={`figure rounded-[5px] px-1.5 py-0.5 text-[0.6875rem] transition-colors ${c === currency ? "bg-surface-3 text-ink shadow-e1" : "text-ink-3 hover:text-ink"}`}
           >
             {c}
           </button>
@@ -96,11 +107,12 @@ export function ValueBars({ metricId, title, labelField, codeField, humanizeLabe
         <div style={{ height: Math.max(140, rows.length * 34 + 24) }} className="figure text-[0.6875rem]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={rows} layout="vertical" margin={{ top: 0, right: 12, bottom: 0, left: 0 }} barCategoryGap={6}>
-              <CartesianGrid horizontal={false} stroke="var(--line)" strokeDasharray="2 3" />
+              <CartesianGrid horizontal={false} stroke="var(--viz-grid)" />
               <XAxis
                 type="number"
                 tickFormatter={(v: number) => formatMoney(v, currency, { compact: true })}
                 stroke="var(--ink-3)"
+                tick={{ fill: "var(--ink-3)" }}
                 tickLine={false}
                 axisLine={false}
                 tickCount={4}
@@ -110,23 +122,25 @@ export function ValueBars({ metricId, title, labelField, codeField, humanizeLabe
                 type="category"
                 dataKey="label"
                 width={196}
-                tick={{ fill: "var(--ink-2)" }}
+                tick={CategoryTick}
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={(v: string) => (v.length > 30 ? `${v.slice(0, 29)}…` : v)}
               />
               <Tooltip
-                cursor={{ fill: "var(--surface-2)" }}
+                cursor={{ fill: "var(--viz-cursor)" }}
                 contentStyle={{
-                  background: "var(--surface)",
+                  background: "var(--surface-3)",
                   border: "1px solid var(--line-strong)",
-                  borderRadius: 4,
+                  borderRadius: 8,
+                  boxShadow: "var(--elev-2)",
                   fontSize: 12,
                 }}
+                itemStyle={{ color: "var(--ink-2)" }}
                 formatter={(_v, _n, item) => [formatMoney((item.payload as Datum).exact, currency), "Value"]}
                 labelStyle={{ color: "var(--ink)" }}
               />
-              <Bar dataKey="value" fill="var(--accent)" radius={[0, 2, 2, 0]} isAnimationActive={false} />
+              {/* Single series: categorical slot 1, 4 px rounded data end. Recharts animation stays off: it runs on frames, which a hidden tab never produces (ISSUES #10). */}
+              <Bar dataKey="value" fill="var(--viz-1)" radius={[0, 4, 4, 0]} isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
         </div>

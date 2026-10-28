@@ -1,84 +1,188 @@
 @import "tailwindcss";
 
+/* Light is the opt-in theme (dark is the default); `light:` styles the few things that differ by theme. */
+@custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
+/* Collapsed icon rail ([data-rail="collapsed"] on <html>, set before first paint): labels become screen-reader only. */
+@custom-variant rail-collapsed (&:where([data-rail="collapsed"] *));
+
 /*
- * Lumiant "ledger" design tokens.
- * Light = warm ledger paper with ink; dark = graphite control room. One working accent (teal) for data,
- * one signal accent (orange) reserved for things that need attention. Contrast pairs meet WCAG AA.
+ * Lumiant "command center" design tokens (docs/02-architecture/FRONTEND.md § Design tokens).
+ *
+ * Dark-first: :root is the dark theme; light applies only when the viewer picks it ([data-theme="light"], set
+ * before first paint by public/theme-init.js). One working accent (teal) for UI, one signal accent (amber) reserved
+ * for things that need attention. Data colors (--viz-*, --status-*) are a separate, validated set: UI accents are never
+ * used as series colors. Every text pair is WCAG AA (contrast.mjs, TEST_RUNS D1-1); the viz palette passes the
+ * dataviz validator in both modes (TEST_RUNS D1-2).
  */
 :root {
-  --bg: #f4f2ec;
-  --surface: #fbfaf6;
-  --surface-2: #efece4;
-  --ink: #17191c;
-  --ink-2: #474c54;
-  --ink-3: #6a6f7a;
-  --line: #ddd9ce;
-  --line-strong: #b8b2a2;
-  --accent: #0e5c58;
-  --accent-soft: #d7e8e5;
-  --signal: #b93c0b;
-  --signal-soft: #fbe8dc;
-  --ok: #2f6b3a;
+  /* planes: page → panel → raised (hover, inputs) → floating (popovers, palette) */
+  --bg: #080a0d;
+  --surface: #0f1318;
+  --surface-2: #161b22;
+  --surface-3: #1d242d;
+  /* ink: primary ≥ 13:1, secondary ≥ 7.7:1, muted ≥ 4.9:1 on every plane */
+  --ink: #e9edf1;
+  --ink-2: #aeb8c4;
+  --ink-3: #8592a0;
+  --line: #222a33;
+  --line-strong: #34404d;
+  /* form-control boundary, ≥ 3:1 on surface (WCAG 1.4.11) */
+  --control-line: #5c6776;
+  --accent: #3ccfbf;
+  --accent-ink: #04201d;
+  --accent-soft: #0d2a28;
+  --signal: #ffa155;
+  --signal-soft: #2e1d10;
+  --ok: #5fd38d;
   --tape: #f2c230;
   --tape-ink: #1b1b1b;
-  --grid: rgb(23 25 28 / 0.035);
-  color-scheme: light;
-}
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0f1113;
-    --surface: #16191c;
-    --surface-2: #1d2125;
-    --ink: #ece9e1;
-    --ink-2: #b9b5ab;
-    --ink-3: #8e8a81;
-    --line: #2a2f34;
-    --line-strong: #3d444b;
-    --accent: #55b8ad;
-    --accent-soft: #163330;
-    --signal: #f08a4b;
-    --signal-soft: #2c1c12;
-    --ok: #7cc48a;
-    --grid: rgb(236 233 225 / 0.03);
-    color-scheme: dark;
-  }
-}
+  /* glass + elevation: light from above (inner top highlight), depth from soft drop shadows */
+  --glass: rgb(13 17 22 / 0.72);
+  --glass-strong: rgb(17 22 28 / 0.9);
+  --glass-line: rgb(255 255 255 / 0.07);
+  --highlight: rgb(255 255 255 / 0.045);
+  --elev-1: inset 0 1px 0 0 var(--highlight), 0 1px 2px 0 rgb(0 0 0 / 0.45);
+  --elev-2: inset 0 1px 0 0 var(--highlight), 0 10px 28px -10px rgb(0 0 0 / 0.65);
+  --elev-3: inset 0 1px 0 0 var(--highlight), 0 0 0 1px var(--glass-line), 0 28px 72px -18px rgb(0 0 0 / 0.8);
+  --glow: 0 0 0 1px rgb(60 207 191 / 0.4), 0 0 22px -4px rgb(60 207 191 / 0.45);
+  --scrim: rgb(3 5 8 / 0.62);
+  --ambient-1: rgb(60 207 191 / 0.07);
+  --ambient-2: rgb(57 135 229 / 0.06);
+  --grid: rgb(233 237 241 / 0.022);
 
-:root[data-theme="dark"] {
-  --bg: #0f1113;
-  --surface: #16191c;
-  --surface-2: #1d2125;
-  --ink: #ece9e1;
-  --ink-2: #b9b5ab;
-  --ink-3: #8e8a81;
-  --line: #2a2f34;
-  --line-strong: #3d444b;
-  --accent: #55b8ad;
-  --accent-soft: #163330;
-  --signal: #f08a4b;
-  --signal-soft: #2c1c12;
-  --ok: #7cc48a;
-  --grid: rgb(236 233 225 / 0.03);
+  /* data viz (dataviz reference palette, dark steps; fixed order, never cycled) */
+  --viz-1: #3987e5;
+  --viz-2: #d95926;
+  --viz-3: #199e70;
+  --viz-4: #c98500;
+  --viz-5: #d55181;
+  --viz-6: #008300;
+  --viz-7: #9085e9;
+  --viz-8: #e66767;
+  --viz-grid: #222a33;
+  --viz-axis: #3a4654;
+  --viz-cursor: rgb(233 237 241 / 0.05);
+  /* status: reserved meaning, always shown with an icon + label */
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+
+  /* motion (mirrors src/lib/motion.ts — change both together) */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-smooth: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-pop: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --dur-fast: 140ms;
+  --dur-base: 220ms;
+  --dur-slow: 360ms;
+  --dur-enter: 420ms;
+  --rise: 6px;
+
+  /* z scale (mirrors Z in src/lib/motion.ts) */
+  --z-sticky: 20;
+  --z-rail: 30;
+  --z-nav: 40;
+  --z-overlay: 50;
+  --z-palette: 60;
+
+  /* rail width; public/theme-init.js sets [data-rail="collapsed"] before first paint */
+  --rail-w: 15rem;
   color-scheme: dark;
+}
+
+:root[data-rail="collapsed"] {
+  --rail-w: 4.25rem;
+}
+
+:root[data-theme="light"] {
+  --bg: #f2f4f7;
+  --surface: #ffffff;
+  --surface-2: #eceff3;
+  --surface-3: #ffffff;
+  --ink: #0c1117;
+  --ink-2: #3b4652;
+  --ink-3: #5a6573;
+  --line: #dde2e8;
+  --line-strong: #c3cbd5;
+  --control-line: #7c8795;
+  --accent: #0a7468;
+  --accent-ink: #ffffff;
+  --accent-soft: #d6efeb;
+  --signal: #b2440a;
+  --signal-soft: #fbe6d8;
+  --ok: #1f7440;
+
+  --glass: rgb(255 255 255 / 0.74);
+  --glass-strong: rgb(255 255 255 / 0.92);
+  --glass-line: rgb(12 17 23 / 0.08);
+  --highlight: rgb(255 255 255 / 0.9);
+  --elev-1: 0 1px 2px 0 rgb(12 17 23 / 0.06), 0 0 0 1px rgb(12 17 23 / 0.02);
+  --elev-2: 0 10px 28px -12px rgb(12 17 23 / 0.18);
+  --elev-3: 0 0 0 1px var(--glass-line), 0 28px 72px -20px rgb(12 17 23 / 0.3);
+  --glow: 0 0 0 1px rgb(10 116 104 / 0.35), 0 0 18px -6px rgb(10 116 104 / 0.35);
+  --scrim: rgb(12 17 23 / 0.32);
+  --ambient-1: rgb(10 116 104 / 0.06);
+  --ambient-2: rgb(42 120 214 / 0.05);
+  --grid: rgb(12 17 23 / 0.03);
+
+  --viz-1: #2a78d6;
+  --viz-2: #eb6834;
+  --viz-3: #1baf7a;
+  --viz-4: #eda100;
+  --viz-5: #e87ba4;
+  --viz-6: #008300;
+  --viz-7: #6250d6;
+  --viz-8: #e34948;
+  --viz-grid: #e3e7ec;
+  --viz-axis: #c3cbd5;
+  --viz-cursor: rgb(12 17 23 / 0.04);
+  color-scheme: light;
 }
 
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
+  --color-control-line: var(--control-line);
   --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
   --color-accent-soft: var(--accent-soft);
   --color-signal: var(--signal);
   --color-signal-soft: var(--signal-soft);
   --color-ok: var(--ok);
-  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --color-glass: var(--glass);
+  --color-glass-strong: var(--glass-strong);
+  --color-glass-line: var(--glass-line);
+  --color-scrim: var(--scrim);
+  --color-viz-1: var(--viz-1);
+  --color-viz-2: var(--viz-2);
+  --color-viz-3: var(--viz-3);
+  --color-viz-4: var(--viz-4);
+  --color-viz-5: var(--viz-5);
+  --color-viz-6: var(--viz-6);
+  --color-viz-7: var(--viz-7);
+  --color-viz-8: var(--viz-8);
+  --color-status-good: var(--status-good);
+  --color-status-warning: var(--status-warning);
+  --color-status-serious: var(--status-serious);
+  --color-status-critical: var(--status-critical);
+  --shadow-e1: var(--elev-1);
+  --shadow-e2: var(--elev-2);
+  --shadow-e3: var(--elev-3);
+  --shadow-glow: var(--glow);
+  --ease-out: var(--ease-out-expo);
+  --ease-in-out: var(--ease-in-out-smooth);
+  --default-transition-duration: var(--dur-fast);
+  --default-transition-timing-function: var(--ease-out-expo);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
 html,
@@ -89,12 +193,29 @@ body {
 
 body {
   font-family: var(--font-sans);
-  /* faint ledger grid */
+  font-feature-settings: "ss01" 1, "cv11" 1;
+  -webkit-font-smoothing: antialiased;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+/* Ambient light + faint grid behind the glass layers. A fixed layer, not background-attachment: fixed (no repaint on scroll). */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
   background-image:
+    radial-gradient(70rem 36rem at 8% -12%, var(--ambient-1), transparent 62%),
+    radial-gradient(56rem 30rem at 100% -6%, var(--ambient-2), transparent 60%),
     linear-gradient(var(--grid) 1px, transparent 1px),
     linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-  background-size: 24px 24px;
-  -webkit-font-smoothing: antialiased;
+  background-size: auto, auto, 32px 32px, 32px 32px;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--ink);
 }
 
 .figure {
@@ -105,6 +226,48 @@ body {
 
 .eyebrow {
   font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+/* Frosted layer for chrome that floats over content (command bar, rail, popovers, palette). */
+@utility glass {
+  background-color: var(--glass);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+}
+
+/* Elevated panel: the one card recipe every widget uses. */
+@utility panel {
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 0.625rem;
+  box-shadow: var(--elev-1);
+}
+
+kbd,
+.kbd {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  line-height: 1;
+  padding: 0.2rem 0.32rem;
+  border-radius: 0.25rem;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  color: var(--ink-3);
+  background: var(--surface-2);
+}
+
+/* Command palette (cmdk renders these parts; they take no className). */
+[cmdk-group] + [cmdk-group] {
+  margin-top: 0.25rem;
+}
+
+[cmdk-group-heading] {
+  padding: 0.5rem 0.75rem 0.25rem;
+  font-size: 0.625rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   font-weight: 600;
@@ -125,10 +288,35 @@ body {
   color: var(--tape-ink);
 }
 
-@keyframes rise {
+/*
+ * Entrance motion. Keyframe names start with "enter-": public/theme-init.js finishes these when the tab is hidden or
+ * comes back, and [data-motion="off"] (set while hidden) removes them, so content never rests faded (ISSUES #10).
+ * The resting style is always the final state; only the keyframes start from opacity 0.
+ */
+@keyframes enter-rise {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(var(--rise));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes enter-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes enter-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
   }
   to {
     opacity: 1;
@@ -137,7 +325,23 @@ body {
 }
 
 .rise {
-  animation: rise 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: enter-rise var(--dur-enter) var(--ease-out-expo) both;
+}
+
+/* Popovers grow from their trigger (Radix exposes the origin). */
+.pop-enter {
+  transform-origin: var(--radix-popover-content-transform-origin, top);
+  animation: enter-pop var(--dur-base) var(--ease-out-expo) both;
+}
+
+.route-enter {
+  animation: enter-fade var(--dur-base) var(--ease-out-expo) both;
+}
+
+:root[data-motion="off"] .rise,
+:root[data-motion="off"] .route-enter,
+:root[data-motion="off"] .pop-enter {
+  animation: none;
 }
 
 @keyframes shimmer {
@@ -155,16 +359,27 @@ body {
   animation: shimmer 1.2s linear infinite;
 }
 
+/* Reduced motion: no travel, no loops — content still arrives, by opacity. */
 @media (prefers-reduced-motion: reduce) {
   .rise,
+  .pop-enter {
+    animation-name: enter-fade;
+    animation-duration: var(--dur-base);
+  }
   .skeleton {
     animation: none;
   }
 }
 
+/* Unlayered on purpose: it beats `outline-none` utilities, so no control can lose its focus ring by accident. */
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* The one exception: the palette's search field, whose row shows focus instead (focus-within accent border). */
+[cmdk-input]:focus-visible {
+  outline: none;
 }
 
 @media print {
@@ -177,11 +392,15 @@ body {
     background: #fff !important;
     color: #000 !important;
   }
+  body::before {
+    display: none;
+  }
   main {
     padding: 0 !important;
   }
   * {
     animation: none !important;
     box-shadow: none !important;
+    backdrop-filter: none !important;
   }
 }

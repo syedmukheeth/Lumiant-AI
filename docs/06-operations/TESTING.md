@@ -13,7 +13,7 @@ Testing is part of every step (brief §18). Every run is recorded in `../logs/TE
 | API on PostgreSQL / Redis | same suites | `uv sync --frozen --extra postgres --extra redis`, then `LUMIANT_TEST_PG_ADMIN_URL=postgresql+psycopg://user:pw@host/postgres LUMIANT_TEST_REDIS_URL=redis://host:6379/0 uv run pytest -q` (each test app gets a fresh database; role needs CREATEDB; without the variables SQLite is used and those tests skip) | 275 (default 269 + 6 skipped) |
 | Web unit (Vitest + Testing Library) | `apps/web/tests/unit` | `pnpm test` | 23 |
 | Web lint / types | | `pnpm lint` · `pnpm typecheck` | clean |
-| End-to-end (Playwright, Chromium) | `apps/web/e2e` | `pnpm exec playwright install chromium` once, then `pnpm e2e` | 16 |
+| End-to-end (Playwright, Chromium) | `apps/web/e2e` | `pnpm exec playwright install chromium` once, then `pnpm e2e` | 20 |
 | Dependency audit | | `pnpm audit` (web) · `uv export --no-hashes --format requirements-txt --no-emit-project > req.txt && uvx pip-audit -r req.txt` (API) | 0 known vulns |
 | Everything except e2e | repo root | `pnpm run check` | |
 
@@ -38,6 +38,8 @@ Testing is part of every step (brief §18). Every run is recorded in `../logs/TE
 ## The e2e stack
 
 `playwright.config.ts` starts an isolated stack: API on **8100** with freshly generated data and its own app DB in `services/api/var/e2e/`, and a **production build** of the web app on **3100**. It does not touch the dev stack on 8000/3000.
+
+Before a local build that serves as evidence, delete `apps/web/.next/cache`: Turbopack's persistent build cache once produced CSS without the latest `globals.css` change (ISSUES #33). On a memory-starved machine the web server's build can exceed Playwright's 300 s start-up timeout; then build first (`LUMIANT_API_ORIGIN=http://127.0.0.1:8100 pnpm build`) and run the same suite against `pnpm start --port 3100` with a local, uncommitted config that only raises the timeouts (TEST_RUNS D2-4).
 
 ## Containers and CI
 

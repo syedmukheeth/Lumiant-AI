@@ -158,9 +158,23 @@ export function InventoryExplorer() {
   };
 
   const [term, setTerm] = useState(query.q ?? "");
+  // When the URL's search changes from outside this box (command palette, back button), show it in the box. A change
+  // this box made itself is skipped, so typing during the round trip is never overwritten.
+  const [pushedQ, setPushedQ] = useState(query.q);
+  const [seenQ, setSeenQ] = useState(query.q);
+  if (query.q !== seenQ) {
+    setSeenQ(query.q);
+    if (query.q !== pushedQ) {
+      setPushedQ(query.q);
+      setTerm(query.q ?? "");
+    }
+  }
   useEffect(() => {
     const t = setTimeout(() => {
-      if ((query.q ?? "") !== term.trim()) update({ q: term.trim() || undefined });
+      if ((query.q ?? "") !== term.trim()) {
+        setPushedQ(term.trim() || undefined);
+        update({ q: term.trim() || undefined });
+      }
     }, 300);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps

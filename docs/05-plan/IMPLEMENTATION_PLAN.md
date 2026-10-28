@@ -105,3 +105,11 @@ See `ROADMAP.md` and `07-customer/OPEN_QUESTIONS.md`.
 - [x] B6 Docs (`07-customer/CLIENT_DATA_INTAKE.md`, ADR-0008, Q-019…Q-026)
 - [x] Real import run locally; gate passed; `git status` clean of private files (session log S03)
 - [ ] Client answers Q-019…Q-026; next files (MB51/MSEG, MARC, MCHB/MCH1, T001W/T001L, EKPO)
+
+## M10 — Premium "Command Center" UI (plan Part D)
+- [x] D1 Design system: dark-first tokens, elevation + glass, validated data-viz palette, self-hosted fonts, motion constants + reduced motion, ISSUES #10
+- [x] D2 Shell: icon rail + command bar, ⌘K palette (pages, materials, ask), shortcuts, route transitions, restyled shared primitives
+- [ ] D3 Analyst Lens (needs Part C APIs)
+- [ ] D4 Pages redesign
+- [ ] D5 Quality (new e2e/vitest/axe for D3–D4)
+- [ ] D6 Docs (USER_GUIDE, ADR for contextual chat)

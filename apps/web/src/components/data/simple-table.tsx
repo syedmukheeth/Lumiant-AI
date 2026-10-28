@@ -31,7 +31,7 @@ export function SimpleTable({
     <div className="-mx-4 overflow-x-auto sm:-mx-5">
       <table className="w-full text-sm" style={{ minWidth }} aria-busy={busy}>
         <thead>
-          <tr className="border-y border-line">
+          <tr className="border-y border-line bg-surface-2/50">
             {columns.map((c) => (
               <th
                 key={c.key}
@@ -45,7 +45,7 @@ export function SimpleTable({
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={rowKey(r, i)} className="border-b border-line/70 hover:bg-surface-2/60">
+            <tr key={rowKey(r, i)} className="border-b border-line/60 transition-colors last:border-b-0 hover:bg-surface-2/70">
               {columns.map((c) => (
                 <td key={c.key} className={clsx("px-4 py-2 align-top sm:px-5", c.align === "right" && "text-right")}>
                   {c.render(r)}
