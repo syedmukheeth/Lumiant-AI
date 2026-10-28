@@ -135,3 +135,15 @@ values, SAR, invented plants GM01–GM03, ~29 storage locations, mostly all-zero
 control, price unit 1/100) with planted cases for every check in §6, then runs the same importer into
 `data/synthetic/demo-gamma.duckdb`. Tests compare every total and check count with values computed directly from the
 XLSX files (`tests/integration/test_sap_extract.py`).
+
+## 11. How the extract is used in the product (M9/M10)
+- **Overview → Insights** (`GET /api/insights`): on this data the rules that can run are stock tied up per SAP stock
+  status (quality inspection, blocked, restricted-use, transit, returns), value concentration (how few materials hold
+  80 % of the value), concentration by storage location and the SAP data-quality checks. Below-reorder, excess, dormant
+  and expiry show as **gaps** naming the SAP export that would unlock them (MARC, MB51/MSEG, MCHB/MCH1).
+- **Analyst / Lens**: KPIs, value panels, bars, explorer rows and insight cards of the extract can be pointed at and asked
+  about; answers group by plant, storage location, material group, material type (value map) or stock status, and can
+  compare selections. The built-in matcher is used: external AI stays off for `customer_extract` tenants until the client
+  approves a provider (Q-013, ADR-0009).
+- The synthetic twin `demo-gamma` shows the same views in demos and CI, so nothing from the real files is needed to
+  present them.

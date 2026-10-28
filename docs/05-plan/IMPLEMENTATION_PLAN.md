@@ -106,10 +106,20 @@ See `ROADMAP.md` and `07-customer/OPEN_QUESTIONS.md`.
 - [x] Real import run locally; gate passed; `git status` clean of private files (session log S03)
 - [ ] Client answers Q-019…Q-026; next files (MB51/MSEG, MARC, MCHB/MCH1, T001W/T001L, EKPO)
 
+## M9 — Agent: Gemini, screen context, streaming, insights (plan Part C)
+- [x] C1 `GeminiProvider` (`google-genai`, automatic function calling off, fake-client tests), settings, tenant approval gate (ADR-0009)
+- [x] C2 Screen context + history on `/api/agent/chat` (validated, narrowing only), contextual routing and follow-ups in the matcher, `only` comparisons, new tools `concentration` and `insights`
+- [x] C3 `POST /api/agent/chat/stream` (SSE steps → blocks → answer)
+- [x] C4 Insight engine + `GET /api/insights` (capability gaps name the missing customer data)
+- [x] C5 Tests + evals (`test_agent_context.py`, 8 new golden/adversarial cases)
+- [ ] Live check of the Gemini adapter with an owner key on a synthetic tenant (ISSUES #13)
+
 ## M10 — Premium "Command Center" UI (plan Part D)
 - [x] D1 Design system: dark-first tokens, elevation + glass, validated data-viz palette, self-hosted fonts, motion constants + reduced motion, ISSUES #10
 - [x] D2 Shell: icon rail + command bar, ⌘K palette (pages, materials, ask), shortcuts, route transitions, restyled shared primitives
-- [ ] D3 Analyst Lens (needs Part C APIs)
-- [ ] D4 Pages redesign
-- [ ] D5 Quality (new e2e/vitest/axe for D3–D4)
-- [ ] D6 Docs (USER_GUIDE, ADR for contextual chat)
+- [x] D3 Analyst Lens: analyzable KPIs/panels/bars/rows/insights, Lens mode, persistent dock with streamed trace, pins (ADR-0010)
+- [x] D4 (part) Overview as command center with the insight feed; assistant page on the shared streamed renderer
+- [ ] D4 (rest) Inventory virtualized grid + Material 360 sheet; Risks/Costs/Reports/Admin restyle; Admin › Data sources
+- [x] D5 (part) Vitest for SSE/selections/Lens; e2e for insights → Analyst, Lens compare, viewer leak check
+- [ ] D5 (rest) axe accessibility run
+- [x] D6 Docs (USER_GUIDE, FRONTEND § Analyst Lens, AGENT_DESIGN §6a/6b, ADR-0009/0010)

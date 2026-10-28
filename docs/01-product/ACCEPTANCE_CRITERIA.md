@@ -13,13 +13,13 @@ Status as of 2026-10-27 (end of M1). "Verified (synthetic)" = proven on generate
 | 6 | Warehouse-level summaries can be calculated | M1 | **Verified (synthetic)** | `inventory_value_by_warehouse` vs raw SQL tests |
 | 7 | ABC classifications follow configurable, tested rules | M2 | **Verified (synthetic, draft method)** | `test_costing.py::test_abc_*`, `test_m2_analyses.py::test_abc_*` |
 | 8 | Cost comparisons use documented calculations | M2 | **Verified (synthetic, draft definitions)** | `test_costing.py` hand-computed cases, `test_cost_comparison_reconciles_with_source_valuation` |
-| 9 | Chat supports a defined set of inventory questions | M3 | **Verified (synthetic, built-in matcher)** | `evals/golden.yaml`, `test_agent.py`, e2e `assistant` |
+| 9 | Chat supports a defined set of inventory questions | M3 / M9 | **Verified (synthetic, built-in matcher)**; screen context, follow-ups, streaming and 12 tools verified; Gemini adapter verified with a fake client only | `evals/golden.yaml`, `test_agent.py`, `test_agent_context.py`, e2e `assistant`, `insights feed hands a finding to the Analyst`, `lens` |
 | 10 | Queries execute only against approved datasets | M1 | **Verified** | validator `dataset_not_available`/`join_not_allowed`, SQL guard tests |
 | 11 | Unauthorized data requests are rejected | M1 | **Verified** | scope/cost/tenant tests (API + e2e) |
 | 12 | Missing data produces an honest, useful response | M1 (dashboard) / M3 (chat) | **Verified (dashboard + chat)** | missing valuation price warning, no-policy counts, UoM mismatch warning, `analysis_unavailable`, stale/unknown freshness warnings |
 | 13 | Results displayed as tables and appropriate charts | M1/M4 | **Verified (synthetic)** | overview, inventory, assistant, reports; exports + print (`test_reports.py`, e2e) |
 | 14 | Provenance and timestamps visible where relevant | M1 | **Verified** | provenance slip (unit + e2e), data as-of in header |
-| 15 | Relevant automated tests pass | every M | **Verified** | `logs/TEST_RUNS.md` (latest, Linux: 269 API + 6 env-gated, 275 with PostgreSQL/Redis; 23 web unit; 16 e2e); Windows D2: web unit 41, e2e 20 incl. palette, shortcuts, background-tab and reduced-motion (TEST_RUNS D2-2…D2-7) |
+| 15 | Relevant automated tests pass | every M | **Verified** | `logs/TEST_RUNS.md` S04: API 375 passed + 6 env-gated skips; web unit 50; e2e 23/23; GitHub Actions green on all five jobs (`668216e`); audits 0 findings |
 | 16 | Security risks and limitations documented | M1+ | **Verified for M1** | `03-security/*`, `logs/ISSUES.md` |
 | 17 | Setup and deployment instructions exist | M1 (setup) / M6 (deploy) | Setup **verified**; deployment not started | `06-operations/DEV_SETUP.md`, `DEPLOYMENT.md` (draft) |
-| 18 | Team can explain implemented vs simulated vs customer-dependent | every M | **Verified for M1** | `00-context/CURRENT_STATE.md` |
+| 18 | Team can explain implemented vs simulated vs customer-dependent | every M | **Verified through M10 (partial)** | `00-context/CURRENT_STATE.md`, `07-customer/CLIENT_DATA_INTAKE.md` |
