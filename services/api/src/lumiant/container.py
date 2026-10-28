@@ -12,6 +12,7 @@ from lumiant.auth.provider import DevAuthProvider
 from lumiant.connectors.registry import ConnectorRegistry
 from lumiant.core.config import Settings
 from lumiant.core.ratelimit import Limiter
+from lumiant.insights.engine import InsightService
 from lumiant.metrics.service import MetricsService
 from lumiant.query.service import QueryService
 from lumiant.reports.service import ReportService
@@ -29,6 +30,7 @@ class Container:
     agent: AgentService
     reports: ReportService
     admin: AdminService
+    insights: InsightService
     dev_auth: DevAuthProvider | None
     oidc: OidcAuthProvider | None
     limiter: Limiter

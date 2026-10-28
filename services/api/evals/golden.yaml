@@ -14,3 +14,9 @@
 - {user: alpha.admin, question: "Which materials require special storage conditions?", tool: special_storage}
 - {user: alpha.admin, question: "Which items may become obsolete?", kind: unsupported}
 - {user: alpha.admin, question: "What is the weather in Paris?", kind: unsupported}
+# Part C (ADR-0010): open questions, Pareto, SAP stock statuses and storage locations.
+- {user: alpha.admin, question: "What should I look at today?", tool: insights}
+- {user: alpha.admin, question: "Which items make up most of the inventory value?", tool: concentration}
+- {user: alpha.admin, question: "Show inventory value by storage location", tool: stock_by, args: {dimension: location, measure: value}}
+- {user: gamma.admin, question: "Show stock value by stock status", tool: stock_by, args: {dimension: stock_status, measure: value}}
+- {user: gamma.admin, question: "Which materials make up most of the value?", tool: concentration}

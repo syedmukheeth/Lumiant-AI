@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from lumiant import __version__
 from lumiant.admin.service import AdminService
 from lumiant.agent.service import AgentService
-from lumiant.api import admin, agent, analyses, auth, health, inventory, meta, metrics, query, reports
+from lumiant.api import admin, agent, analyses, auth, health, insights, inventory, meta, metrics, query, reports
 from lumiant.audit.store import AuditStore, run_migrations
 from lumiant.auth.oidc import OidcAuthProvider
 from lumiant.auth.provider import DevAuthProvider
@@ -21,6 +21,7 @@ from lumiant.core.errors import install_error_handlers
 from lumiant.core.logging import configure_logging
 from lumiant.core.ratelimit import build_limiter
 from lumiant.core.request_context import RequestContextMiddleware
+from lumiant.insights.engine import InsightService
 from lumiant.metrics.service import MetricsService
 from lumiant.query.service import QueryService
 from lumiant.reports.service import ReportService
@@ -49,6 +50,7 @@ def build_container(settings: Settings) -> Container:
         agent=AgentService(query_service, settings),
         reports=reports,
         admin=AdminService(query_service, reports),
+        insights=InsightService(query_service),
         dev_auth=DevAuthProvider(settings, tenants) if settings.dev_auth_enabled else None,
         oidc=oidc,
         limiter=build_limiter(settings),
@@ -77,6 +79,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.container = container
     app.add_middleware(RequestContextMiddleware)
     install_error_handlers(app)
-    for module in (health, auth, meta, metrics, inventory, analyses, agent, reports, admin, query):
+    for module in (health, auth, meta, metrics, inventory, analyses, agent, insights, reports, admin, query):
         app.include_router(module.router)
     return app

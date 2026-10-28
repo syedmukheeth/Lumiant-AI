@@ -70,10 +70,22 @@ Per request, a **disclosure log** records exactly what was sent (viewable by ten
 
 `LLMProvider` interface: `complete(messages, tools, tool_choice, max_tokens, timeout) -> ToolCalls | Text`, with adapters for Anthropic API, AWS Bedrock, Google Vertex, Azure OpenAI, and OpenAI-compatible self-hosted endpoints. Model ids are configuration. Before writing any LLM code, consult the `claude-api` skill for current model ids, tool-use format and caching.
 
+## 6a. Providers in this repository (ADR-0009)
+
+`rules` (built-in matcher, default, offline), `anthropic` and `gemini` (`GeminiProvider`, `google-genai`, automatic function calling off). External providers need the tenant's `ai.external_provider_approved` and a key; any failure falls back to `rules`. Both see the screen context as validated ids only.
+
+## 6b. Screen context, follow-ups, streaming and insights (ADR-0010)
+
+- **Context**: optional `context` {page, widget, filters, ≤ 5 selections of kind warehouse / location / item / item_group / stage / abc / stock_status / metric / insight}. Warehouses and items are checked against the principal before any tool runs; filters only narrow (`warehouse_id`, `location_id`, `item_group`, `stage`, `stock_status` on `stock_by`, `top_value_items`, `concentration`); `only` on `stock_by` compares 2–5 chosen values. Labels never reach tools, evidence or models.
+- **Vague questions about selections** ("why is this high?", "compare these") route by selection kind in the matcher; **follow-ups** ("what about quantity?", "and by item group?") re-run the previous tool with the change, using `history` (questions + tools + arguments only).
+- **Streaming**: `POST /api/agent/chat/stream` (SSE) sends `step` events (understand → each tool with row count and time → compose → grounding), `block` events, then the same `answer` as `/chat` (which now also returns `steps` and `elapsed_ms`).
+- **New tools**: `concentration` (Pareto per currency: items holding the target share, top-10 share, capped honestly at the row limit) and `insights` (the insight feed). 12 tools in total.
+- **Insight feed** `GET /api/insights`: deterministic rules over the analyses; gaps name the customer data that would unlock a rule.
+
 ## 7. Conversation features
 
 - **Clarification**: ambiguous entity → choices (scope-filtered) instead of guessing.
-- **Follow-ups modify the previous plan** ("now only North Plant") → plan diff, shown as chips.
+- **Follow-ups modify the previous plan** ("now only North Plant") → implemented in the matcher for measure, grouping, warehouse and day window (§6b); a plan diff shown as chips is not built yet.
 - **Editable query chips**: users change filters/grouping directly → deterministic re-run, no LLM call.
 - **Feedback**: thumbs + reason → admin review → promotable to the golden eval set.
 

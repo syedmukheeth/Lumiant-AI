@@ -49,9 +49,12 @@ class Settings(BaseSettings):
     rate_limit_login_per_min: int = Field(default=10, ge=1)
     # Optional shared store so limits hold across replicas (needs the "redis" extra). Unset = in-process limits.
     rate_limit_redis_url: SecretStr | None = None
-    agent_provider: Literal["rules", "anthropic"] = "rules"
+    agent_provider: Literal["rules", "anthropic", "gemini"] = "rules"
     agent_model: str = "claude-opus-5-5"
     anthropic_api_key: SecretStr | None = None
+    # Gemini Developer API (ADR-0009). The alias follows Google's current Flash model; pin an exact id if needed.
+    gemini_api_key: SecretStr | None = None
+    gemini_model: str = Field(default="gemini-flash-latest", pattern=r"^[A-Za-z0-9._-]{1,80}$")
 
     @model_validator(mode="after")
     def _production_guards(self) -> Settings:

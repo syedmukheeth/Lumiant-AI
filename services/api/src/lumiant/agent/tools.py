@@ -6,17 +6,20 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from lumiant.agent.context import ChatContext, HistoryTurn
 from lumiant.analyses.below_reorder import BelowReorderFilters, run_below_reorder
+from lumiant.analyses.concentration import run_concentration
 from lumiant.analyses.risks import run_cost_comparison, run_data_quality, run_dormant, run_expiring
 from lumiant.auth.permissions import Permission
 from lumiant.auth.principal import Principal
 from lumiant.core.errors import AppError
+from lumiant.insights.engine import InsightService
 from lumiant.query.plan import QueryPlan
-from lumiant.query.results import QueryResult
+from lumiant.query.results import QueryResult, to_json_value
 from lumiant.query.service import QueryService
 
 Block = dict[str, Any]
@@ -26,6 +29,8 @@ Block = dict[str, Any]
 class ToolContext:
     query: QueryService
     principal: Principal
+    context: ChatContext | None = None  # validated screen context (agent/context.py); narrows, never widens
+    history: list[HistoryTurn] = field(default_factory=list)
 
 
 @dataclass
@@ -57,13 +62,33 @@ class CostArgs(ItemArgs):
     warehouse_id: str = Field(min_length=1, max_length=64, description="Exact warehouse id")
 
 
-class StockByArgs(_Args):
-    dimension: str = Field(pattern=r"^(warehouse|item_group|stage|abc)$", description="Grouping")
+FilterCode = Annotated[str, StringConstraints(min_length=1, max_length=64, pattern=r"^[^\x00-\x1f\x7f]+$")]
+
+
+class NarrowArgs(_Args):
+    """Optional filters that narrow a result to what the user is looking at. Scope is still injected server-side."""
+
+    warehouse_id: FilterCode | None = Field(default=None, description="Only this warehouse")
+    location_id: FilterCode | None = Field(default=None, description="Only this storage location")
+    item_group: FilterCode | None = Field(default=None, description="Only this item group")
+    stage: FilterCode | None = Field(default=None, description="Only this inventory stage")
+    stock_status: FilterCode | None = Field(default=None, description="Only this stock status, e.g. quality_inspection")
+
+
+class StockByArgs(NarrowArgs):
+    dimension: str = Field(pattern=r"^(warehouse|location|item_group|stage|abc|stock_status)$", description="Grouping")
     measure: str = Field(default="value", pattern=r"^(value|quantity)$", description="Value needs cost access")
+    only: list[FilterCode] = Field(
+        default_factory=list, max_length=5, description="Compare only these values of the grouping (2-5 ids)"
+    )
 
 
-class TopArgs(_Args):
+class TopArgs(NarrowArgs):
     limit: int = Field(default=10, ge=1, le=50)
+
+
+class ConcentrationArgs(NarrowArgs):
+    target_pct: int = Field(default=80, ge=50, le=95, description="Share of value to explain, in percent")
 
 
 class DaysArgs(_Args):
@@ -159,10 +184,39 @@ def stock_position(ctx: ToolContext, a: ItemArgs) -> ToolOutput:
 
 _DIMS = {
     "warehouse": (["warehouse_id", "warehouse.name"], "warehouse.name", "Warehouse"),
+    "location": (["location_id"], "location_id", "Storage location"),
     "item_group": (["item.item_group"], "item.item_group", "Item group"),
     "stage": (["item.inventory_stage"], "item.inventory_stage", "Stage"),
     "abc": (["item.abc_class"], "item.abc_class", "ABC class (assigned)"),
+    "stock_status": (["stock_status"], "stock_status", "Stock status"),
 }
+# The field each grouping filters on (for `only`) and each narrowing argument maps to.
+_KEY = {
+    "warehouse": "warehouse_id",
+    "location": "location_id",
+    "item_group": "item.item_group",
+    "stage": "item.inventory_stage",
+    "abc": "item.abc_class",
+    "stock_status": "stock_status",
+}
+_NARROW = {
+    "warehouse_id": ("warehouse_id", "warehouse"),
+    "location_id": ("location_id", "storage location"),
+    "item_group": ("item.item_group", "item group"),
+    "stage": ("item.inventory_stage", "stage"),
+    "stock_status": ("stock_status", "stock status"),
+}
+
+
+def narrow_filters(a: NarrowArgs) -> tuple[list[dict[str, Any]], str]:
+    """Filters for the narrowing arguments that are set, and a phrase for the answer ("in warehouse 1100")."""
+    filters, parts = [], []
+    for arg, (field_ref, label) in _NARROW.items():
+        value = getattr(a, arg)
+        if value is not None:
+            filters.append({"field": field_ref, "op": "eq", "value": value})
+            parts.append(f"{label} {value}")
+    return filters, (" in " + " and ".join(parts)) if parts else ""
 
 
 def stock_by(ctx: ToolContext, a: StockByArgs) -> ToolOutput:
@@ -171,11 +225,15 @@ def stock_by(ctx: ToolContext, a: StockByArgs) -> ToolOutput:
     if valued and not ctx.principal.has(Permission.COST_READ):
         raise AppError("forbidden_field", "Your role cannot view inventory values; I can show quantities instead.", 403)
     measure = {"field": "stock_value" if valued else "quantity", "agg": "sum", "alias": "total"}
+    filters, where = narrow_filters(a)
+    if a.only:
+        filters.append({"field": _KEY[a.dimension], "op": "in", "value": list(dict.fromkeys(a.only))})
     plan = QueryPlan.model_validate(
         {
             "dataset": "stock_balance",
             "dimensions": dims,
             "measures": [measure],
+            "filters": filters,
             "order_by": [{"field": "total", "direction": "desc"}],
             "limit": 50,
         }
@@ -186,17 +244,20 @@ def stock_by(ctx: ToolContext, a: StockByArgs) -> ToolOutput:
     unit_key = "currency" if valued else "uom"
     kind = "money" if valued else "qty"
     if not rows:
-        answer = "There is no stock in your scope."
+        answer = f"There is no stock{where} in your scope."
     else:
         top = rows[0]
         units = sorted({str(r[unit_key]) for r in rows})
-        answer = f"The highest {label.lower()} is {top[label_key] or 'not set'} with {top[unit_key]} {top['total']}."
+        lead = (
+            f"Of the selected {label.lower()}s{where}, the highest" if a.only else f"The highest {label.lower()}{where}"
+        )
+        answer = f"{lead} is {top[label_key] or 'not set'} with {top[unit_key]} {top['total']}."
         if len(units) > 1:
             answer += f" Results are shown separately per {'currency' if valued else 'unit'} ({', '.join(units)}) and never added together."
     blocks = [
         {
             "type": "bar",
-            "title": f"{'Value' if valued else 'Quantity'} by {label.lower()}",
+            "title": f"{'Value' if valued else 'Quantity'} by {label.lower()}{where}",
             "label_key": label_key,
             "value_key": "total",
             "kind": kind,
@@ -211,11 +272,13 @@ def stock_by(ctx: ToolContext, a: StockByArgs) -> ToolOutput:
 
 
 def top_value_items(ctx: ToolContext, a: TopArgs) -> ToolOutput:
+    filters, where = narrow_filters(a)
     plan = QueryPlan.model_validate(
         {
             "dataset": "stock_balance",
             "dimensions": ["item_id", "item.item_code", "item.description"],
             "measures": [{"field": "stock_value", "agg": "sum", "alias": "value"}],
+            "filters": filters,
             "order_by": [{"field": "value", "direction": "desc"}],
             "limit": a.limit,
         }
@@ -224,13 +287,13 @@ def top_value_items(ctx: ToolContext, a: TopArgs) -> ToolOutput:
     payload = res.payload()
     rows = payload["data"]
     answer = (
-        f"The highest-value item is {rows[0]['item.item_code']} ({rows[0]['item.description']}) at {_first_money(rows, 'value')}."
+        f"The highest-value item{where} is {rows[0]['item.item_code']} ({rows[0]['item.description']}) at {_first_money(rows, 'value')}."
         if rows
-        else "There are no valued items in your scope."
+        else f"There are no valued items{where} in your scope."
     )
     block = {
         "type": "table",
-        "title": f"Top {len(rows)} items by on-hand value",
+        "title": f"Top {len(rows)} items by on-hand value{where}",
         "columns": [
             _col("item.item_code", "Item"),
             _col("item.description", "Description"),
@@ -451,6 +514,81 @@ def special_storage(ctx: ToolContext, a: NoArgs) -> ToolOutput:
     )
 
 
+def concentration(ctx: ToolContext, a: ConcentrationArgs) -> ToolOutput:
+    filters, where = narrow_filters(a)
+    res = run_concentration(ctx.query, ctx.principal, filters=filters, target_pct=a.target_pct)
+    sentences = []
+    for c in res["currencies"]:
+        if c["complete"]:
+            sentences.append(
+                f"{c['items_for_target']} of {c['stocked_items']} stocked items ({c['items_for_target_pct']}%) hold "
+                f"{c['target_pct']}% of the {c['currency']} value{where}; the top 10 hold {c['top10_share_pct']}%."
+            )
+        else:
+            sentences.append(
+                f"More than {c['ranked_rows']} items are needed to reach {c['target_pct']}% of the {c['currency']} "
+                f"value{where} (results are capped at {res['row_cap']} items); the top 10 hold {c['top10_share_pct']}%."
+            )
+    answer = " ".join(sentences) if sentences else f"There is no valued stock{where} in your scope."
+    rows = [{k: to_json_value(v) for k, v in r.items()} for r in res["top"]]
+    block = {
+        "type": "table",
+        "title": f"Highest-value items and cumulative share{where}",
+        "columns": [
+            _col("item_code", "Item"),
+            _col("description", "Description"),
+            _col("value", "Value", "money"),
+            _col("share_pct", "Share %", "pct"),
+            _col("cumulative_pct", "Cumulative %", "pct"),
+        ],
+        "rows": rows,
+    }
+    data = {
+        "currencies": [{k: to_json_value(v) for k, v in c.items()} for c in res["currencies"]],
+        "rows": rows,
+        "row_cap": res["row_cap"],
+        "top_n": 10,
+    }
+    return ToolOutput(
+        "concentration",
+        "Value concentration",
+        answer,
+        [block],
+        res["provenance"],
+        res["warnings"],
+        ["Show inventory value by warehouse"],
+        data,
+    )
+
+
+def insights(ctx: ToolContext, a: NoArgs) -> ToolOutput:
+    feed = InsightService(ctx.query).feed(ctx.principal, fresh=True)
+    items, gaps = feed["insights"], feed["gaps"]
+    if items:
+        answer = f"I found {len(items)} things worth a look. The most important: {items[0]['title']}."
+    else:
+        answer = "Nothing stands out in the analyses available for your data."
+    if gaps:
+        answer += f" {len(gaps)} more checks need data that is not loaded yet."
+    block = {
+        "type": "table",
+        "title": "Insights",
+        "columns": [_col("severity", "Severity"), _col("title", "Insight"), _col("detail", "Detail")],
+        "rows": [{"severity": i["severity"], "title": i["title"], "detail": i["detail"]} for i in items],
+    }
+    prov = next((i["provenance"] for i in items if i.get("provenance")), None)
+    return ToolOutput(
+        "insights",
+        "Insights",
+        answer,
+        [block],
+        prov,
+        [],
+        [i["ask"] for i in items[:3]],
+        {"insights": items, "gaps": gaps, "gap_count": len(gaps)},
+    )
+
+
 TOOLS: dict[str, ToolDef] = {
     t.name: t
     for t in (
@@ -463,14 +601,15 @@ TOOLS: dict[str, ToolDef] = {
         ),
         ToolDef(
             "stock_by",
-            "Stock value or quantity grouped by warehouse, item group, stage or assigned ABC class.",
+            "Stock value or quantity grouped by warehouse, storage location, item group, stage, assigned ABC class or "
+            "stock status; optional filters narrow it, and `only` compares 2-5 chosen values of the grouping.",
             StockByArgs,
             (Permission.INVENTORY_READ,),
             stock_by,
         ),
         ToolDef(
             "top_value_items",
-            "The highest-value items by on-hand value.",
+            "The highest-value items by on-hand value, optionally within a warehouse, location, group, stage or status.",
             TopArgs,
             (Permission.INVENTORY_READ, Permission.COST_READ),
             top_value_items,
@@ -510,6 +649,20 @@ TOOLS: dict[str, ToolDef] = {
             CostArgs,
             (Permission.INVENTORY_READ, Permission.COST_READ),
             cost_comparison,
+        ),
+        ToolDef(
+            "concentration",
+            "How few items hold most of the on-hand value (Pareto), per currency.",
+            ConcentrationArgs,
+            (Permission.INVENTORY_READ, Permission.COST_READ),
+            concentration,
+        ),
+        ToolDef(
+            "insights",
+            "A ranked list of the most important findings across the available analyses.",
+            NoArgs,
+            (Permission.INVENTORY_READ,),
+            insights,
         ),
         ToolDef(
             "special_storage",
