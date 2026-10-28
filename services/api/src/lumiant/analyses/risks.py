@@ -26,6 +26,7 @@ from lumiant.costing.engine import (
     present,
 )
 from lumiant.costing.item_code import parse_item_code
+from lumiant.mapping.resolver import UNMAPPED
 from lumiant.query.compiler import ExactDecimal
 from lumiant.query.plan import QueryPlan
 from lumiant.query.results import Column, QueryResult, to_json_value
@@ -364,6 +365,7 @@ def run_data_quality(query: QueryService, principal: Principal) -> dict[str, Any
                 "partial": listing.truncated,
             }
         )
+    checks += _source_checks(query, principal)
     meta = query.tenant_meta(principal.tenant_id)
     return {
         "checks": checks,
@@ -372,6 +374,193 @@ def run_data_quality(query: QueryService, principal: Principal) -> dict[str, Any
         "synthetic": meta.synthetic,
         "data_as_of": meta.data_as_of.isoformat() if meta.data_as_of else None,
     }
+
+
+def _share(n: int, total: int) -> str | None:
+    return None if total == 0 else format((Decimal(n) * 100 / Decimal(total)).quantize(Decimal("0.1")), "f")
+
+
+def _source_checks(query: QueryService, principal: Principal) -> list[dict[str, Any]]:
+    """Checks for sources that report stock status, source values, per-warehouse master data or coded values
+    (e.g. SAP extracts). Each check runs only when the fields it needs are mapped."""
+    mapping = query.mapping(principal.tenant_id)
+    tenant = query.tenants.get(principal.tenant_id)
+    action = "analysis:data_quality"
+    checks: list[dict[str, Any]] = []
+    cost = principal.has(Permission.COST_READ)
+
+    def count(dataset: str, field: str, filters: list[dict[str, Any]]) -> int:
+        plan = QueryPlan.model_validate(
+            {"dataset": dataset, "measures": [{"field": field, "agg": "count", "alias": "n"}], "filters": filters}
+        )
+        return int(query.run_plan(plan, principal, action=action).rows[0]["n"])
+
+    def check(check_id: str, title: str, n: int | None, status: str | None = None, **extra: Any) -> None:
+        if status is None:
+            status = "ok" if n == 0 else "issue"
+        checks.append({"id": check_id, "title": title, "status": status, "count": n, **extra})
+
+    master_join = next(
+        (j for j in ("item_warehouse", "item") if mapping.has_ref("stock_balance", f"{j}.item_id")), None
+    )
+    if master_join is not None:
+        n = count(
+            "stock_balance",
+            "item_id",
+            [{"field": "quantity", "op": "ne", "value": "0"}, {"field": f"{master_join}.item_id", "op": "is_null"}],
+        )
+        title = (
+            "Stock lines without master data for their warehouse"
+            if master_join == "item_warehouse"
+            else ("Stock lines whose item is missing from the item master")
+        )
+        check("stock_without_master", title, n)
+
+    if mapping.field("stock_balance", "valuation_price") is not None:
+        title = "Stock lines with a zero valuation price"
+        if cost:
+            n = count(
+                "stock_balance",
+                "item_id",
+                [
+                    {"field": "valuation_price", "op": "eq", "value": "0"},
+                    {"field": "quantity", "op": "ne", "value": "0"},
+                ],
+            )
+            check("zero_valuation_price", title, n)
+        else:
+            check("zero_valuation_price", title, None, "restricted")
+
+    if all(mapping.field("stock_balance", f) is not None for f in ("source_value", "valuation_price", "quantity")):
+        title = "Source-reported values that differ from quantity × price"
+        if cost:
+            tol = tenant.policies.value_tolerance
+            mismatched, compared = _value_mismatches(query, principal, tol)
+            rounding = mapping.field("stock_balance", "price_rounding") is not None
+            rule = f"{tol} + |quantity| × price rounding" if rounding else str(tol)
+            check("source_value_mismatch", title, mismatched, compared=compared, tolerance=rule)
+        else:
+            check("source_value_mismatch", title, None, "restricted")
+
+    key = [
+        f
+        for f in ("item_id", "warehouse_id", "location_id", "lot_id", "stock_status")
+        if mapping.field("stock_balance", f)
+    ]
+    dup = query.run_plan(
+        QueryPlan.model_validate(
+            {
+                "dataset": "stock_balance",
+                "dimensions": key,
+                "measures": [{"field": "item_id", "agg": "count", "alias": "lines"}],
+                "having": [{"measure": "lines", "op": "gt", "value": 1}],
+                "limit": 5,
+            }
+        ),
+        principal,
+        action=action,
+        with_total=True,
+    )
+    n_dup = int((dup.page or {}).get("total") or 0)
+    check(
+        "duplicate_stock_keys",
+        "Stock keys (" + ", ".join(key) + ") that appear on more than one line",
+        n_dup,
+        examples=[
+            {"item_id": r["item_id"], "item_code": r["item_id"], "problems": [f"{r['lines']} lines"]} for r in dup.rows
+        ],
+    )
+
+    for ds, fields in mapping.value_maps().items():
+        for field in fields:
+            n = count(ds, field, [{"field": field, "op": "eq", "value": UNMAPPED}])
+            check(f"unmapped_{ds}_{field}", f"{ds}.{field}: source codes without a value map", n)
+
+    if mapping.is_mapped("item_warehouse"):
+        total = count("item_warehouse", "item_id", [])
+        if mapping.field("item_warehouse", "abc_class") is not None:
+            n = count("item_warehouse", "item_id", [{"field": "abc_class", "op": "is_null"}])
+            check("missing_abc_warehouse", "Item–warehouse records without an ABC class", n, share=_share(n, total))
+        if mapping.field("item_warehouse", "planning_type") is not None:
+            n = count("item_warehouse", "item_id", [{"field": "planning_type", "op": "eq", "value": "none"}])
+            check(
+                "no_planning",
+                "Item–warehouse records with no stock planning (planning type 'none')",
+                n,
+                "info",
+                share=_share(n, total),
+            )
+        n = _master_without_stock(query, principal)
+        check(
+            "master_without_stock", "Item–warehouse master records without any stock", n, "info", share=_share(n, total)
+        )
+    return checks
+
+
+def _scope_filter(principal: Principal, col: ColumnElement[Any]) -> list[ColumnElement[Any]]:
+    if principal.scope.all:
+        return []
+    if not principal.scope.ids:
+        raise ForbiddenError("forbidden_scope", "No warehouses are assigned to your account.")
+    return [col.in_(sorted(principal.scope.ids))]
+
+
+def _value_mismatches(query: QueryService, principal: Principal, tolerance: Decimal) -> tuple[int, int]:
+    mapping = query.mapping(principal.tenant_id)
+    sb = mapping.table("stock_balance").alias("sb")
+
+    def c(name: str) -> ColumnElement[Any]:
+        return mapping.column_expr("stock_balance", name, sb)
+
+    compared = [
+        c("source_value").is_not(None),
+        c("valuation_price").is_not(None),
+        *_scope_filter(principal, c("warehouse_id")),
+    ]
+    diff = c("source_value") - c("quantity") * c("valuation_price")
+    # Differences explained by the source showing a rounded price are not mismatches (|quantity| × price rounding).
+    bound: ColumnElement[Any] = sa.literal(tolerance, sa.Numeric(18, 4))
+    if mapping.field("stock_balance", "price_rounding") is not None:
+        qty = c("quantity")
+        bound = bound + sa.case((qty < 0, -qty), else_=qty) * sa.func.coalesce(c("price_rounding"), 0)
+    counts = []
+    for extra in ([], [sa.or_(diff > bound, diff < -bound)]):
+        stmt = sa.select(sa.func.count().label("n")).select_from(sb).where(*compared, *extra)
+        raw = query.execute_select(
+            principal, stmt, action="analysis:data_quality", dataset="stock_balance", fetch_limit=1
+        )
+        counts.append(int(raw.rows[0][0]))
+    return counts[1], counts[0]
+
+
+def _master_without_stock(query: QueryService, principal: Principal) -> int:
+    mapping = query.mapping(principal.tenant_id)
+    iw = mapping.table("item_warehouse").alias("iw")
+    sb = mapping.table("stock_balance").alias("sb")
+
+    def c(ds: str, name: str, table: Any) -> ColumnElement[Any]:
+        return mapping.column_expr(ds, name, table)
+
+    stocked = (
+        sa.select(
+            c("stock_balance", "item_id", sb).label("item_id"),
+            c("stock_balance", "warehouse_id", sb).label("warehouse_id"),
+        )
+        .where(c("stock_balance", "quantity", sb) != 0)
+        .distinct()
+        .subquery("stocked")
+    )
+    on = sa.and_(
+        stocked.c.item_id == c("item_warehouse", "item_id", iw),
+        stocked.c.warehouse_id == c("item_warehouse", "warehouse_id", iw),
+    )
+    stmt = (
+        sa.select(sa.func.count().label("n"))
+        .select_from(iw.outerjoin(stocked, on))
+        .where(stocked.c.item_id.is_(None), *_scope_filter(principal, c("item_warehouse", "warehouse_id", iw)))
+    )
+    raw = query.execute_select(principal, stmt, action="analysis:data_quality", dataset="item_warehouse", fetch_limit=1)
+    return int(raw.rows[0][0])
 
 
 # --------------------------------------------------------------------------------------- computed ABC

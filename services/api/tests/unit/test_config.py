@@ -44,3 +44,25 @@ def test_env_prefix_is_respected(monkeypatch: pytest.MonkeyPatch) -> None:
     s = make()
     assert s.app_env is AppEnv.TEST
     assert s.session_ttl_minutes == 60
+
+
+@pytest.mark.security
+@pytest.mark.parametrize("env", ["test", "production"])
+def test_private_tenant_dir_is_development_only(env: str) -> None:
+    with pytest.raises(ValidationError, match="LUMIANT_PRIVATE_TENANTS_DIR is only allowed"):
+        make(app_env=env, auth_mode="oidc", cookie_secure=True, private_tenants_dir="var/private/tenants")
+
+
+@pytest.mark.security
+def test_customer_extract_flag_refused_in_production() -> None:
+    with pytest.raises(ValidationError, match="LUMIANT_ALLOW_CUSTOMER_EXTRACTS"):
+        make(app_env="production", auth_mode="oidc", cookie_secure=True, allow_customer_extracts=True)
+
+
+@pytest.mark.security
+@pytest.mark.parametrize(
+    ("env", "flag", "allowed"),
+    [("development", True, True), ("development", False, False), ("test", True, False)],
+)
+def test_customer_extract_login_needs_development_and_the_flag(env: str, flag: bool, allowed: bool) -> None:
+    assert make(app_env=env, allow_customer_extracts=flag).customer_extract_login_allowed is allowed

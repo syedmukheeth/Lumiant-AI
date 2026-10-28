@@ -64,7 +64,7 @@ def test_health_and_security_headers(client: TestClient) -> None:
     assert r.headers["X-Frame-Options"] == "DENY"
     assert "X-Request-ID" in r.headers
     ready = client.get("/api/health/ready").json()
-    assert ready == {"status": "ok", "sources_available": 2, "sources_total": 2}
+    assert ready == {"status": "ok", "sources_available": 3, "sources_total": 3}  # alpha, beta, gamma
 
 
 def test_dev_users_listed_with_notice(client: TestClient) -> None:

@@ -78,11 +78,14 @@ export type Me = {
   auth_mode: string;
 };
 
+export type DataClassification = "synthetic" | "customer" | "customer_extract";
+
 export type TenantMeta = {
   tenant_id: string;
   display_name: string;
   source_system: string;
   synthetic: boolean;
+  data_classification: DataClassification;
   data_as_of: string | null;
   stale: boolean;
   stale_after_hours: number;
@@ -97,6 +100,7 @@ export type Provenance = {
   tenant_id: string;
   source_system: string;
   synthetic: boolean;
+  data_classification?: DataClassification;
   dataset: string;
   source_objects: string[];
   fields: Record<string, string>;
@@ -137,20 +141,30 @@ export type MetricInfo = {
 
 export type MetricResult = Envelope & { metric: MetricInfo };
 
-export type DevUser = { username: string; display_name: string; tenant_id: string; tenant_name: string; roles: string[] };
+export type DevUser = {
+  username: string;
+  display_name: string;
+  tenant_id: string;
+  tenant_name: string;
+  roles: string[];
+  data_classification?: DataClassification;
+};
 
 export type InventoryFilters = {
-  warehouses: { id: string; name: string }[];
+  warehouses: { id: string; name: string | null }[];
   item_groups: string[];
   abc_classes: string[];
   stages: string[];
+  stock_statuses?: string[];
 };
 
 export type DataQualityCheck = {
   id: string;
   title: string;
-  status: "ok" | "issue" | "not_mapped" | "restricted" | "no_rules";
+  status: "ok" | "issue" | "info" | "not_mapped" | "restricted" | "no_rules";
   count: number | null;
+  /** Percentage of the records checked, as an exact decimal string. */
+  share?: string | null;
   examples?: { item_id: string; item_code: string; problems: string[] }[];
   checked?: number;
   partial?: boolean;

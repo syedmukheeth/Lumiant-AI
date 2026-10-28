@@ -1,7 +1,7 @@
 """Reports: the same secured analyses, shaped as downloadable/printable tables with a metadata header.
 
-Exports are authorised by the backend (`export:data`), audited, watermarked when the data is synthetic, and
-protected against spreadsheet formula injection."""
+Exports are authorised by the backend (`export:data`), audited, watermarked when the data is synthetic or a
+confidential client extract, and protected against spreadsheet formula injection."""
 
 from __future__ import annotations
 
@@ -27,6 +27,7 @@ from lumiant.query.service import QueryService
 
 SYNTHETIC_NOTICE = "SYNTHETIC DEMO DATA - generated for demonstration, not from any customer system"
 DRAFT_NOTICE = "Calculation definitions are drafts until approved by the customer"
+CONFIDENTIAL_NOTICE = "CONFIDENTIAL - client data extract for local analysis only; do not distribute (ADR-0008)"
 _NUMERIC = re.compile(r"^-?\d+(\.\d+)?$")
 
 
@@ -42,8 +43,13 @@ class ReportDef:
     draft: bool = False
 
 
-def _plan(query: QueryService, principal: Principal, plan: dict[str, Any], action: str) -> QueryResult:
-    return query.run_plan(QueryPlan.model_validate(plan), principal, action=action)
+def _plan(
+    query: QueryService, principal: Principal, plan: dict[str, Any], action: str, optional: tuple[str, ...] = ()
+) -> QueryResult:
+    """`optional` dimensions are descriptive columns dropped when the tenant's source does not provide them."""
+    mapping = query.mapping(principal.tenant_id)
+    dims = [d for d in plan.get("dimensions", []) if d not in optional or mapping.has_ref(plan["dataset"], d)]
+    return query.run_plan(QueryPlan.model_validate({**plan, "dimensions": dims}), principal, action=action)
 
 
 def _value_by_warehouse(q: QueryService, p: Principal, _: dict[str, int], limit: int) -> QueryResult:
@@ -58,6 +64,7 @@ def _value_by_warehouse(q: QueryService, p: Principal, _: dict[str, int], limit:
             "limit": limit,
         },
         "report:value_by_warehouse",
+        ("warehouse.name",),
     )
 
 
@@ -69,6 +76,7 @@ def _stock_listing(q: QueryService, p: Principal, _: dict[str, int], limit: int)
         "warehouse_id",
         "location_id",
         "lot_id",
+        "stock_status",
         "quantity",
     ]
     if p.has(Permission.COST_READ):
@@ -78,6 +86,15 @@ def _stock_listing(q: QueryService, p: Principal, _: dict[str, int], limit: int)
         p,
         {"dataset": "stock_balance", "dimensions": dims, "order_by": [{"field": "item.item_code"}], "limit": limit},
         "report:stock_listing",
+        (
+            "item.description",
+            "item.item_group",
+            "location_id",
+            "lot_id",
+            "stock_status",
+            "valuation_price",
+            "stock_value",
+        ),
     )
 
 
@@ -123,6 +140,7 @@ REPORTS: dict[str, ReportDef] = {
                 ("warehouse_id", "Warehouse"),
                 ("location_id", "Location"),
                 ("lot_id", "Lot"),
+                ("stock_status", "Stock status"),
                 ("quantity", "Quantity"),
                 ("uom", "Unit"),
                 ("currency", "Currency"),
@@ -240,9 +258,11 @@ class ReportService:
             "rows": len(rows),
             "truncated": bool(payload["provenance"].get("truncated")),
             "synthetic": meta.synthetic,
+            "data_classification": meta.data_classification,
             "notices": [
                 n
                 for n in (
+                    CONFIDENTIAL_NOTICE if meta.data_classification == "customer_extract" else None,
                     SYNTHETIC_NOTICE if meta.synthetic else None,
                     DRAFT_NOTICE
                     if (
@@ -287,7 +307,8 @@ class ReportService:
             *[("NOTICE", n) for n in meta["notices"]],
         ]
         stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M")
-        name = f"{report_id}-{stamp}.{fmt}"
+        prefix = "CONFIDENTIAL-" if meta["data_classification"] == "customer_extract" else ""
+        name = f"{prefix}{report_id}-{stamp}.{fmt}"
         self.query.record(principal, f"export:{report_id}", None, "allow", "ok", rows=len(rows), reason=fmt)
         if fmt == "csv":
             buf = io.StringIO()

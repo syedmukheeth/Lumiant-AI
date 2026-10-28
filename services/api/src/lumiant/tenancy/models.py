@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from pathlib import PurePosixPath
 from typing import Annotated, Literal
 
@@ -16,6 +17,9 @@ SourceObject = Annotated[
 ]
 CanonicalName = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$", max_length=64)]
 Code = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")]
+CanonicalValue = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9_]{0,39}$")]
+DataClassification = Literal["synthetic", "customer", "customer_extract"]
+HintKey = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)?$", max_length=130)]
 
 
 class StrictModel(BaseModel):
@@ -49,6 +53,8 @@ class Policies(StrictModel):
     default_rows: int = Field(default=100, ge=1, le=1000)
     query_timeout_s: float = Field(default=15.0, gt=0, le=120)
     stale_after_hours: int = Field(default=36, ge=1, le=24 * 90)
+    # Largest difference (currency units) between a source-reported value and quantity × price that is rounding.
+    value_tolerance: Decimal = Field(default=Decimal("0.01"), ge=0, le=1000)
 
 
 class Department(StrictModel):
@@ -79,6 +85,9 @@ class DatasetMapping(StrictModel):
     source: SourceObject
     fields: dict[CanonicalName, Identifier]
     attributes: dict[CanonicalName, AttributeMapping] = Field(default_factory=dict)
+    # Source code → canonical value per mapped text field (e.g. SAP material type ROH → RAW). A code that is
+    # present but not listed reads as "unmapped"; a missing source value stays missing.
+    value_maps: dict[CanonicalName, dict[Code, CanonicalValue]] = Field(default_factory=dict)
 
 
 class CodeSegment(StrictModel):
@@ -132,7 +141,9 @@ class AiPolicy(StrictModel):
 class TenantConfig(StrictModel):
     id: Annotated[str, StringConstraints(pattern=r"^[a-z0-9][a-z0-9-]{1,40}$")]
     display_name: str = Field(min_length=1, max_length=120)
-    data_classification: Literal["synthetic", "customer"]
+    # customer_extract: real customer files loaded locally for analysis (ADR-0008) — never in the repository,
+    # never in production, dev sign-in only behind an explicit flag.
+    data_classification: DataClassification
     source_system: str = Field(min_length=1, max_length=200)
     connection: ConnectionConfig
     freshness: FreshnessConfig | None = None
@@ -146,10 +157,19 @@ class TenantConfig(StrictModel):
     ai: AiPolicy = AiPolicy()
     oidc: OidcConfig | None = None
     latest_price_statuses: list[str] = Field(default_factory=lambda: ["RECEIVED"])
+    # Which source extract would supply a dataset (or `dataset.field`) that is not mapped yet — shown in the
+    # capability matrix, e.g. inventory_transaction: "SAP MB51 / MSEG material movements".
+    source_hints: dict[HintKey, Annotated[str, StringConstraints(min_length=1, max_length=200)]] = Field(
+        default_factory=dict
+    )
 
     @property
     def synthetic(self) -> bool:
         return self.data_classification == "synthetic"
+
+    @property
+    def customer_extract(self) -> bool:
+        return self.data_classification == "customer_extract"
 
     def warehouses_of_departments(self, departments: list[str]) -> set[str]:
         wanted = set(departments)

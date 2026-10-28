@@ -26,7 +26,13 @@ class MetricsService:
             self.query.record(principal, action, metric.plan["dataset"], "deny", "denied", reason="missing_permission")
             raise ForbiddenError("forbidden_field", "Your role cannot view this metric.")
         ref = MetricRef(metric.id, metric.version, metric.status, metric.rule)
-        result = self.query.run_plan(QueryPlan.model_validate(metric.plan), principal, action=action, metric=ref)
+        plan = dict(metric.plan)
+        if metric.optional_dims:
+            mapping = self.query.mapping(principal.tenant_id)
+            plan["dimensions"] = [
+                d for d in plan["dimensions"] if d not in metric.optional_dims or mapping.has_ref(plan["dataset"], d)
+            ]
+        result = self.query.run_plan(QueryPlan.model_validate(plan), principal, action=action, metric=ref)
         if metric.gap_plan is not None:
             gap = self.query.run_plan(QueryPlan.model_validate(metric.gap_plan), principal, action=f"{action}:gaps")
             excluded = int(gap.rows[0]["lines"]) if gap.rows else 0

@@ -50,6 +50,7 @@ class TenantMapping:
         self._tables: dict[str, sa.Table] = {}
         self._columns: dict[str, dict[str, str]] = {}
         self._fields: dict[str, dict[str, FieldDef]] = {}
+        self._value_maps: dict[str, dict[str, dict[str, str]]] = {}
         for ds_name, ds_map in tenant.datasets.items():
             ds = catalog[ds_name]
             columns: dict[str, str] = dict(ds_map.fields)
@@ -71,6 +72,7 @@ class TenantMapping:
                 )
             self._columns[ds_name] = columns
             self._fields[ds_name] = available
+            self._value_maps[ds_name] = {f: dict(codes) for f, codes in ds_map.value_maps.items()}
             src = SourceObject.parse(ds_map.source)
             physical: dict[str, FieldType] = {}
             for fname, col in columns.items():
@@ -92,6 +94,21 @@ class TenantMapping:
     def field(self, dataset: str, name: str) -> FieldDef | None:
         return self._fields.get(dataset, {}).get(name)
 
+    def has_ref(self, dataset: str, ref: str) -> bool:
+        """Whether a plan reference such as `quantity` or `item.item_group` resolves for this tenant."""
+        join_name, _, name = ref.rpartition(".")
+        if not join_name:
+            return self.field(dataset, name) is not None
+        ds = self._catalog.get(dataset)
+        join = ds.joins.get(join_name) if ds else None
+        if join is None or not self.is_mapped(join.dataset):
+            return False
+        if any(
+            self.field(dataset, local) is None or self.field(join.dataset, remote) is None for local, remote in join.on
+        ):
+            return False
+        return self.field(join.dataset, name) is not None
+
     def table(self, dataset: str) -> sa.Table:
         return self._tables[dataset]
 
@@ -110,17 +127,41 @@ class TenantMapping:
             names.add(src.name.lower())
         return names
 
+    def value_maps(self) -> dict[str, dict[str, dict[str, str]]]:
+        """dataset → field → {source code: canonical value}, for the fields that have a value map."""
+        return {ds: maps for ds, maps in self._value_maps.items() if maps}
+
     # --- expressions ---------------------------------------------------------------------------
     def column_expr(self, dataset: str, name: str, source: FromClause) -> ColumnElement[object]:
         fdef = self._fields[dataset][name]
         if fdef.product_of is not None:
             left, right = (source.c[self._columns[dataset][op]] for op in fdef.product_of)
             return left * right
-        return source.c[self._columns[dataset][name]]
+        col: ColumnElement[object] = source.c[self._columns[dataset][name]]
+        codes = self._value_maps.get(dataset, {}).get(name)
+        if codes:
+            # Constants come from validated tenant config and render inline, so the same CASE text appears in
+            # SELECT, GROUP BY and ORDER BY (distinct bind parameters would make them differ).
+            return sa.case(
+                (col.is_(None), sa.null()),
+                *((col == _const(code), _const(value)) for code, value in sorted(codes.items())),
+                else_=_const(UNMAPPED),
+            )
+        return col
 
     def physical_ref(self, dataset: str, name: str) -> str:
         fdef = self._fields[dataset][name]
         src = self.source_object(dataset)
         if fdef.product_of is not None:
             return " * ".join(f"{src}.{self._columns[dataset][op]}" for op in fdef.product_of)
-        return f"{src}.{self._columns[dataset][name]}"
+        ref = f"{src}.{self._columns[dataset][name]}"
+        if self._value_maps.get(dataset, {}).get(name):
+            return f"value_map({ref})"
+        return ref
+
+
+UNMAPPED = "unmapped"
+
+
+def _const(value: str) -> ColumnElement[str]:
+    return sa.bindparam(None, value, type_=sa.String(), literal_execute=True)

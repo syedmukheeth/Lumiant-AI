@@ -39,6 +39,7 @@ Each control has a status (vocabulary in `docs/README.md`) and a target mileston
 | C-22 | OpenAPI docs disabled in production | Information disclosure | M1 | Implemented (not yet exercised in production mode) |
 | C-23 | AI data boundary, disclosure log, provider approval | Minimize AI data | M3 | Designed |
 | C-24 | Prompt-injection resistance; planted-payload tests | §10.3 | M3 | Designed |
+| C-25 | Client extracts (real files, ADR-0008): only under git-ignored `var/private/` (explicit ignore lines + `git check-ignore` test), tenant only from `LUMIANT_PRIVATE_TENANTS_DIR` (development), dev sign-in only with `LUMIANT_ALLOW_CUSTOMER_EXTRACTS=true`, production refuses to start, CONFIDENTIAL badge/exports, external AI off, importer never echoes cell values and does not store `Created By` | Data minimisation, confidentiality | M8 | Verified (`test_private_data_guard.py`, `test_config.py`, `test_tenancy.py`, `test_sap_extract.py`) |
 
 ## Logging rules
 

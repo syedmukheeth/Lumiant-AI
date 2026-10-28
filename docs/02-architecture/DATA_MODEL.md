@@ -56,6 +56,12 @@ location_id (key) · warehouse_id (scope_key) · name
 | valuation_price | decimal | attribute | **sensitivity=cost**, currency_field = currency |
 | currency | string | dimension | |
 | stock_value | decimal | measure (computed) | = quantity × valuation_price; **sensitivity=cost**; currency_field = currency |
+| stock_status | string | dimension | unrestricted, quality_inspection, in_transit, restricted, blocked, returns (M8; optional) |
+| source_value | decimal | measure | value as reported by the source (SAP: only unrestricted + quality inspection); **sensitivity=cost**; currency_field = currency (M8; optional) |
+| price_rounding | decimal | attribute | largest rounding in the price as the source shows it (SAP: 0.005 ÷ price unit); used so price rounding is not reported as a value mismatch; **sensitivity=cost** (M8; optional) |
+
+### `item_warehouse` — item settings per warehouse / plant (M8)
+item_id · warehouse_id (scope_key) · abc_class · planning_type (none, reorder_point, mrp, forecast or customer-defined, via value map) · price_control (moving_average / standard, via value map) · valuation_price (cost, currency_field = currency) · currency. SAP MARC/MBEW-like: ABC class, MRP type and price are plant-level in SAP, so they live here, not on `item`.
 
 ### `reorder_policy` — customer-defined
 item_id · warehouse_id (scope_key) · min_stock · max_stock · reorder_level (decimal, uom = item base_uom). Missing row = "no policy" (never invented).
@@ -79,6 +85,9 @@ supplier_id · name · country — department_id · name
 | stock_balance | item | item_id |
 | stock_balance | warehouse | warehouse_id |
 | stock_balance | reorder_policy | item_id + warehouse_id |
+| stock_balance | item_warehouse | item_id + warehouse_id |
+| item_warehouse | item | item_id |
+| item_warehouse | warehouse | warehouse_id |
 | reorder_policy | item | item_id |
 | reorder_policy | warehouse | warehouse_id |
 | lot | item | item_id |

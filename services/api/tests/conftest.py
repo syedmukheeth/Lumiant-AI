@@ -24,7 +24,7 @@ os.environ.setdefault("LUMIANT_RATE_LIMIT_CHAT_PER_MIN", "100000")
 
 TENANT_DIR = BASE_DIR / "config" / "tenants"
 AS_OF = date(2026, 10, 1)
-TEST_ITEMS = {"demo-alpha": 90, "demo-beta": 60}
+TEST_ITEMS = {"demo-alpha": 90, "demo-beta": 60, "demo-gamma": 300}
 TEST_MONTHS = 12
 
 
@@ -49,6 +49,11 @@ def alpha_db(data_dir: Path) -> Path:
 @pytest.fixture(scope="session")
 def beta_db(data_dir: Path) -> Path:
     return data_dir / "data" / "synthetic" / "demo-beta.duckdb"
+
+
+@pytest.fixture(scope="session")
+def gamma_db(data_dir: Path) -> Path:
+    return data_dir / "data" / "synthetic" / "demo-gamma.duckdb"
 
 
 @pytest.fixture(scope="session")

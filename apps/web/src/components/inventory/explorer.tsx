@@ -20,6 +20,8 @@ type Col = {
   align?: "right";
   render: (r: Row) => React.ReactNode;
   cost?: boolean;
+  /** Result field the column needs; the column is hidden when the tenant's source does not provide it. */
+  field?: string;
 };
 
 const COLUMNS: Col[] = [
@@ -37,7 +39,7 @@ const COLUMNS: Col[] = [
     ),
   },
   { key: "group", label: "Group", sort: "item_group", render: (r) => humanize(r["item.item_group"] as string) },
-  { key: "abc", label: "ABC", sort: "abc_class", render: (r) => <span className="figure">{r["item.abc_class"] ?? "—"}</span> },
+  { key: "abc", label: "ABC", sort: "abc_class", field: "item.abc_class", render: (r) => <span className="figure">{r["item.abc_class"] ?? "—"}</span> },
   {
     key: "warehouse",
     label: "Warehouse",
@@ -51,7 +53,13 @@ const COLUMNS: Col[] = [
       </>
     ),
   },
-  { key: "lot", label: "Lot", render: (r) => <span className="figure text-xs">{r.lot_id ?? "—"}</span> },
+  { key: "lot", label: "Lot", field: "lot_id", render: (r) => <span className="figure text-xs">{r.lot_id ?? "—"}</span> },
+  {
+    key: "status",
+    label: "Stock status",
+    field: "stock_status",
+    render: (r) => <span className="text-xs text-ink-2">{humanize(r.stock_status as string)}</span>,
+  },
   {
     key: "qty",
     label: "Quantity",
@@ -128,6 +136,7 @@ export function InventoryExplorer() {
     item_group: params.get("item_group") ?? undefined,
     abc: params.get("abc") ?? undefined,
     stage: params.get("stage") ?? undefined,
+    status: params.get("status") ?? undefined,
     q: params.get("q") ?? undefined,
     sort: params.get("sort") ?? "item_code",
     dir: params.get("dir") === "desc" ? "desc" : "asc",
@@ -157,7 +166,8 @@ export function InventoryExplorer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [term]);
 
-  const columns = COLUMNS.filter((c) => !c.cost || canSeeCost);
+  const returned = balances.data ? new Set(balances.data.columns.map((c) => c.name)) : null;
+  const columns = COLUMNS.filter((c) => (!c.cost || canSeeCost) && (!c.field || !returned || returned.has(c.field)));
   const sortBy = (col: Col) => {
     if (!col.sort) return;
     const dir = query.sort === col.sort && query.dir === "asc" ? "desc" : "asc";
@@ -194,7 +204,7 @@ export function InventoryExplorer() {
         <Select
           label="Warehouse"
           value={query.warehouse ?? ""}
-          options={(f?.warehouses ?? []).map((w) => ({ value: w.id, label: `${w.id} · ${w.name}` }))}
+          options={(f?.warehouses ?? []).map((w) => ({ value: w.id, label: w.name ? `${w.id} · ${w.name}` : w.id }))}
           onChange={(v) => update({ warehouse: v })}
         />
         <Select
@@ -215,6 +225,14 @@ export function InventoryExplorer() {
           options={(f?.stages ?? []).map((g) => ({ value: g, label: humanize(g) }))}
           onChange={(v) => update({ stage: v })}
         />
+        {(f?.stock_statuses?.length ?? 0) > 0 && (
+          <Select
+            label="Stock status"
+            value={query.status ?? ""}
+            options={(f?.stock_statuses ?? []).map((g) => ({ value: g, label: humanize(g) }))}
+            onChange={(v) => update({ status: v })}
+          />
+        )}
       </div>
 
       <Panel

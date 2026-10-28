@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, ShieldAlert } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-import { SyntheticTape } from "@/components/shell/synthetic-tape";
+import { DataBadge } from "@/components/shell/synthetic-tape";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { api, ApiError, type DevUser } from "@/lib/api";
 import { humanize } from "@/lib/format";
@@ -27,6 +27,7 @@ export default function LoginPage() {
   for (const u of users.data?.users ?? []) {
     byTenant.set(u.tenant_name, [...(byTenant.get(u.tenant_name) ?? []), u]);
   }
+  const hasExtract = (users.data?.users ?? []).some((u) => u.data_classification === "customer_extract");
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-3xl flex-col px-4 py-10 sm:py-16">
@@ -44,8 +45,17 @@ export default function LoginPage() {
           Development authentication — not for production
         </p>
         <p className="mt-1 text-sm text-ink-2">
-          Pick a demo user. Each has a different role and warehouse scope so you can see access control in action. Every
-          tenant below runs on <strong>generated</strong> data.
+          Pick a demo user. Each has a different role and warehouse scope so you can see access control in action.{" "}
+          {hasExtract ? (
+            <>
+              Tenants marked <strong>client extract</strong> hold confidential client data loaded on this machine; all
+              others run on <strong>generated</strong> data.
+            </>
+          ) : (
+            <>
+              Every tenant below runs on <strong>generated</strong> data.
+            </>
+          )}
         </p>
       </div>
 
@@ -73,7 +83,11 @@ export default function LoginPage() {
           <section key={tenant} className="rise" style={{ animationDelay: `${120 + ti * 80}ms` }}>
             <div className="mb-3 flex items-center gap-3">
               <h2 className="text-sm font-semibold text-ink">{tenant}</h2>
-              <SyntheticTape compact />
+              <DataBadge
+                classification={list[0]?.data_classification}
+                synthetic={list[0]?.data_classification !== "customer_extract"}
+                compact
+              />
             </div>
             <ul className="divide-y divide-line overflow-hidden rounded-md border border-line bg-surface">
               {list.map((u) => (

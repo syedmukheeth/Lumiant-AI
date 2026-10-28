@@ -186,6 +186,7 @@ CAPABILITIES = (
 
 
 def capability_matrix(mapping: TenantMapping) -> list[dict[str, Any]]:
+    hints = mapping.tenant.source_hints
     out: list[dict[str, Any]] = []
     for cap in CAPABILITIES:
         missing: list[str] = []
@@ -194,18 +195,28 @@ def capability_matrix(mapping: TenantMapping) -> list[dict[str, Any]]:
                 missing.append(f"dataset {ds}")
                 continue
             missing += [f"{ds}.{f}" for f in fields if mapping.field(ds, f) is None]
+        needs_file: list[str] = []
+        for key in missing:
+            key = key.removeprefix("dataset ")
+            text = hints.get(key) or hints.get(key.partition(".")[0])
+            if text and text not in needs_file:
+                needs_file.append(text)
         if cap.id == "item_code_rules" and mapping.tenant.item_coding is None:
             missing.append("item_coding rules")
         available = not missing
+        explanation = None
+        if not available:
+            explanation = "Not available: " + ", ".join(missing) + " is not mapped for this tenant."
+            if needs_file:
+                explanation += " Needs: " + "; ".join(needs_file) + "."
         out.append(
             {
                 "id": cap.id,
                 "title": cap.title,
                 "available": available,
                 "missing": missing,
-                "explanation": None
-                if available
-                else "Not available: " + ", ".join(missing) + " is not mapped for this tenant.",
+                "needs_file": needs_file,
+                "explanation": explanation,
             }
         )
     return out

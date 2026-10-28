@@ -24,7 +24,7 @@ It is written so that a new engineer **or an LLM with no prior context** can pic
 | `04-domain/` | Inventory domain rules | `INVENTORY_CALCULATIONS`, `CLASSIFICATIONS`, `SYNTHETIC_DATA` |
 | `05-plan/` | Plan and progress | `ROADMAP`, `IMPLEMENTATION_PLAN`, `MILESTONE_01` |
 | `06-operations/` | Running it | `DEV_SETUP`, `TESTING`, `DEPLOYMENT` |
-| `07-customer/` | Customer dependencies | `OPEN_QUESTIONS` |
+| `07-customer/` | Customer dependencies | `OPEN_QUESTIONS`, `CLIENT_DATA_INTAKE` (SAP exports, structure only) |
 | `logs/` | History | `WORKLOG`, `DECISION_LOG`, `TEST_RUNS`, `ISSUES`, `CHANGELOG`, `sessions/` |
 
 ## Master-prompt deliverables → where they are

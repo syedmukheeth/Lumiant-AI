@@ -22,6 +22,11 @@ coverage/
 services/api/data/synthetic/*.duckdb
 services/api/data/synthetic/*.duckdb.wal
 services/api/var/
+# Client files and anything derived from them (docs/07-customer/CLIENT_DATA_INTAKE.md, ADR-0008). Listed
+# explicitly so the guarantee survives a change to the line above; tests/unit/test_private_data_guard.py checks it.
+services/api/var/private/
+services/api/**/*.xlsx
+services/api/**/*.XLSX
 
 # Secrets
 .env

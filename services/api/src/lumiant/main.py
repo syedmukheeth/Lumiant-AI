@@ -28,7 +28,10 @@ from lumiant.tenancy.registry import TenantRegistry
 
 
 def build_container(settings: Settings) -> Container:
-    tenants = TenantRegistry.load(settings.tenant_config_dir)
+    tenants = TenantRegistry.load(settings.tenant_config_dir, settings.private_tenants_dir)
+    extracts = [t.id for t in tenants if t.customer_extract]
+    if extracts and settings.is_production:  # defence in depth: Settings already refuses the private directory
+        raise RuntimeError(f"customer extract tenants cannot run in production: {', '.join(extracts)} (ADR-0008)")
     oidc = OidcAuthProvider(tenants) if settings.auth_mode is AuthMode.OIDC else None  # fails fast if unconfigured
     if settings.auto_migrate:
         run_migrations(settings.app_db_url)

@@ -24,6 +24,7 @@ def tenant_meta(
         "display_name": meta.display_name,
         "source_system": meta.source_system,
         "synthetic": meta.synthetic,
+        "data_classification": meta.data_classification,
         "data_as_of": meta.data_as_of.isoformat() if meta.data_as_of else None,
         "stale": meta.stale,
         "stale_after_hours": policies.stale_after_hours,

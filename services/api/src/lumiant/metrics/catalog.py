@@ -31,6 +31,8 @@ class MetricDef:
     status: str = "draft"
     # Companion plan counting lines excluded from the metric (e.g. no valuation price).
     gap_plan: dict[str, Any] | None = None
+    # Descriptive dimensions (e.g. a warehouse name) left out for tenants whose source does not provide them.
+    optional_dims: tuple[str, ...] = ()
 
     def public(self) -> dict[str, Any]:
         return {
@@ -57,7 +59,7 @@ _MISSING_VALUATION = {
 }
 
 
-def _value_by(metric_id: str, title: str, dims: list[str]) -> MetricDef:
+def _value_by(metric_id: str, title: str, dims: list[str], optional: tuple[str, ...] = ()) -> MetricDef:
     return MetricDef(
         id=metric_id,
         version=1,
@@ -75,6 +77,7 @@ def _value_by(metric_id: str, title: str, dims: list[str]) -> MetricDef:
             "limit": 50,
         },
         gap_plan=_MISSING_VALUATION,
+        optional_dims=optional,
     )
 
 
@@ -93,7 +96,12 @@ METRICS: dict[str, MetricDef] = {
             plan={"dataset": "stock_balance", "measures": _VALUE},
             gap_plan=_MISSING_VALUATION,
         ),
-        _value_by("inventory_value_by_warehouse", "Inventory value by warehouse", ["warehouse_id", "warehouse.name"]),
+        _value_by(
+            "inventory_value_by_warehouse",
+            "Inventory value by warehouse",
+            ["warehouse_id", "warehouse.name"],
+            ("warehouse.name",),
+        ),
         _value_by("inventory_value_by_abc", "Inventory value by ABC class (assigned)", ["item.abc_class"]),
         _value_by("inventory_value_by_item_group", "Inventory value by item group", ["item.item_group"]),
         _value_by("inventory_value_by_stage", "Inventory value by inventory stage", ["item.inventory_stage"]),

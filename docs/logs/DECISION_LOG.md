@@ -18,3 +18,7 @@ One line per decision. Details in the linked ADR.
 | 2026-10-27 | DEC-012 | Audit writes fail closed (no audit row → no data returned) | `02-architecture/QUERY_ENGINE.md` §7 |
 | 2026-10-27 | DEC-013 | Keep pnpm's minimum-release-age gate; pin older versions instead of adding exclusions | `00-context/ENVIRONMENT.md` |
 | 2026-10-27 | DEC-014 | Nonce-based CSP with per-request rendering (`cacheComponents` off); optional Redis shared rate-limit store with in-process fallback | `02-architecture/adr/0007-nonce-csp-and-shared-rate-limit.md` |
+| 2026-10-27 | DEC-015 | Real client extracts are local-only, classified `customer_extract` (private tenant dir, `var/private/`, dev + flag, production refusal, CONFIDENTIAL labels, external AI off) | [ADR-0008](../02-architecture/adr/0008-client-extracts-local-only.md) |
+| 2026-10-27 | DEC-016 | Value maps compile to CASE with constants rendered inline (validated config) so SELECT/GROUP BY/ORDER BY text is identical; NULL stays NULL, unknown codes read `unmapped`; keys cannot be value-mapped | `02-architecture/MAPPING.md` |
+| 2026-10-27 | DEC-017 | Plant-level SAP master fields (ABC, MRP type, price control, price) go to a new canonical dataset `item_warehouse`, not to `item` | `02-architecture/DATA_MODEL.md` |
+| 2026-10-27 | DEC-018 | SAP total rows are control totals: the import aborts unless detail rows add up exactly per unit and value column; split valuation and inexact price units are refused/unpriced, never guessed | `07-customer/CLIENT_DATA_INTAKE.md` §4 |

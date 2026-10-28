@@ -24,6 +24,8 @@ ALLOWED_FUNCTIONS: tuple[type[exp.Expression], ...] = (
     exp.Coalesce,
     exp.Cast,
     exp.Nullif,
+    exp.Case,  # value maps (mapping/resolver.py); sqlglot models each WHEN branch as If
+    exp.If,
 )
 SYSTEM_SCHEMAS = {"information_schema", "pg_catalog", "sys", "system", "temp"}
 

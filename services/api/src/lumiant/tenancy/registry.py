@@ -8,10 +8,12 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
-from lumiant.canonical.catalog import CATALOG, DatasetDef
+from lumiant.canonical.catalog import CATALOG, DatasetDef, FieldRole, FieldType
 from lumiant.tenancy.models import DevUser, TenantConfig
 
 ATTRIBUTE_PREFIX = "attr_"
+# Relative to the API directory; `services/api/var/` is git-ignored (docs/07-customer/CLIENT_DATA_INTAKE.md).
+PRIVATE_DATA_PREFIX = "var/private"
 
 
 class TenantConfigError(Exception):
@@ -42,6 +44,24 @@ def cross_validate(cfg: TenantConfig, catalog: dict[str, DatasetDef] = CATALOG) 
         for attr in ds_map.attributes:
             if f"{ATTRIBUTE_PREFIX}{attr}" in ds.fields or attr in ds.fields:
                 problems.append(f"datasets.{ds_name}.attributes.{attr}: collides with a canonical field")
+        for field_name, codes in ds_map.value_maps.items():
+            where = f"datasets.{ds_name}.value_maps.{field_name}"
+            fdef = ds.fields.get(field_name)
+            if field_name not in ds_map.fields or fdef is None:
+                problems.append(f"{where}: only mapped canonical fields can have a value map")
+            elif fdef.type is not FieldType.STRING:
+                problems.append(f"{where}: value maps apply to text fields only")
+            elif fdef.role is FieldRole.KEY or fdef.scope_key:
+                problems.append(f"{where}: keys cannot be value-mapped (joins and access scope rely on them)")
+            if not codes:
+                problems.append(f"{where}: empty value map")
+
+    for key in cfg.source_hints:
+        ds_name, _, field_name = key.partition(".")
+        if ds_name not in catalog:
+            problems.append(f"source_hints.{key}: not a canonical dataset")
+        elif field_name and field_name not in catalog[ds_name].fields:
+            problems.append(f"source_hints.{key}: not a field of {ds_name}")
 
     dept_ids = [d.id for d in cfg.departments]
     if len(dept_ids) != len(set(dept_ids)):
@@ -90,6 +110,10 @@ def cross_validate(cfg: TenantConfig, catalog: dict[str, DatasetDef] = CATALOG) 
             ]
     if cfg.data_classification == "customer" and cfg.dev_users:
         problems.append("dev_users are not allowed for customer tenants")
+    if cfg.customer_extract:
+        path = (cfg.connection.path or "").replace("\\", "/")
+        if not path.startswith(f"{PRIVATE_DATA_PREFIX}/"):
+            problems.append(f"connection.path: customer extracts must live under {PRIVATE_DATA_PREFIX}/ (git-ignored)")
     return problems
 
 
@@ -106,17 +130,37 @@ class TenantRegistry:
                 seen[user.username] = cfg.id
 
     @classmethod
-    def load(cls, directory: Path) -> TenantRegistry:
+    def load(cls, directory: Path, private_dir: Path | None = None) -> TenantRegistry:
+        """Load the repository's tenant configs and, in development only, the private client-extract configs.
+
+        Customer extracts are refused in the repository directory, and the private directory holds nothing
+        else, so a client tenant cannot be committed by accident or slip in beside the demo tenants.
+        """
         if not directory.is_dir():
             raise TenantConfigError(str(directory), ["tenant config directory not found"])
         tenants: dict[str, TenantConfig] = {}
-        for path in sorted(directory.glob("*.yaml")):
+
+        def add(path: Path, *, private: bool) -> None:
             cfg = parse_tenant_file(path)
+            if cfg.customer_extract and not private:
+                raise TenantConfigError(
+                    path.name, ["customer_extract tenants belong in LUMIANT_PRIVATE_TENANTS_DIR, not the repository"]
+                )
+            if private and not cfg.customer_extract:
+                raise TenantConfigError(path.name, ["the private tenant directory only holds customer_extract tenants"])
             if cfg.id in tenants:
                 raise TenantConfigError(path.name, [f"duplicate tenant id '{cfg.id}'"])
             tenants[cfg.id] = cfg
+
+        for path in sorted(directory.glob("*.yaml")):
+            add(path, private=False)
         if not tenants:
             raise TenantConfigError(str(directory), ["no tenant configuration files (*.yaml)"])
+        if private_dir is not None:
+            if not private_dir.is_dir():
+                raise TenantConfigError(str(private_dir), ["private tenant config directory not found"])
+            for path in sorted(private_dir.glob("*.yaml")):
+                add(path, private=True)
         return cls(tenants)
 
     def get(self, tenant_id: str) -> TenantConfig:

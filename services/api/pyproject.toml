@@ -27,6 +27,7 @@ redis = ["redis>=5,<8"]
 
 [project.scripts]
 lumiant-synthetic = "lumiant.synthetic.cli:main"
+lumiant-ingest = "lumiant.ingest.cli:main"
 
 [dependency-groups]
 dev = [
@@ -69,6 +70,8 @@ ignore = ["S101", "RUF001", "RUF002", "RUF003"]
 "src/lumiant/analyses/risks.py" = ["E501"]
 "src/lumiant/admin/service.py" = ["E501"]
 "src/lumiant/agent/*.py" = ["E501", "RUF012"]
+# Import-time SQL over the importer's own constant table/column names; no request data reaches these strings.
+"src/lumiant/ingest/**" = ["S608"]
 
 [tool.mypy]
 python_version = "3.13"

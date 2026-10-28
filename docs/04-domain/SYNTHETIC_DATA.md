@@ -6,10 +6,10 @@
 
 ```bash
 cd services/api
-uv run lumiant-synthetic generate --all          # both tenants, default seeds
+uv run lumiant-synthetic generate --all          # all three tenants, default seeds
 uv run lumiant-synthetic generate --tenant demo-alpha --seed 42
 ```
-Output: `services/api/data/synthetic/demo-alpha.duckdb` and `demo-beta.duckdb` (gitignored; regenerate any time, but stop the API first because of the DuckDB file lock). The same seed and as-of date always produce the same records (covered by a test).
+Output: `services/api/data/synthetic/demo-alpha.duckdb`, `demo-beta.duckdb` and `demo-gamma.duckdb` (gitignored; regenerate any time, but stop the API first because of the DuckDB file lock). The same seed and as-of date always produce the same records (covered by a test).
 
 ## Tenants
 
@@ -22,6 +22,18 @@ Output: `services/api/data/synthetic/demo-alpha.duckdb` and `demo-beta.duckdb` (
 | History | 24 months of transactions | 24 months |
 | Item codes | 10-digit numeric (digits 1–2 category, 3–4 material, last 6 serial) | `GG-NNNN-X` alphanumeric |
 | Extract time (as-of) | generation time (UTC) in `_extract_metadata` | generation time in `inv._extract_metadata` |
+
+### demo-gamma — twin of the client SAP exports (M8)
+Not generated as tables: `synthetic/sap_twin.py` writes the two client XLSX files in the **exact client layout**
+(MB52-style stock list with SAP total rows; material master valuation list) with generated values only — SAR, invented
+plants GM01 (stock) and GM02/GM03 (master only), 29 storage locations, SAP standard material types plus one
+deliberately unmapped type `ZDMO`, ~86 % all-zero rows, V/S price control, price unit 1/100, 9-digit material numbers
+with leading zeros — and then runs the **same importer** as the client files (`lumiant.ingest.sap_exports`). Default
+1,500 materials (≈5k stock rows, ≈1.9k master rows, ~8 s). Planted cases (returned as `scenarios`): stock without
+master, zero price with stock, moving-average drift (source value ≠ quantity × price), one duplicate
+plant/location/material key, unmapped material type, an inexact price unit (10.00 per 3), master-only records and
+other-plant records. The tenant YAML `config/tenants/demo-gamma.yaml` is produced by the same mapping generator as
+the client tenant (a test keeps them in sync). Dev users `gamma.admin` (all plants) and `gamma.viewer` (GM01, no cost).
 
 ## How it is generated
 

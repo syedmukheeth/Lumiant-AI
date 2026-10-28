@@ -1,4 +1,7 @@
-"""Inventory explorer endpoints. Each request becomes a QueryPlan — no SQL is written here."""
+"""Inventory explorer endpoints. Each request becomes a QueryPlan — no SQL is written here.
+
+Only fields the tenant has mapped are requested, so a source without lots, ABC classes or warehouse names
+(e.g. a client SAP extract) still lists its stock instead of failing on the missing columns."""
 
 from __future__ import annotations
 
@@ -37,6 +40,7 @@ BASE_COLUMNS = [
     "warehouse.name",
     "location_id",
     "lot_id",
+    "stock_status",
     "quantity",
     "uom",
 ]
@@ -51,7 +55,11 @@ def _in(field: str, values: list[str] | None) -> list[dict[str, Any]]:
 def filters(principal: Reader, container: Container = Depends(get_container)) -> dict[str, Any]:  # noqa: B008
     q = container.query
 
+    mapping = q.mapping(principal.tenant_id)
+
     def distinct(dataset: str, field: str) -> list[str]:
+        if not mapping.has_ref(dataset, field):
+            return []
         plan = QueryPlan.model_validate(
             {
                 "dataset": dataset,
@@ -61,14 +69,18 @@ def filters(principal: Reader, container: Container = Depends(get_container)) ->
         )
         return [r[field] for r in q.run_plan(plan, principal, action="inventory.filters").rows if r[field] is not None]
 
-    warehouses = q.run_plan(
-        QueryPlan(dataset="warehouse", dimensions=["warehouse_id", "name"]), principal, action="inventory.filters"
-    ).rows
+    wh_dims = [f for f in ("warehouse_id", "name") if mapping.has_ref("warehouse", f)]
+    warehouses = (
+        q.run_plan(QueryPlan(dataset="warehouse", dimensions=wh_dims), principal, action="inventory.filters").rows
+        if "warehouse_id" in wh_dims
+        else []
+    )
     return {
-        "warehouses": [{"id": w["warehouse_id"], "name": w["name"]} for w in warehouses],
+        "warehouses": [{"id": w["warehouse_id"], "name": w.get("name")} for w in warehouses],
         "item_groups": distinct("item", "item_group"),
         "abc_classes": distinct("item", "abc_class"),
         "stages": distinct("item", "inventory_stage"),
+        "stock_statuses": distinct("stock_balance", "stock_status"),
     }
 
 
@@ -80,6 +92,7 @@ def balances(
     item_group: Codes = None,
     abc: Codes = None,
     stage: Codes = None,
+    status: Codes = None,
     q: Annotated[str | None, Query(max_length=100)] = None,
     sort: Literal[
         "item_code", "description", "item_group", "abc_class", "warehouse", "quantity", "value"
@@ -89,28 +102,27 @@ def balances(
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> dict[str, Any]:
     cost = principal.has(Permission.COST_READ)
+    mapping = container.query.mapping(principal.tenant_id)
+    dims = [c for c in BASE_COLUMNS + (COST_COLUMNS if cost else []) if mapping.has_ref("stock_balance", c)]
+    # Filters on unmapped fields are passed through on purpose: the validator refuses them with a clear error.
     flt: list[dict[str, Any]] = [
         *_in("warehouse_id", warehouse),
         *_in("item.item_group", item_group),
         *_in("item.abc_class", abc),
         *_in("item.inventory_stage", stage),
+        *_in("stock_status", status),
     ]
     if q and q.strip():
         term = q.strip()
-        flt.append(
-            {
-                "any": [
-                    {"field": "item.item_code", "op": "contains", "value": term},
-                    {"field": "item.description", "op": "contains", "value": term},
-                    {"field": "item_id", "op": "contains", "value": term},
-                ]
-            }
-        )
+        searchable = [f for f in ("item.item_code", "item.description", "item_id") if f in dims]
+        flt.append({"any": [{"field": f, "op": "contains", "value": term} for f in searchable]})
     sort_field = SORTS[sort] if (sort != "value" or cost) else SORTS["item_code"]
+    if sort_field not in dims:
+        sort_field = next(f for f in ("item.item_code", "item_id") if f in dims)
     plan = QueryPlan.model_validate(
         {
             "dataset": "stock_balance",
-            "dimensions": BASE_COLUMNS + (COST_COLUMNS if cost else []),
+            "dimensions": dims,
             "filters": flt,
             "order_by": [{"field": sort_field, "direction": direction}],
             "limit": limit,

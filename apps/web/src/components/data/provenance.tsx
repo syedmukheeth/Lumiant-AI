@@ -54,6 +54,9 @@ export function ProvenanceButton({ provenance, label = "Source" }: { provenance?
             <Row label="Source">
               {p.source_system}
               {p.synthetic && <span className="tape-label ml-2 rounded-[2px] px-1 text-[0.625rem] font-bold">SYNTHETIC</span>}
+              {p.data_classification === "customer_extract" && (
+                <span className="ml-2 rounded-[2px] border border-signal px-1 text-[0.625rem] font-bold text-signal">CLIENT EXTRACT</span>
+              )}
             </Row>
             <Row label="Objects">
               <span className="figure text-xs">{p.source_objects.join(", ")}</span>

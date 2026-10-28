@@ -1,10 +1,15 @@
 # Current State
 
-_Rewritten at the end of every session. Last update: 2026-10-27, cloud-verify (Linux verification + hardening)._
+_Rewritten at the end of every session. Last update: 2026-10-28, S03 (M8 client SAP data intake; uncommitted on branch `claude/frosty-almeida-6aaddf`)._
 
 ## Milestone
 **M1 (foundation), M2 (intelligence engine), M3 (AI agent) M4 (reports, exports, guided menu) and most of M5 (schema drift check, capability matrix, reconciliation gate, audit explorer) complete on synthetic data.** Code is on GitHub (`syedmukheeth/Lumiant-AI`, `main`).
 **Next:** nothing further can be completed without the customer: M7 needs the answers in `../07-customer/OPEN_QUESTIONS.md`. See `../06-operations/PRODUCTION_READINESS.md` for what is verified and what is not.
+
+## M8 — client SAP data intake (S03, synthetic twin verified; real files loaded locally only)
+- `lumiant-ingest sap` loads the client's two SAP exports (MB52-style stock list + material master) into a git-ignored DuckDB under `services/api/var/private/` with a hard control-total gate; the real import passed it. Tenant class `customer_extract` (ADR-0008): dev only, needs `LUMIANT_PRIVATE_TENANTS_DIR` + `LUMIANT_ALLOW_CUSTOMER_EXTRACTS=true`, CONFIDENTIAL badge/exports, external AI off. Structure and checks: `../07-customer/CLIENT_DATA_INTAKE.md`; questions Q-019…Q-026.
+- Synthetic twin `demo-gamma` (same importer, planted anomalies), value maps (ISSUES #3 closed), stock status, source-vs-computed value reconciliation (price-rounding aware), SAP data-quality checks, capability "needs file".
+- Not done: assistant tools for SAP tenants (#29), plant-level ABC tile (#28), client meanings of codes (#25), movements/reorder/batch files (Q-025).
 
 ## What works (verified by automated tests and manual browser checks)
 

@@ -23,9 +23,10 @@ def write(tmp_path: Path, raw: dict[str, object], name: str = "t.yaml") -> Path:
 
 def test_demo_tenants_load() -> None:
     reg = TenantRegistry.load(TENANT_DIR)
-    assert set(reg.ids()) == {"demo-alpha", "demo-beta"}
+    assert set(reg.ids()) == {"demo-alpha", "demo-beta", "demo-gamma"}
     alpha = reg.get("demo-alpha")
     assert alpha.synthetic
+    assert reg.get("demo-gamma").synthetic
     assert alpha.warehouses_of_departments(["NORTH"]) == {"1100", "1110", "1120"}
 
 
@@ -116,3 +117,80 @@ def test_duplicate_dev_username_across_tenants_rejected(tmp_path: Path) -> None:
     write(tmp_path, beta, "b.yaml")
     with pytest.raises(TenantConfigError, match="also defined"):
         TenantRegistry.load(tmp_path)
+
+
+# --------------------------------------------------------------------------------------- value maps
+def test_value_map_needs_a_mapped_text_field(tmp_path: Path) -> None:
+    raw = load_raw("demo-alpha.yaml")
+    raw["datasets"]["item"]["value_maps"] = {"shelf_life_days": {"X": "Y"}, "colour": {"R": "RED"}}  # type: ignore[index]
+    with pytest.raises(TenantConfigError) as exc:
+        parse_tenant_file(write(tmp_path, raw))
+    assert any("value_maps.shelf_life_days: value maps apply to text fields only" in p for p in exc.value.problems)
+    assert any("value_maps.colour: only mapped canonical fields" in p for p in exc.value.problems)
+
+
+@pytest.mark.security
+def test_keys_cannot_be_value_mapped(tmp_path: Path) -> None:
+    raw = load_raw("demo-alpha.yaml")
+    raw["datasets"]["stock_balance"]["value_maps"] = {"warehouse_id": {"1100": "2100"}}  # type: ignore[index]
+    with pytest.raises(TenantConfigError, match="keys cannot be value-mapped"):
+        parse_tenant_file(write(tmp_path, raw))
+
+
+def test_source_hints_must_name_canonical_datasets(tmp_path: Path) -> None:
+    raw = load_raw("demo-alpha.yaml")
+    raw["source_hints"] = {"ghost_dataset": "x", "item.ghost_field": "y"}
+    with pytest.raises(TenantConfigError) as exc:
+        parse_tenant_file(write(tmp_path, raw))
+    assert len(exc.value.problems) == 2
+
+
+# --------------------------------------------------------------------------------------- client extracts (ADR-0008)
+def extract_raw() -> dict[str, object]:
+    raw = load_raw("demo-gamma.yaml")
+    raw.update(id="client-x", data_classification="customer_extract")
+    raw["connection"] = {"type": "duckdb", "path": "var/private/client-x/warehouse.duckdb"}
+    raw["dev_users"] = [
+        {"username": "client-x.admin", "display_name": "X", "roles": ["super_admin"], "warehouses": ["*"]}
+    ]
+    return raw
+
+
+@pytest.mark.security
+def test_customer_extract_must_live_under_var_private(tmp_path: Path) -> None:
+    raw = extract_raw()
+    raw["connection"] = {"type": "duckdb", "path": "data/client-x.duckdb"}
+    with pytest.raises(TenantConfigError, match="var/private"):
+        parse_tenant_file(write(tmp_path, raw))
+
+
+@pytest.mark.security
+def test_customer_extract_is_refused_in_the_repository_directory(tmp_path: Path) -> None:
+    write(tmp_path, load_raw("demo-alpha.yaml"), "a.yaml")
+    write(tmp_path, extract_raw(), "client-x.yaml")
+    with pytest.raises(TenantConfigError, match="LUMIANT_PRIVATE_TENANTS_DIR"):
+        TenantRegistry.load(tmp_path)
+
+
+@pytest.mark.security
+def test_private_directory_only_holds_customer_extracts(tmp_path: Path) -> None:
+    private = tmp_path / "private"
+    private.mkdir()
+    write(private, load_raw("demo-alpha.yaml"), "a.yaml")
+    with pytest.raises(TenantConfigError, match="only holds customer_extract"):
+        TenantRegistry.load(TENANT_DIR, private)
+
+
+def test_private_directory_adds_extract_tenants(tmp_path: Path) -> None:
+    write(tmp_path, extract_raw(), "client-x.yaml")
+    reg = TenantRegistry.load(TENANT_DIR, tmp_path)
+    cfg = reg.get("client-x")
+    assert cfg.customer_extract
+    assert not cfg.synthetic
+    assert not cfg.ai.external_provider_approved
+    assert set(reg.ids()) == {"demo-alpha", "demo-beta", "demo-gamma", "client-x"}
+
+
+def test_missing_private_directory_is_an_error(tmp_path: Path) -> None:
+    with pytest.raises(TenantConfigError, match="private tenant config directory not found"):
+        TenantRegistry.load(TENANT_DIR, tmp_path / "nope")

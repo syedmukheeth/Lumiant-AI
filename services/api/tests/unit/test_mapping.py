@@ -7,6 +7,7 @@ from lumiant.tenancy.registry import TenantRegistry
 REG = TenantRegistry.load(BASE_DIR / "config" / "tenants")
 ALPHA = TenantMapping(REG.get("demo-alpha"))
 BETA = TenantMapping(REG.get("demo-beta"))
+GAMMA = TenantMapping(REG.get("demo-gamma"))
 
 
 def test_canonical_fields_resolve_to_tenant_columns() -> None:
@@ -55,3 +56,26 @@ def test_column_expr_for_computed_field_multiplies_columns() -> None:
     assert '"LABST"' in sql
     assert '"VERPR"' in sql
     assert "*" in sql
+
+
+def test_value_map_compiles_to_case_with_inline_constants() -> None:
+    t = GAMMA.table("item").alias("b")
+    sql = str(
+        sa.select(GAMMA.column_expr("item", "inventory_stage", t)).compile(compile_kwargs={"render_postcompile": True})
+    )
+    assert "CASE WHEN (b.material_type IS NULL) THEN NULL" in sql
+    assert "WHEN (b.material_type = 'ROH') THEN 'RAW'" in sql
+    assert "ELSE 'unmapped' END" in sql
+    assert GAMMA.physical_ref("item", "inventory_stage") == "value_map(v_item.material_type)"
+    # The raw code stays available as an attribute.
+    assert GAMMA.physical_ref("item", "attr_material_type") == "v_item.material_type"
+
+
+def test_has_ref_follows_joins_and_mapping() -> None:
+    assert GAMMA.has_ref("stock_balance", "item.item_group")
+    assert GAMMA.has_ref("stock_balance", "item_warehouse.abc_class")
+    assert not GAMMA.has_ref("stock_balance", "lot_id")
+    assert not GAMMA.has_ref("stock_balance", "warehouse.name")
+    assert not GAMMA.has_ref("stock_balance", "lot.expiry_date")
+    assert not ALPHA.has_ref("stock_balance", "item_warehouse.abc_class")
+    assert ALPHA.has_ref("stock_balance", "lot.expiry_date")

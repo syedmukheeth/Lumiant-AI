@@ -61,6 +61,7 @@ class TenantMeta:
     synthetic: bool
     data_as_of: datetime | None
     stale: bool
+    data_classification: str = "synthetic"
 
 
 class QueryService:
@@ -107,7 +108,9 @@ class QueryService:
         except ConnectorError as exc:
             log.warning("tenant_meta_unavailable", extra={"tenant": tenant_id, "code": exc.code})
         stale = as_of is None or now - as_of > timedelta(hours=cfg.policies.stale_after_hours)
-        meta = TenantMeta(cfg.id, cfg.display_name, cfg.source_system, cfg.synthetic or marker, as_of, stale)
+        meta = TenantMeta(
+            cfg.id, cfg.display_name, cfg.source_system, cfg.synthetic or marker, as_of, stale, cfg.data_classification
+        )
         self._meta[tenant_id] = (now, meta)
         return meta
 
@@ -275,6 +278,7 @@ class QueryService:
             "tenant_id": principal.tenant_id,
             "source_system": meta.source_system,
             "synthetic": meta.synthetic,
+            "data_classification": meta.data_classification,
             "dataset": dataset,
             "source_objects": sources,
             "fields": fields,

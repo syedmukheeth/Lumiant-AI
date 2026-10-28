@@ -1,0 +1,160 @@
+# SYNTHETIC demo tenant: twin of the client SAP exports (same layout, generated values only).
+# Written by `sap_tenant_config` (lumiant.ingest.sap_exports) — the same mapping the client extract gets;
+# tests/unit/test_sap_ingest.py keeps this file and the generator in sync. Plant codes are invented.
+id: demo-gamma
+display_name: Demo Gamma SAP extract twin (synthetic)
+data_classification: synthetic
+source_system: Synthetic SAP exports in the client layout (MB52 stock list + material master)
+connection:
+  type: duckdb
+  path: data/synthetic/demo-gamma.duckdb
+freshness:
+  object: _extract_metadata
+  column: extracted_at
+policies:
+  max_rows: 1000
+  default_rows: 100
+  query_timeout_s: 15
+  stale_after_hours: 36
+ai:
+  external_provider_approved: false
+departments:
+- id: PLANTS
+  name: All plants (organisation structure not provided in the extract)
+warehouses:
+- id: GM01
+  department: PLANTS
+- id: GM02
+  department: PLANTS
+- id: GM03
+  department: PLANTS
+roles:
+  super_admin:
+  - dashboard:read
+  - inventory:read
+  - cost:read
+  - query:run
+  - query:view_sql
+  - audit:read
+  - admin:tenant
+  - chat:use
+  - export:data
+  standard_user:
+  - dashboard:read
+  - inventory:read
+  - cost:read
+  - query:run
+  - chat:use
+  - export:data
+  viewer_no_cost:
+  - dashboard:read
+  - inventory:read
+  - chat:use
+dev_users:
+- username: gamma.admin
+  display_name: Gita Admin
+  roles:
+  - super_admin
+  warehouses:
+  - '*'
+- username: gamma.viewer
+  display_name: Gus Viewer (no cost access)
+  roles:
+  - viewer_no_cost
+  warehouses:
+  - GM01
+datasets:
+  item:
+    source: v_item
+    fields:
+      item_id: material
+      item_code: material
+      description: description
+      item_group: material_group
+      inventory_stage: material_type
+      base_uom: base_uom
+    attributes:
+      material_type:
+        column: material_type
+        type: string
+        description: SAP material type
+    value_maps:
+      inventory_stage:
+        ROH: RAW
+        HALB: SEMI
+        FERT: FINISHED
+        HAWA: TRADING
+        ERSA: SPARE
+        VERP: PACKAGING
+        HIBE: CONSUMABLE
+        NLAG: NON_STOCK
+        UNBW: NON_VALUATED
+        DIEN: SERVICE
+        FHMI: TOOLING
+  warehouse:
+    source: v_warehouse
+    fields:
+      warehouse_id: plant
+  item_warehouse:
+    source: v_item_warehouse
+    fields:
+      item_id: material
+      warehouse_id: plant
+      abc_class: abc_indicator
+      planning_type: mrp_type
+      price_control: price_control
+      valuation_price: valuation_price
+      currency: currency
+    attributes:
+      mrp_type:
+        column: mrp_type
+        type: string
+        description: SAP MRP type
+      valuation_class:
+        column: valuation_class
+        type: string
+        description: SAP valuation class
+      purchasing_group:
+        column: purchasing_group
+        type: string
+        description: SAP purchasing group
+    value_maps:
+      planning_type:
+        ND: none
+        VB: reorder_point
+        VM: reorder_point
+        V1: reorder_point
+        V2: reorder_point
+        VV: forecast
+        PD: mrp
+        M0: mrp
+        M1: mrp
+        M2: mrp
+        M3: mrp
+        M4: mrp
+      price_control:
+        V: moving_average
+        S: standard
+  stock_balance:
+    source: v_stock
+    fields:
+      item_id: material
+      warehouse_id: plant
+      location_id: storage_location
+      stock_status: stock_status
+      quantity: quantity
+      uom: uom
+      valuation_price: valuation_price
+      currency: currency
+      source_value: source_value
+      price_rounding: price_rounding
+source_hints:
+  inventory_transaction: SAP MB51 / MSEG material movements for the last 24 months
+  reorder_policy: SAP MARC plant planning data (reorder point, safety stock, maximum stock)
+  lot: SAP MCHB / MCH1 batch stock with shelf-life expiration dates
+  stock_balance.lot_id: SAP MCHB batch stock (stock per batch)
+  purchase_record: SAP EKKO / EKPO purchase order lines (open and received)
+  supplier: SAP LFA1 vendor master
+  warehouse.name: SAP T001W plant names
+  storage_location: SAP T001L storage location names
+  item.abc_class: ABC class per plant is in the material master (item_warehouse.abc_class)

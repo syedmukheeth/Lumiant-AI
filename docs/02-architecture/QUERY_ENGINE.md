@@ -67,7 +67,7 @@ Compiled SQL is parsed with **sqlglot** (dialect of the tenant connector) and re
 - every table referenced is one of the tenant's mapped physical tables;
 - no `information_schema`, `pg_catalog`, `sys.`, `duckdb_*` or other system objects;
 - no DDL/DML/`COPY`/`ATTACH`/`PRAGMA`/`INSTALL`/`LOAD` nodes,
-- every function node is on an allowlist (`AND`, `OR`, `SUM`, `COUNT`, `MIN`, `MAX`, `AVG`, `COALESCE`, `CAST`, `NULLIF`). sqlglot models `AND`/`OR` as functions; anything else (`read_csv`, `getenv`, `duckdb_settings()`) is refused,
+- every function node is on an allowlist (`AND`, `OR`, `SUM`, `COUNT`, `MIN`, `MAX`, `AVG`, `COALESCE`, `CAST`, `NULLIF`, and since M8 `CASE` with its `IF` branches for value maps). sqlglot models `AND`/`OR` as functions; anything else (`read_csv`, `getenv`, `duckdb_settings()`) is refused,
 - the SQL is rendered with the connector's own dialect and `render_postcompile`, so IN-lists are expanded before parsing.
 
 Clients only ever see `query_rejected`; the specific reason goes to server logs and the audit trail.

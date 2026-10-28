@@ -61,6 +61,7 @@ export type BalanceQuery = {
   item_group?: string;
   abc?: string;
   stage?: string;
+  status?: string;
   q?: string;
   sort: string;
   dir: "asc" | "desc";

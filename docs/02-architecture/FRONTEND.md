@@ -34,6 +34,14 @@ Navigation shows only routes that exist **and** that the user may access. No pla
 | `data/ProvenanceButton` | "provenance slip": source, objects, canonical ← physical fields, user filters, access scope applied by permissions, split-by, rule + status, as-of, rows/duration, SQL (only if the API sent it) |
 | `data/Panel`, `ErrorState`, `Skeleton`, `Warnings`, `Pager` | shared frame and states: loading, empty, error (message + request ref), forbidden |
 
+### Data label (M8)
+`components/shell/synthetic-tape.tsx` exports `DataBadge({ classification, synthetic })`: the client-extract badge
+("CLIENT EXTRACT · CONFIDENTIAL · LOCAL", `data-testid="client-extract-badge"`) for `customer_extract` tenants, the
+synthetic tape for generated data, nothing for live customer data. Used in the header and per tenant on the login
+page; provenance slips show `CLIENT EXTRACT` too. The explorer hides columns whose field the API did not return
+(sources without lots, ABC on item or warehouse names) and shows a stock-status filter when the source has one.
+Data-quality checks may have status `info` and a `share` (percent string).
+
 ## Formatting
 
 Decimal strings formatted with `Intl.NumberFormat` (string input preserves precision). Currency always shown with its code. Quantities shown with UoM.

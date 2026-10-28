@@ -1,7 +1,7 @@
 "use client";
 
 import { clsx } from "clsx";
-import { CheckCircle2, CircleAlert, Lock, MinusCircle } from "lucide-react";
+import { CheckCircle2, CircleAlert, Info, Lock, MinusCircle } from "lucide-react";
 import { useState } from "react";
 
 import { ItemCell, SimpleTable, type SimpleColumn } from "@/components/data/simple-table";
@@ -98,6 +98,7 @@ function RiskTable({ kind, columns, days, empty }: { kind: RiskKind; columns: Si
 const STATUS_ICON: Record<DataQualityCheck["status"], { icon: typeof CheckCircle2; className: string; label: string }> = {
   ok: { icon: CheckCircle2, className: "text-ok", label: "No gaps found" },
   issue: { icon: CircleAlert, className: "text-signal", label: "Needs attention" },
+  info: { icon: Info, className: "text-ink-2", label: "For information — not necessarily a defect" },
   not_mapped: { icon: MinusCircle, className: "text-ink-3", label: "Field not mapped for this tenant — cannot be checked" },
   restricted: { icon: Lock, className: "text-ink-3", label: "Hidden: your role cannot view cost information" },
   no_rules: { icon: MinusCircle, className: "text-ink-3", label: "No item-code rules configured for this tenant" },
@@ -136,6 +137,7 @@ function DataQualityPanel() {
                     </ul>
                   )}
                   {c.partial && <p className="mt-1 text-xs text-signal">Only the first {formatCount(c.checked)} items were checked.</p>}
+                  {c.share != null && <p className="figure mt-1 text-xs text-ink-2">{c.share}% of the records checked</p>}
                 </div>
                 <span className={clsx("figure text-lg font-semibold", c.status === "issue" ? "text-signal" : "text-ink")}>
                   {c.count === null ? "—" : formatCount(c.count)}

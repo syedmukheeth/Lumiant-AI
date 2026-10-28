@@ -82,7 +82,8 @@ Order follows dependencies. Milestone detail: `ROADMAP.md`, `MILESTONE_01.md`.
 - [x] Capability readiness matrix
 - [x] Reconciliation harness with go-live verdict
 - [x] Audit explorer
-- [ ] Value maps, mapping editor + approval workflow, AI-suggested mappings, profiling, drill-through, saved views, query chips, glossary (ISSUES #15)
+- [x] Value maps (M8: `datasets.<ds>.value_maps`, compiled to CASE, unmapped codes reported — ISSUES #3)
+- [ ] Mapping editor + approval workflow, AI-suggested mappings, profiling, drill-through, saved views, query chips, glossary (ISSUES #15)
 
 ## M6 — Hardening and deployment preparation (done where possible without the customer)
 - [x] Rate limiting
@@ -94,3 +95,13 @@ Order follows dependencies. Milestone detail: `ROADMAP.md`, `MILESTONE_01.md`.
 
 ## M7 — Customer integration (blocked)
 See `ROADMAP.md` and `07-customer/OPEN_QUESTIONS.md`.
+
+## M8 — Client SAP data intake (plan Part B; real files local-only, ADR-0008)
+- [x] B1 Private-data guardrails: `var/private/` + explicit `.gitignore` lines, `test_private_data_guard.py`, owner authorization in the session log
+- [x] B2 Importer `ingest/sap_exports.py` + `lumiant-ingest sap`: header contract, codes as text, exact decimals, total rows → control-total gate, manifest, atomic DuckDB, generated tenant YAML
+- [x] B3 Platform: `customer_extract` classification (dev-only, flag, production refusal, badge, CONFIDENTIAL exports, external AI off), private tenant dir, `stock_status` / `source_value` / `item_warehouse`, value maps, mapped-fields-only explorer/reports/metrics, SAP data-quality checks, capability `needs_file`
+- [x] B4 Synthetic twin `demo-gamma` (XLSX in client layout → same importer)
+- [x] B5 Tests (importer edge cases, twin totals vs the XLSX files, DQ counts, classification guards, gitignore, balances without lots)
+- [x] B6 Docs (`07-customer/CLIENT_DATA_INTAKE.md`, ADR-0008, Q-019…Q-026)
+- [x] Real import run locally; gate passed; `git status` clean of private files (session log S03)
+- [ ] Client answers Q-019…Q-026; next files (MB51/MSEG, MARC, MCHB/MCH1, T001W/T001L, EKPO)

@@ -41,6 +41,17 @@ User-visible changes per milestone. Format loosely follows Keep a Changelog.
 - Content-Security-Policy on the web app; SSO-aware login page.
 - Container files, compose demo, CI workflow, production-readiness checklist, deployment guide, runbook, user and administrator guides.
 
+## [M8] — 2026-10-27 (client SAP data intake)
+### Added
+- `lumiant-ingest sap`: imports SAP MB52-style stock lists and material master valuation lists with a header contract, exact decimals and a control-total gate against the SAP total rows; writes a local DuckDB, manifest and tenant config under `services/api/var/private/`.
+- `customer_extract` data classification for real client files analysed locally (development only, explicit flag, CONFIDENTIAL badge and exports, external AI off).
+- Canonical stock status and source-reported value on stock lines; item settings per plant (`item_warehouse`).
+- Value maps in tenant configuration (source codes → canonical values, unknown codes reported).
+- Data-quality checks for SAP sources; capability matrix names the file that would unlock each missing analysis.
+- Synthetic tenant `demo-gamma`: a twin of the client export layout that goes through the same importer.
+### Changed
+- Inventory explorer, reports and value metrics request only fields the tenant maps (sources without lots, ABC classes or warehouse names work); explorer has a stock-status filter.
+
 ## [cloud-verify] — 2026-10-27
 ### Added
 - Optional Redis-backed shared rate limiter (`LUMIANT_RATE_LIMIT_REDIS_URL`, `redis` extra) with in-process fallback.
