@@ -5,7 +5,7 @@ import { Command } from "cmdk";
 import { CornerDownLeft, LogOut, type LucideIcon, Package, PanelLeft, Search, SunMoon, Sparkles } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Dialog } from "radix-ui";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { NavItem } from "@/components/shell/nav";
 import { toggleRail } from "@/components/shell/rail-state";
@@ -131,6 +131,19 @@ export function CommandPalette({ open, onOpenChange, nav, canSearchMaterials, ca
     action();
   };
 
+  // Focus is placed explicitly, and re-checked a frame later: a palette that is still animating out (AnimatePresence)
+  // unmounts its focus scope late, and that scope must not pull focus away from a palette opened again meanwhile.
+  const inputRef = useRef<HTMLInputElement>(null);
+  const openRef = useRef(open);
+  useEffect(() => {
+    openRef.current = open;
+    if (!open) return;
+    const id = requestAnimationFrame(() => {
+      if (openRef.current && document.activeElement !== inputRef.current) inputRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [open]);
+
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <AnimatePresence>
@@ -146,7 +159,18 @@ export function CommandPalette({ open, onOpenChange, nav, canSearchMaterials, ca
               />
             </Dialog.Overlay>
             <div className="pointer-events-none fixed inset-x-0 top-[10vh] z-(--z-palette) flex justify-center px-4">
-              <Dialog.Content forceMount asChild aria-describedby={undefined}>
+              <Dialog.Content
+                forceMount
+                asChild
+                aria-describedby={undefined}
+                onOpenAutoFocus={(e) => {
+                  e.preventDefault();
+                  inputRef.current?.focus();
+                }}
+                onCloseAutoFocus={(e) => {
+                  if (openRef.current) e.preventDefault();
+                }}
+              >
                 <motion.div
                   {...floatIn(reduce)}
                   className="pointer-events-auto w-full max-w-2xl overflow-hidden rounded-xl border border-glass-line bg-glass-strong shadow-e3 backdrop-blur-xl"
@@ -157,6 +181,7 @@ export function CommandPalette({ open, onOpenChange, nav, canSearchMaterials, ca
                     <div className="flex items-center gap-3 border-b border-line px-4 transition-colors focus-within:border-accent/60">
                       <Search size={16} aria-hidden className="shrink-0 text-ink-3" />
                       <Command.Input
+                        ref={inputRef}
                         value={search}
                         onValueChange={setSearch}
                         placeholder={canAsk ? "Jump to a page, find a material, or ask a question…" : "Jump to a page or find a material…"}
