@@ -20,3 +20,9 @@
 - {user: alpha.admin, question: "Show inventory value by storage location", tool: stock_by, args: {dimension: location, measure: value}}
 - {user: gamma.admin, question: "Show stock value by stock status", tool: stock_by, args: {dimension: stock_status, measure: value}}
 - {user: gamma.admin, question: "Which materials make up most of the value?", tool: concentration}
+# Phase B (11 Nov 2026 audit): phrasings that used to be unsupported or misrouted.
+- {user: alpha.admin, question: "What is the total inventory value?", tool: inventory_summary}
+- {user: alpha.admin, question: "How much inventory do we have?", tool: inventory_summary}
+- {user: alpha.admin, question: "Show me all A-category inventory items", tool: top_value_items, args: {abc_class: A, limit: 20}}
+- {user: alpha.admin, question: "Which items have the highest inventory value?", tool: top_value_items}
+- {user: alpha.admin, question: "Compare warehouses 1100 and 2100", tool: stock_by, args: {dimension: warehouse, only: ["1100", "2100"]}}

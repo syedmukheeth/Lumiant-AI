@@ -3,7 +3,7 @@
 import { ArrowRight, Boxes, type LucideIcon, ShieldAlert, ShieldCheck, Sparkles, Truck } from "lucide-react";
 import Link from "next/link";
 
-import { ask } from "@/components/analyst/store";
+import { ask, clearSelections } from "@/components/analyst/store";
 import { ErrorState, Skeleton } from "@/components/data/widget";
 import { Chip } from "@/components/ui/badge";
 import { ApiError, type Me } from "@/lib/api";
@@ -83,7 +83,15 @@ function Area({
           <ul className="flex flex-wrap gap-1.5" aria-label={`Questions about ${title.toLowerCase()}`}>
             {questions.map((q) => (
               <li key={q}>
-                <Chip size="sm" onClick={() => void ask(q)}>
+                <Chip
+                  size="sm"
+                  onClick={() => {
+                    // A general question: drop anything pointed at earlier, so its chip doesn't sit above an
+                    // unrelated answer (and the question isn't narrowed to it).
+                    clearSelections();
+                    void ask(q);
+                  }}
+                >
                   {q}
                 </Chip>
               </li>

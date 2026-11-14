@@ -34,6 +34,7 @@ WITHHELD_ANSWER = (
 Event = dict[str, Any]
 
 TOOL_LABELS = {
+    "inventory_summary": "Totalling inventory",
     "stock_position": "Looking up where the item is held",
     "stock_by": "Grouping stock",
     "top_value_items": "Ranking items by value",
@@ -247,10 +248,18 @@ class AgentService:
         blocked = False
         if outputs:
             bad_template = ungrounded_numbers(answer, evidence)
-            if bad_template:  # should be impossible: templates only hold result values, so flag it for the user
+            if bad_template:
+                # Should be impossible (templates only hold result values), but a sentence that fails the check is
+                # never shown: the result tables stay, because they are the query output itself.
                 log.error("template_ungrounded", extra={"count": len(bad_template)})
-                grounding = {"passed": False, "ungrounded": bad_template, "source": grounding["source"]}
-            verdict = "every number traced to the results" if grounding["passed"] else "ungrounded numbers found"
+                blocked, answer = True, WITHHELD_ANSWER
+                grounding = {
+                    "passed": False,
+                    "ungrounded": bad_template,
+                    "source": "blocked",
+                    "note": "Answer withheld: it contained numbers not found in the results.",
+                }
+            verdict = "every number traced to the results" if grounding["passed"] else "answer withheld"
             status = "done" if grounding["passed"] else "failed"
             yield done(_step("ground", "Checking every number against the results", status, detail=verdict))
         elif provider.external:

@@ -6,6 +6,9 @@ const API_ORIGIN = process.env.LUMIANT_API_ORIGIN ?? "http://127.0.0.1:8000";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // The dev-only route indicator sat over "Sign out" at the bottom of the nav rail, and every other corner holds a
+  // control (theme toggle, Analyst dock). Errors still open Next's overlay in development; production never shows it.
+  devIndicators: false,
   turbopack: {
     rules: {
       "*.css": {

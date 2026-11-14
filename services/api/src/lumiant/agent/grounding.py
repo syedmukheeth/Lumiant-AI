@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any
 
 _NUMBER = re.compile(r"(?<![\w.])-?\d[\d,]*(?:\.\d+)?")
@@ -44,13 +44,38 @@ def collect_numbers(value: Any, into: set[str] | None = None) -> set[str]:
     return found
 
 
+DISPLAY_PLACES = (2, 3)  # money is shown to 2 decimals, quantities to at most 3
+
+
+def with_display_roundings(evidence: set[str]) -> set[str]:
+    """The evidence plus each value rounded half-up to the display precisions, so '1,128,850.12' is traced to the
+    result value 1128850.11776790. Only rounding of a real result is accepted; nothing is computed."""
+    out = set(evidence)
+    for e in evidence:
+        try:
+            d = Decimal(e)
+        except InvalidOperation:
+            continue
+        exponent = d.as_tuple().exponent
+        if not isinstance(exponent, int):
+            continue
+        for places in DISPLAY_PLACES:
+            if exponent < -places:
+                n = normalize(str(d.quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP)))
+                if n is not None:
+                    out.add(n)
+    return out
+
+
 def ungrounded_numbers(text: str, evidence: set[str]) -> list[str]:
-    """Numbers in `text` that appear nowhere in the evidence. Small ordinals (0, 1) are allowed as words-in-numbers."""
+    """Numbers in `text` that appear nowhere in the evidence (exactly, or rounded to a display precision). Small
+    ordinals (0, 1) are allowed as words-in-numbers."""
+    allowed = with_display_roundings(evidence)
     bad: list[str] = []
     for m in _NUMBER.findall(text):
         n = normalize(m)
         if n is None or n in ("0", "1"):
             continue
-        if n not in evidence:
+        if n not in allowed:
             bad.append(m)
     return bad

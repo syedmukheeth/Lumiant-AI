@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
@@ -18,6 +18,7 @@ from lumiant.auth.permissions import Permission
 from lumiant.auth.principal import Principal
 from lumiant.core.errors import AppError
 from lumiant.insights.engine import InsightService
+from lumiant.metrics.service import MetricsService
 from lumiant.query.plan import QueryPlan
 from lumiant.query.results import QueryResult, to_json_value
 from lumiant.query.service import QueryService
@@ -73,6 +74,9 @@ class NarrowArgs(_Args):
     item_group: FilterCode | None = Field(default=None, description="Only this item group")
     stage: FilterCode | None = Field(default=None, description="Only this inventory stage")
     stock_status: FilterCode | None = Field(default=None, description="Only this stock status, e.g. quality_inspection")
+    abc_class: FilterCode | None = Field(
+        default=None, description="Only this ABC class as assigned in the source, e.g. A"
+    )
 
 
 class StockByArgs(NarrowArgs):
@@ -115,8 +119,37 @@ def _col(key: str, label: str, kind: str = "text") -> dict[str, str]:
     return {"key": key, "label": label, "kind": kind}
 
 
+def _amount(value: Any, places: int = 2) -> str:
+    """Display form of a money amount: '1128850.11776790' -> '1,128,850.12'. The exact value stays in the results,
+    and the grounding check accepts this rounding of it."""
+    try:
+        d = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return str(value)
+    if not d.is_finite():
+        return str(value)
+    return f"{d.quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP):,.{places}f}"
+
+
+def _quantity(value: Any) -> str:
+    """Display form of a quantity: '258107.0000' -> '258,107', '0.0890' -> '0.089' (at most three decimals)."""
+    try:
+        d = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return str(value)
+    if not d.is_finite():
+        return str(value)
+    q = d.quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
+    text = f"{q:,.3f}".rstrip("0").rstrip(".")
+    return "0" if text in ("", "-0") else text
+
+
+def _money(currency: Any, value: Any, places: int = 2) -> str:
+    return f"{currency or ''} {_amount(value, places)}".strip()
+
+
 def _first_money(rows: list[dict[str, Any]], key: str) -> str:
-    return f"{rows[0].get('currency', '')} {rows[0][key]}".strip()
+    return _money(rows[0].get("currency", ""), rows[0][key])
 
 
 # ------------------------------------------------------------------------------------------ item lookup
@@ -169,7 +202,8 @@ def stock_position(ctx: ToolContext, a: ItemArgs) -> ToolOutput:
         top = rows[0]
         answer = (
             f"Item {a.item_id} is held in {len(rows)} warehouse{'s' if len(rows) != 1 else ''}. "
-            f"The largest holding is {top['qty']} {top['uom']} in {top['warehouse.name']} ({top['warehouse_id']})."
+            f"The largest holding is {_quantity(top['qty'])} {top['uom']} in "
+            f"{top['warehouse.name'] or top['warehouse_id']} ({top['warehouse_id']})."
         )
     block = {
         "type": "table",
@@ -205,6 +239,7 @@ _NARROW = {
     "item_group": ("item.item_group", "item group"),
     "stage": ("item.inventory_stage", "stage"),
     "stock_status": ("stock_status", "stock status"),
+    "abc_class": ("item.abc_class", "ABC class"),
 }
 
 
@@ -251,7 +286,8 @@ def stock_by(ctx: ToolContext, a: StockByArgs) -> ToolOutput:
         lead = (
             f"Of the selected {label.lower()}s{where}, the highest" if a.only else f"The highest {label.lower()}{where}"
         )
-        answer = f"{lead} is {top[label_key] or 'not set'} with {top[unit_key]} {top['total']}."
+        shown = _money(top[unit_key], top["total"]) if valued else f"{_quantity(top['total'])} {top[unit_key]}"
+        answer = f"{lead} is {top[label_key] or 'not set'} with {shown}."
         if len(units) > 1:
             answer += f" Results are shown separately per {'currency' if valued else 'unit'} ({', '.join(units)}) and never added together."
     blocks = [
@@ -325,7 +361,10 @@ def below_reorder(ctx: ToolContext, a: NoArgs) -> ToolOutput:
     answer = f"{s['flagged']} item–warehouse pairs are below their reorder level."
     if rows:
         r = rows[0]
-        answer += f" The lowest coverage is {r['item_code']} in {r['warehouse_id']}: {r['on_hand']} on hand against a reorder level of {r['reorder_level']}."
+        answer += (
+            f" The lowest coverage is {r['item_code']} in {r['warehouse_id']}: {_quantity(r['on_hand'])} on hand "
+            f"against a reorder level of {_quantity(r['reorder_level'])}."
+        )
     if s.get("pairs_without_policy"):
         answer += f" {s['pairs_without_policy']} stocked pairs have no reorder policy, so they cannot be assessed."
     cols = [
@@ -347,7 +386,10 @@ def excess_stock(ctx: ToolContext, a: NoArgs) -> ToolOutput:
     rows = res.payload()["data"]
     answer = f"{s['flagged']} item–warehouse pairs hold more than their maximum stock policy."
     if rows:
-        answer += f" The largest is {rows[0]['item_code']} in {rows[0]['warehouse_id']}: {rows[0]['on_hand']} on hand against a maximum of {rows[0]['max_stock']}."
+        answer += (
+            f" The largest is {rows[0]['item_code']} in {rows[0]['warehouse_id']}: {_quantity(rows[0]['on_hand'])} on "
+            f"hand against a maximum of {_quantity(rows[0]['max_stock'])}."
+        )
     cols = [
         _ITEM,
         _DESC,
@@ -418,7 +460,8 @@ def data_quality(ctx: ToolContext, a: NoArgs) -> ToolOutput:
         [block],
         None,
         dq["warnings"],
-        data={"checks": rows, "total_items": dq["total_items"]},
+        # The counts the sentence states are evidence too, so the grounding check can trace them.
+        data={"checks": rows, "total_items": dq["total_items"], "issues": len(issues), "checks_run": len(rows)},
     )
 
 
@@ -449,13 +492,17 @@ def cost_comparison(ctx: ToolContext, a: CostArgs) -> ToolOutput:
         )
     src = m["source_valuation"]
     rows.append({"method": "Source valuation", "unit_cost": src["unit_cost"], "value": src["value"], "currency": cur})
-    parts = [f"{r['method'].lower()} {cur} {r['unit_cost']}" for r in rows if r["unit_cost"]]
+    # Unit costs keep four decimals: source prices carry four.
+    parts = [f"{r['method'].lower()} {_money(cur, r['unit_cost'], 4)}" for r in rows if r["unit_cost"]]
     answer = f"For item {a.item_id} in {a.warehouse_id}: " + "; ".join(parts) + "."
     rec = res["reconciliation"]
     if rec["status"] == "match":
         answer += " The recomputed average matches the source valuation."
     elif rec["status"] == "differs":
-        answer += f" The recomputed average differs from the source valuation by {cur} {rec['difference_unit_cost']} per unit."
+        answer += (
+            f" The recomputed average differs from the source valuation by "
+            f"{_money(cur, rec['difference_unit_cost'], 4)} per unit."
+        )
     block = {
         "type": "table",
         "title": "Cost comparison (draft definitions)",
@@ -514,6 +561,59 @@ def special_storage(ctx: ToolContext, a: NoArgs) -> ToolOutput:
     return ToolOutput(
         "special_storage", "Special storage", answer, [block], payload["provenance"], _warn(res), data=payload
     )
+
+
+def inventory_summary(ctx: ToolContext, a: NoArgs) -> ToolOutput:
+    """Totals from the same catalog metrics as the Overview cards: value per currency (cost access only), distinct items
+    in stock and stock lines. Currencies are listed separately, never added."""
+    metrics = MetricsService(ctx.query)
+    can_cost = ctx.principal.has(Permission.COST_READ)
+    _, items_res = metrics.run("items_in_stock", ctx.principal)
+    _, lines_res = metrics.run("stock_lines", ctx.principal)
+    items = items_res.rows[0]["items"] if items_res.rows else 0
+    lines = lines_res.rows[0]["lines"] if lines_res.rows else 0
+    blocks: list[Block] = []
+    warnings: list[dict[str, str]] = []
+    data: dict[str, Any] = {"items_in_stock": to_json_value(items), "stock_lines": to_json_value(lines)}
+    provenance = items_res.payload()["provenance"]
+    counts = f"{_quantity(items)} items in stock across {_quantity(lines)} stock lines"
+    if can_cost:
+        _, value_res = metrics.run("inventory_value_total", ctx.principal)
+        payload = value_res.payload()
+        values = [r for r in payload["data"] if r.get("value") is not None]
+        data["value"] = values
+        provenance = payload["provenance"]
+        warnings = _warn(value_res)
+        if values:
+            shown = " and ".join(_money(r.get("currency"), r["value"]) for r in values)
+            answer = f"Your inventory is worth {shown}, with {counts}."
+            if len(values) > 1:
+                answer += " Currencies are shown separately and never added together."
+        else:
+            answer = f"There is no valued stock in your scope; you have {counts}."
+        blocks.append(
+            {
+                "type": "table",
+                "title": "Inventory value",
+                "columns": [_col("currency", "Currency"), _col("value", "Value", "money")],
+                "rows": values,
+            }
+        )
+    else:
+        answer = f"You have {counts}. Your role cannot view inventory values."
+    blocks.append(
+        {
+            "type": "table",
+            "title": "Stock counts",
+            "columns": [_col("measure", "Measure"), _col("count", "Count", "int")],
+            "rows": [
+                {"measure": "Items in stock", "count": data["items_in_stock"]},
+                {"measure": "Stock lines", "count": data["stock_lines"]},
+            ],
+        }
+    )
+    follow = ["Show inventory value by warehouse"] if can_cost else ["Show stock by warehouse"]
+    return ToolOutput("inventory_summary", "Inventory summary", answer, blocks, provenance, warnings, follow, data)
 
 
 def concentration(ctx: ToolContext, a: ConcentrationArgs) -> ToolOutput:
@@ -605,6 +705,13 @@ def insights(ctx: ToolContext, a: NoArgs) -> ToolOutput:
 TOOLS: dict[str, ToolDef] = {
     t.name: t
     for t in (
+        ToolDef(
+            "inventory_summary",
+            "Overall totals: inventory value per currency (needs cost access), distinct items in stock and stock lines.",
+            NoArgs,
+            (Permission.INVENTORY_READ, Permission.DASHBOARD_READ),
+            inventory_summary,
+        ),
         ToolDef(
             "stock_position",
             "On-hand quantity of one item by warehouse.",

@@ -25,3 +25,6 @@ export const NAV: readonly NavItem[] = [
 ];
 
 export const navFor = (sections: readonly string[]) => NAV.filter((n) => sections.includes(n.section));
+
+/** The nav entry a path belongs to (`/costs/x` → Costs), or undefined for paths outside the app's pages. */
+export const sectionFor = (pathname: string) => NAV.find((n) => pathname === n.href || pathname.startsWith(`${n.href}/`));

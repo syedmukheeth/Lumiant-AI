@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { clsx } from "clsx";
-import { Clock, LogOut, PanelLeftClose, PanelLeftOpen, Search, Sparkles } from "lucide-react";
+import { Clock, Lock, LogOut, PanelLeftClose, PanelLeftOpen, Search, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -13,11 +13,12 @@ import { AnalystDock } from "@/components/analyst/analyst-dock";
 import { Lens } from "@/components/analyst/lens";
 import { bindAnalystUser, resetAnalyst, toggleDock, toggleLens, useAnalyst } from "@/components/analyst/store";
 import { CommandPalette } from "@/components/shell/command-palette";
-import { type NavItem, navFor } from "@/components/shell/nav";
+import { type NavItem, navFor, sectionFor } from "@/components/shell/nav";
 import { toggleRail, useRailCollapsed } from "@/components/shell/rail-state";
 import { DataBadge } from "@/components/shell/synthetic-tape";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { Button, IconButton } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { tooltipSurface } from "@/components/ui/float";
 import { useShortcuts } from "@/components/shell/use-shortcuts";
 import { api, ApiError, type Me } from "@/lib/api";
@@ -144,9 +145,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (me.data) bindAnalystUser(`${me.data.tenant.id}:${me.data.user.id}`);
   }, [me.data]);
 
-  // The page always renders (its own queries handle loading/permissions); only the chrome waits for the session.
   const user = me.data;
   const nav = user ? navFor(user.sections) : [];
+  // A page whose section the role lacks (reached by typing its URL) is not mounted at all, so it fires no requests.
+  // The API enforces the same rule server-side; this keeps the UI from even asking. Until the session loads, a
+  // section page waits rather than requesting data it may not be allowed to see.
+  const route = sectionFor(pathname);
+  const pageAllowed = !route || (user ? user.sections.includes(route.section) : undefined);
   const unreachable = me.error && !(me.error instanceof ApiError && me.error.status === 401);
   const canAsk = !!user?.sections.includes("assistant");
   const canCost = !!user?.permissions.includes("cost:read");
@@ -320,7 +325,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             )}
             {/* Route transition: a short fade on every page change (opacity only, so reduced motion keeps it). */}
             <div key={pathname} className="route-enter">
-              {children}
+              {pageAllowed === true ? (
+                children
+              ) : pageAllowed === false ? (
+                <div className="mx-auto max-w-[96rem]" data-testid="page-forbidden">
+                  <EmptyState
+                    icon={Lock}
+                    title="Not available for your role."
+                    hint="Your organisation has not given your role access to this page. Pick another page from the menu."
+                  />
+                </div>
+              ) : null}
             </div>
           </main>
         </div>

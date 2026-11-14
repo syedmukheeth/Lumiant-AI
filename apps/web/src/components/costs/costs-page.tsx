@@ -139,7 +139,7 @@ function CostComparisonPanel() {
             <option value="">Choose…</option>
             {(filters.data?.warehouses ?? []).map((w) => (
               <option key={w.id} value={w.id}>
-                {w.id} · {w.name}
+                {w.name ? `${w.id} · ${w.name}` : w.id}
               </option>
             ))}
           </Select>

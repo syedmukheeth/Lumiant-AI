@@ -163,7 +163,7 @@ export function AnswerBody({
         <p role="alert" className="flex items-start gap-1.5 text-xs text-signal" data-testid="grounding-failed">
           <TriangleAlert size={13} className="mt-px shrink-0" aria-hidden />
           {r.grounding.source === "blocked"
-            ? "The AI answer was withheld because its figures could not be traced to your data."
+            ? `${r.mode === "rules" ? "The answer" : "The AI answer"} was withheld because its figures could not be traced to your data. The tables below are the query results themselves.`
             : "Some figures in this answer could not be traced to the results. Check them against the table and source."}
         </p>
       )}

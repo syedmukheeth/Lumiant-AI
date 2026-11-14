@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -11,9 +12,10 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
+from lumiant.agent.grounding import ungrounded_numbers
 from lumiant.agent.providers import AnthropicProvider, build_provider, model_view
-from lumiant.agent.service import AgentService
-from lumiant.agent.tools import TOOLS, ToolOutput, tools_for
+from lumiant.agent.service import WITHHELD_ANSWER, AgentService
+from lumiant.agent.tools import TOOLS, ToolDef, ToolOutput, _quantity, tools_for
 from lumiant.auth.principal import Principal
 from lumiant.core.config import BASE_DIR, Settings
 from lumiant.main import create_app
@@ -79,8 +81,100 @@ def test_below_reorder_answer_matches_the_analysis(agent: AgentService, principa
     out = ask(agent, principals, "alpha.admin", "Which items are below reorder level?")
     flagged = out["blocks"][0]["rows"]
     assert flagged
-    assert str(flagged[0]["on_hand"]) in out["answer"]
+    # The sentence shows the quantity in display form ("0.0000" -> "0"); the table keeps the exact value.
+    assert f": {_quantity(flagged[0]['on_hand'])} on hand" in out["answer"]
     assert str(out["provenance"][0]["row_count"]) in json.dumps(out["provenance"])
+
+
+# ------------------------------------------------------------------------------------------- Phase B regressions
+MONEY_SENTENCE = re.compile(r"\b[A-Z]{3} -?[\d,]+\.\d{2}\b")
+LONG_DECIMAL = re.compile(r"\d\.\d{5,}")
+
+
+def test_answer_sentences_show_formatted_money(agent: AgentService, principals: dict[str, Principal]) -> None:
+    for question in (
+        "Show inventory value by warehouse",
+        "Show the highest-value items",
+        "What is the total inventory value?",
+    ):
+        out = ask(agent, principals, "alpha.admin", question)
+        assert out["grounding"]["passed"], (question, out["grounding"])
+        assert MONEY_SENTENCE.search(out["answer"]), (question, out["answer"])
+        assert not LONG_DECIMAL.search(out["answer"]), (question, out["answer"])
+
+
+def test_total_inventory_value_matches_the_overview_metric(
+    agent: AgentService, principals: dict[str, Principal], query_service: QueryService
+) -> None:
+    from lumiant.metrics.service import MetricsService
+
+    _, metric = MetricsService(query_service).run("inventory_value_total", principals["alpha.admin"])
+    out = ask(agent, principals, "alpha.admin", "What is the total inventory value?")
+    assert out["tool_calls"][0]["name"] == "inventory_summary"
+    values = {r["currency"]: r["value"] for r in out["blocks"][0]["rows"]}
+    assert values == {r["currency"]: str(r["value"]) for r in metric.payload()["data"] if r["value"] is not None}
+
+
+def test_compare_named_warehouses_returns_only_those(agent: AgentService, principals: dict[str, Principal]) -> None:
+    out = ask(agent, principals, "alpha.admin", "Compare warehouses 1100 and 2100")
+    assert out["tool_calls"][0]["args"]["only"] == ["1100", "2100"]
+    assert {r["warehouse_id"] for r in out["blocks"][0]["rows"]} <= {"1100", "2100"}
+
+
+def test_item_location_and_details_use_stock_position(
+    agent: AgentService, principals: dict[str, Principal], alpha_db: Path
+) -> None:
+    from tests.helpers import raw_duckdb
+
+    con = raw_duckdb(alpha_db)
+    code = con.execute("SELECT MATNR FROM ZV_STOCK GROUP BY MATNR ORDER BY SUM(LABST) DESC LIMIT 1").fetchone()
+    con.close()
+    assert code is not None
+    for question in (f"Where is item {code[0]} held?", f"Give me details of item {code[0]}"):
+        out = ask(agent, principals, "alpha.admin", question)
+        assert out["tool_calls"][0] == {"name": "stock_position", "args": {"item_id": code[0]}}, question
+
+
+def test_abc_class_items_are_filtered_to_that_class(agent: AgentService, principals: dict[str, Principal]) -> None:
+    out = ask(agent, principals, "alpha.admin", "Show me all A-category inventory items")
+    filters = out["provenance"][0]["filters"]["user"]
+    assert {"field": "item.abc_class", "op": "eq", "value": "A"} in filters
+
+
+@pytest.mark.security
+def test_template_that_fails_grounding_is_withheld(
+    agent: AgentService, principals: dict[str, Principal], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = TOOLS["below_reorder"]
+
+    def lying(ctx: Any, a: Any) -> ToolOutput:
+        good = real.run(ctx, a)
+        return ToolOutput(good.tool, good.title, "Exactly 987654 pairs are low.", good.blocks, good.provenance, data={})
+
+    monkeypatch.setitem(
+        TOOLS, "below_reorder", ToolDef(real.name, real.description, real.args, real.permissions, lying)
+    )
+    out = ask(agent, principals, "alpha.admin", "Which items are below reorder level?")
+    assert out["answer"] == WITHHELD_ANSWER
+    assert "987654" not in json.dumps(out["answer"])
+    assert out["grounding"]["passed"] is False
+    assert out["grounding"]["ungrounded"] == ["987654"]
+
+
+def test_data_quality_counts_are_grounded_on_every_tenant(
+    agent: AgentService, principals: dict[str, Principal]
+) -> None:
+    for user in ("alpha.admin", "beta.admin", "gamma.admin"):
+        out = ask(agent, principals, user, "Which items have incomplete master data?")
+        assert out["grounding"]["passed"], (user, out["grounding"])
+        assert out["answer"] != WITHHELD_ANSWER
+
+
+def test_grounding_accepts_display_rounding_only() -> None:
+    evidence = {"1128850.1177679", "69.193"}
+    assert ungrounded_numbers("USD 1,128,850.12 and 69.193", evidence) == []
+    assert ungrounded_numbers("USD 1,128,850.13", evidence) == ["1,128,850.13"]
+    assert ungrounded_numbers("USD 1,128,850", evidence) == ["1,128,850"]  # no rounding to whole units
 
 
 def test_item_stock_resolves_by_description_and_asks_when_ambiguous(

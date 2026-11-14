@@ -377,6 +377,36 @@ test("overview: a role without cost access sees no values on the four areas", as
   await expect(board).not.toContainText("USD");
 });
 
+test("direct URL: a page outside the role's sections is not mounted and requests nothing", async ({ page }) => {
+  await signIn(page, "alpha.analyst");
+  const calls: string[] = [];
+  page.on("request", (r) => {
+    if (/\/api\/(analyses|inventory\/filters)/.test(r.url())) calls.push(r.url());
+  });
+  await page.goto("/costs");
+  await expect(page.getByTestId("page-forbidden")).toContainText("Not available for your role");
+  await expect(page.getByRole("heading", { name: "Cost analysis" })).toHaveCount(0);
+  await page.goto("/admin");
+  await expect(page.getByTestId("page-forbidden")).toBeVisible();
+  expect(calls).toEqual([]);
+});
+
+test("a tenant without reorder data shows a data gap, not an error, on the overview", async ({ page }) => {
+  await signIn(page, "gamma.admin");
+  await expect(page.getByTestId("kpi-below").getByTestId("data-gap")).toContainText("Needs more data");
+  await expect(page.getByTestId("kpi-below")).not.toContainText("Could not load this");
+});
+
+test("an area question clears an earlier Analyst selection", async ({ page }) => {
+  await signIn(page, "alpha.admin");
+  await page.getByTestId("kpi-items").getByRole("button", { name: /analyze/i }).click();
+  const dock = page.getByTestId("analyst-dock");
+  await expect(dock.getByLabel("Analyzing")).toContainText("Items in stock");
+  await page.getByTestId("area-board").getByRole("button", { name: "Which items have excess stock?" }).click();
+  await expect(dock.getByTestId("analyst-answer").last()).toContainText("maximum stock");
+  await expect(dock.getByLabel("Analyzing")).toHaveCount(0);
+});
+
 test("lens: pick on-screen elements, compare them, and leave with Esc", async ({ page }) => {
   await signIn(page, "alpha.admin");
   await page.getByRole("heading", { name: "Inventory position" }).click();

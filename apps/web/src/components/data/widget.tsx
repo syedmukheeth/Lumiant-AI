@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Lock, ServerCrash } from "lucide-react";
+import { AlertTriangle, Info, Lock, ServerCrash } from "lucide-react";
 import { clsx } from "clsx";
 
 import { AnalyzeButton, analyzableProps } from "@/components/analyst/analyzable";
@@ -26,6 +26,19 @@ export function Warnings({ warnings }: { warnings?: ResultWarning[] }) {
 export function ErrorState({ error }: { error: unknown }) {
   const e = error instanceof ApiError ? error : null;
   const forbidden = e?.status === 403;
+  if (e?.status === 409) {
+    // The API answers 409 when the tenant's mapped data cannot support an analysis (e.g. no reorder policies).
+    // That is a known gap in the source, not a failure: say what is missing, without an error icon or reference.
+    return (
+      <div role="status" className="flex h-full flex-col items-start justify-center gap-1 text-sm" data-testid="data-gap">
+        <span className="flex items-center gap-1.5 font-medium text-ink-2">
+          <Info size={15} className="text-ink-3" aria-hidden />
+          Needs more data
+        </span>
+        <span className="text-xs text-ink-3">{e.message}</span>
+      </div>
+    );
+  }
   const Icon = forbidden ? Lock : ServerCrash;
   return (
     <div role="status" className="flex h-full min-h-24 flex-col items-start justify-center gap-1 text-sm">

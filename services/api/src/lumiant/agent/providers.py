@@ -126,6 +126,31 @@ _DIM_PATTERNS = (
 )
 
 
+_TOTAL = (
+    r"total (inventory |stock )?(value|worth)|inventory value|stock value|value of (our |the |all )?(inventory|stock)|"
+    r"how much (inventory|stock)\b(?!\s+(of|for)\b)|how much is (our |the )?(inventory|stock)|"
+    r"(inventory|stock) (summary|overview|totals?)|overall (inventory|stock)|what is (our |the )?(inventory|stock) worth"
+)
+# "...for item X", "...of gasket": the question is about one thing, not the whole inventory.
+_NAMES_SOMETHING = r"\bitem\b|\b(for|of)\s+(?!(our|the|all|my|inventory|stock)\b)\w"
+_HIGHEST_VALUE = (
+    r"highest[- ](inventory |stock |on[- ]hand )?value|most valuable|top .*value|biggest .*value|"
+    r"most expensive (stock|items?)|largest .*value"
+)
+_CLASSIFICATIONS = r"classification|how (is|are) (our |the )?(inventory|stock|items) (classified|categori[sz]ed)"
+_ITEM_WHERE = (
+    r"\bwhere\b.*\b(held|stored|kept|located|stocked)\b|\bdetails?\b.*\bitem\b|\bitem\b.*\bdetails?\b|"
+    r"\b(tell me|info(rmation)?) about item\b"
+)
+_ABC = re.compile(r"\b([abc])[- ](?:category|class)\b|\b(?:category|class)[- ]([abc])\b")
+
+
+def _abc_class(q: str) -> str | None:
+    """'A-category', 'class B' → the ABC letter as stored in the source (upper case)."""
+    m = _ABC.search(q)
+    return (m.group(1) or m.group(2)).upper() if m else None
+
+
 def _dimension(q: str) -> str | None:
     for pattern, key in _DIM_PATTERNS:
         if _has(q, pattern):
@@ -142,11 +167,19 @@ class RuleBasedProvider:
 
     # ------------------------------------------------------------------------------------ entity resolution
     def _warehouse(self, q: str, ctx: ToolContext) -> str | None:
+        found = self._warehouses(q, ctx)
+        return found[0] if found else None
+
+    def _warehouses(self, q: str, ctx: ToolContext) -> list[str]:
+        """Visible warehouses named in the question by id or name, in the order they appear."""
+        hits: list[tuple[int, str]] = []
         for w in visible_warehouses(ctx):
             wid, name = str(w["warehouse_id"]), str(w["name"] or "")
-            if re.search(rf"\b{re.escape(wid.lower())}\b", q) or (name and name.lower() in q):
-                return wid
-        return None
+            m = re.search(rf"\b{re.escape(wid.lower())}\b", q)
+            pos = m.start() if m else (q.find(name.lower()) if name else -1)
+            if pos >= 0:
+                hits.append((pos, wid))
+        return [wid for _, wid in sorted(hits)]
 
     def _item(self, question: str, ctx: ToolContext) -> tuple[dict[str, Any] | None, Decision | None]:
         text = question.strip().rstrip("?.! ")
@@ -293,13 +326,36 @@ class RuleBasedProvider:
             return Decision("tools", [ToolCall("dormant", {"days": parse_days(q, 270)})])
         if _has(q, r"special storage|storage (condition|requirement)|temperature|flammable|air[- ]?condition|hazard"):
             return Decision("tools", [ToolCall("special_storage")])
-        if _has(q, r"highest[- ]value|most valuable|top .*value|biggest .*value|most expensive stock"):
+        dim = _dimension(q)
+        abc = _abc_class(q)
+        if abc:
+            # "Show me all A-category items": the class's items, by value when the role may see values.
+            if can_cost:
+                return Decision("tools", [ToolCall("top_value_items", {"limit": 20, "abc_class": abc})])
+            return Decision(
+                "tools", [ToolCall("stock_by", {"dimension": "warehouse", "measure": "quantity", "abc_class": abc})]
+            )
+        if _has(q, _HIGHEST_VALUE):
             if not can_cost:
                 return Decision(
                     "unsupported",
                     message="Your role can't view inventory values, so I can't rank items by value. I can rank by quantity per warehouse instead.",
                 )
             return Decision("tools", [ToolCall("top_value_items", {"limit": 10})])
+        if dim is None and _has(q, _TOTAL) and not _has(q, _NAMES_SOMETHING):
+            return Decision("tools", [ToolCall("inventory_summary", {})])
+        if _has(q, _CLASSIFICATIONS):
+            measure = "value" if can_cost else "quantity"
+            return Decision(
+                "tools",
+                [ToolCall("stock_by", {"dimension": d, "measure": measure}) for d in ("abc", "item_group", "stage")],
+            )
+        if _has(q, _ITEM_WHERE):
+            item, ask = self._item(question, ctx)
+            if ask:
+                return ask
+            assert item is not None
+            return Decision("tools", [ToolCall("stock_position", {"item_id": str(item["item_id"])})])
         if _has(
             q,
             r"latest price|average cost|cost of|price of|compare .*(cost|price)|fifo|moving average|unit cost|costing",
@@ -337,14 +393,19 @@ class RuleBasedProvider:
             return Decision(
                 "tools", [ToolCall("cost_comparison", {"item_id": str(item["item_id"]), "warehouse_id": wh})]
             )
-        dim = _dimension(q)
         if dim and _has(q, r"\bby\b|compare|most|which|contains|has the|largest|biggest|show|inventory|stock|tied"):
             measure = (
                 "value"
                 if can_cost and _has(q, r"value|worth|cost|\bmoney\b|inventory by|show inventory")
                 else "quantity"
             )
-            return Decision("tools", [ToolCall("stock_by", {"dimension": dim, "measure": measure})])
+            args: dict[str, Any] = {"dimension": dim, "measure": measure}
+            if dim == "warehouse":
+                # "Compare warehouses 1100 and 2100": only the named ones (each must be visible to the user).
+                named = self._warehouses(q, ctx)
+                if len(named) >= 2:
+                    args["only"] = named[:5]
+            return Decision("tools", [ToolCall("stock_by", args)])
         if _has(q, r"how much|how many|on hand|in stock|stock (of|for)|quantity|\bstock\b"):
             item, ask = self._item(question, ctx)
             if ask:
