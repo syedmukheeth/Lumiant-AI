@@ -278,3 +278,10 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 - **Done:** CI had been red on `main` since the PR #3 merge: the no-mapping tests read the developer's untracked `data/synthetic`; a session fixture now generates that data (ISSUES #54). Sticky table header (#50). ABC values and reconciliation amounts formatted (#52). Command bar wraps below 1280 px so the SYNTHETIC label is never covered (#55). Live look in the in-app browser, dark and light (#51 partly).
 - **Kept on purpose:** numbers in answer sentences stay exact for the grounding guard (owner's call to change).
 - **Commands + results:** TEST_RUNS S07-8…S07-10. Committed and pushed at the owner's request.
+
+## 2026-11-20 · S08 · Merge PR #6
+- **Goal:** owner: "accept the PR, merge it, fetch the code locally".
+- **Done:** PR #6 (Saadahmed05, "Fix assistant gaps and UI bugs found in the product audit" + "Agent: ERP and Arabic terminology layer") fast-forwarded onto `main` (`758153d..69a0ab4`) and pushed; GitHub shows it merged. No AI attribution in its commits; only dependency change is `opentelemetry-api` 1.45.1 → 1.45.2.
+- **CI on the PR head:** api, api-postgres-redis, docker green; web lint/typecheck/unit green but `pnpm audit` red (7 moderate advisories in `next` 16.4.0–16.4.4, fixed in 16.4.5; not caused by the PR); e2e skipped.
+- **Follow-up (owner: "Yes, bump next"):** `next` and `eslint-config-next` 16.4.3 → 16.4.5; audit clean, lint/typecheck/unit 78/build green (TEST_RUNS S08-1, S08-2).
+- **Not done:** e2e and API tests not re-run locally; changes not committed.
