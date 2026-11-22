@@ -826,3 +826,9 @@ def tools_for(principal: Principal) -> list[ToolDef]:
 
 def decimal_sum(rows: list[dict[str, Any]], key: str) -> Decimal:
     return sum((Decimal(str(r[key])) for r in rows), Decimal(0))
+
+
+# Planning tools live in their own module (they call lumiant.planning); registered here so TOOLS stays the one list.
+from lumiant.agent.planning_tools import PLANNING_TOOLS  # noqa: E402
+
+TOOLS.update({t.name: t for t in PLANNING_TOOLS})  # type: ignore[has-type]

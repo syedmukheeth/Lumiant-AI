@@ -10,7 +10,20 @@ from fastapi import FastAPI
 from lumiant import __version__
 from lumiant.admin.service import AdminService
 from lumiant.agent.service import AgentService
-from lumiant.api import admin, agent, analyses, auth, health, insights, inventory, meta, metrics, query, reports
+from lumiant.api import (
+    admin,
+    agent,
+    analyses,
+    auth,
+    health,
+    insights,
+    inventory,
+    meta,
+    metrics,
+    planning,
+    query,
+    reports,
+)
 from lumiant.audit.store import AuditStore, run_migrations
 from lumiant.auth.oidc import OidcAuthProvider
 from lumiant.auth.provider import DevAuthProvider
@@ -79,6 +92,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.container = container
     app.add_middleware(RequestContextMiddleware)
     install_error_handlers(app)
-    for module in (health, auth, meta, metrics, inventory, analyses, agent, insights, reports, admin, query):
+    for module in (health, auth, meta, metrics, inventory, analyses, agent, insights, reports, admin, query, planning):
         app.include_router(module.router)
     return app

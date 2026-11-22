@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Any, Literal, Protocol
 
 from lumiant.agent.terminology import ascii_digits, expand, glossary_note
@@ -157,6 +158,25 @@ def _abc_class(q: str) -> str | None:
     return (m.group(1) or m.group(2)).upper() if m else None
 
 
+_QTY = re.compile(r"(?<![\w-])(\d+(?:\.\d+)?)\s*(units?|pcs|pieces|ea|kg|m|l|tons?)?(?![\w-])", re.IGNORECASE)
+
+
+def _quantity_in(question: str, item_id: str) -> Decimal | None:
+    """A quantity the user typed ('1000 units of X'), ignoring the item code itself and dates."""
+    text = question.replace(item_id, " ")
+    text = re.sub(r"\d{4}-\d{2}-\d{2}", " ", text)
+    text = re.sub(r"\b\d+\s*(days?|weeks?|months?|years?)\b", " ", text, flags=re.IGNORECASE)
+    for m in _QTY.finditer(text):
+        if len(m.group(1)) < 7:  # longer runs are codes
+            return Decimal(m.group(1))
+    return None
+
+
+def _strip_qty(question: str) -> str:
+    """The question without a leading quantity, so item lookup is not confused by '1000 units of …'."""
+    return re.sub(r"\b\d+(?:\.\d+)?\s*(units?|pcs|pieces|ea)\s+(of\s+)?", "", question, flags=re.IGNORECASE)
+
+
 def _words(q: str) -> int:
     """Words the user typed (the terminology hints after ' :: ' do not make a question longer)."""
     return len(q.split(" :: ")[0].split())
@@ -290,13 +310,87 @@ class RuleBasedProvider:
             args["days"], changed = parse_days(q, int(args.get("days") or 270)), True
         return Decision("tools", [ToolCall(last.tool, args)]) if changed else None
 
+    # ------------------------------------------------------------------------------------ planning
+    def _planning(self, q: str, question: str, ctx: ToolContext) -> Decision | None:
+        """Orders, materials, BOMs, suppliers, duplicates, lifecycle — only where the tenant maps the data."""
+        mapping = ctx.query.mapping(ctx.principal.tenant_id)
+        has = mapping.is_mapped
+        if _has(
+            q, r"capacity|bottleneck|machines?\b|work ?cent(er|re)s?|downtime|shifts?\b|forecast|seasonal|season\b"
+        ) and (has("customer_order_line") or has("bom_component")):
+            return Decision("tools", [ToolCall("planning_scope", {"question": question[:1000]})])
+        planning_tenant = has("item_alternate") or has("bom_component") or has("customer_order_line")
+        if planning_tenant and _has(
+            q, r"duplicate|same (item|material|product) (twice|under|with)|double (item )?codes?"
+        ):
+            return Decision("tools", [ToolCall("duplicate_items")])
+        if has("bom_component") and _has(
+            q, r"\bbom\b|bill of materials?|components? (of|for|in|required|needed)|explode|what goes into|made of"
+        ):
+            item, ask = self._item(_strip_qty(question), ctx)
+            if ask:
+                return ask
+            assert item is not None
+            bom_qty = _quantity_in(question, str(item["item_id"])) or Decimal(1)
+            return Decision(
+                "tools", [ToolCall("bom_explosion", {"item_id": str(item["item_id"]), "quantity": str(bom_qty)})]
+            )
+        if has("supplier_item") and _has(
+            q,
+            r"suppliers?|vendors?|quotations?|\bquote\b|who should (we|i) buy|landed cost|before (approving|placing|raising)",
+        ):
+            if not ctx.principal.has(Permission.COST_READ):
+                return Decision(
+                    "unsupported", message="Supplier prices need cost access, which your role does not have."
+                )
+            item, ask = self._item(_strip_qty(question), ctx)
+            if ask:
+                return ask
+            assert item is not None
+            qty = _quantity_in(question, str(item["item_id"]))
+            if qty is None:
+                return Decision("clarify", message=f"How many units of {item['item_id']} do you need, and by when?")
+            policy = (
+                "urgent"
+                if _has(q, r"urgent|asap|fastest|quick")
+                else "quality_critical"
+                if _has(q, r"quality")
+                else ("lowest_cost" if _has(q, r"cheapest|lowest (price|cost)") else "balanced")
+            )
+            args: dict[str, Any] = {"item_id": str(item["item_id"]), "quantity": str(qty), "policy": policy}
+            days = parse_days(q, 0)
+            if days:
+                from datetime import date as _date
+                from datetime import timedelta
+
+                args["need_date"] = (_date.today() + timedelta(days=days)).isoformat()
+            return Decision("tools", [ToolCall("supplier_comparison", args)])
+        if has("customer_order_line"):
+            order = re.search(r"\b([A-Z]{1,5}-\d{3,})\b", question.upper())
+            if _has(
+                q,
+                r"material requirements?|\bmrp\b|what (should|do|must) we (buy|purchase|order|make|manufacture|produce)|"
+                r"planned orders?|raw materials?|purchase (plan|requirements?)|what is missing|shortages?",
+            ):
+                return Decision("tools", [ToolCall("material_plan", {})])
+            if _has(
+                q,
+                r"fulfil|fulfill|can we (deliver|ship|meet|supply|make)|orders? (at risk|be late|on time|late)|"
+                r"which orders|promise date|backorder|deliver (it|this|them|on time)|open orders?",
+            ) or (order and _has(q, r"\blate\b|on time|when|ready|deliver|ship|status")):
+                return Decision("tools", [ToolCall("order_fulfilment", {"order_id": order.group(1)} if order else {})])
+        if mapping.has_ref("item", "critical") and _has(q, r"obsole|stop (buying|purchasing)|superseded|lifecycle"):
+            return Decision("tools", [ToolCall("lifecycle_review")])
+        return None
+
     # ------------------------------------------------------------------------------------ decision
     def decide(self, question: str, ctx: ToolContext) -> Decision:
         # ERP and Arabic wording → canonical hints appended after " :: " ("stock by plant" also reads "warehouse").
         q = expand(question)
         question = ascii_digits(question).translate({ord("؟"): "?", ord("،"): ","})
         can_cost = ctx.principal.has(Permission.COST_READ)
-        if _has(q, r"obsole"):
+        # Obsolescence needs criticality data; without it, say so instead of judging from inactivity (scenario 20).
+        if _has(q, r"obsole") and not ctx.query.mapping(ctx.principal.tenant_id).has_ref("item", "critical"):
             return Decision(
                 "unsupported",
                 message=(
@@ -320,6 +414,9 @@ class RuleBasedProvider:
             follow = self._follow_up(q, ctx)
             if follow:
                 return follow
+        planning = self._planning(q, question, ctx)
+        if planning:
+            return planning
         if _has(
             q,
             r"\binsights?\b|what should i (look at|focus on|worry about)|anything (unusual|wrong|important)|"

@@ -1,0 +1,321 @@
+# Bill of materials, manufacturing, alternates and lead times (scenarios 21–29, 34, 38–45, 80, 81).
+# Synthetic, fictional records. Planning date 2026-12-01 (a Tuesday).
+
+- id: S21
+  title: Simple BOM explosion
+  persona: production planner
+  today: 2026-12-01
+  data:
+    items: [{id: FG, procurement: make}, {id: A}, {id: B}, {id: C}]
+    boms: [{item: FG, lines: [{item: A, qty: 2}, {item: B, qty: 3}, {item: C, qty: 1}]}]
+  checks:
+    - run: bom
+      params: {item: FG, qty: 100}
+      expect: {totals: {A: 200, B: 300, C: 100}, no_issues: true}
+
+- id: S22
+  title: Multi-level BOM consolidates leaf requirements
+  persona: production planner
+  today: 2026-12-01
+  data:
+    items: [{id: FG, procurement: make}, {id: SA, procurement: make}, {id: A}, {id: B}, {id: C}]
+    boms:
+      - {item: FG, lines: [{item: SA, qty: 1}, {item: A, qty: 2}]}
+      - {item: SA, lines: [{item: B, qty: 4}, {item: C, qty: 0.5}]}
+  checks:
+    - run: bom
+      params: {item: FG, qty: 10}
+      expect: {totals: {A: 20, B: 40, C: 5}, components: [A, B, C]}
+
+- id: S22b
+  title: Circular BOM is detected, not followed
+  persona: production planner
+  today: 2026-12-01
+  data:
+    items: [{id: X, procurement: make}, {id: Y, procurement: make}]
+    boms:
+      - {item: X, lines: [{item: Y, qty: 1}]}
+      - {item: Y, lines: [{item: X, qty: 1}]}
+    policies: [{item: X, lead_days: 1}, {item: Y, lead_days: 1}]
+    demand: [{order: SO1, item: X, qty: 5, due: 2026-12-20}]
+  checks:
+    - run: bom
+      params: {item: X, qty: 1}
+      expect: {issues: [bom_cycle]}
+    - run: mrp
+      expect:
+        issues: [bom_cycle]
+        fulfilment: {SO1/1: {on_time: false, ready: null}}
+
+- id: S23
+  title: Shared raw material across finished products is planned once
+  persona: production planner
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: FG1, procurement: make}, {id: FG2, procurement: make}, {id: A}, {id: B}, {id: C}]
+    boms:
+      - {item: FG1, lines: [{item: A, qty: 2}, {item: B, qty: 1}]}
+      - {item: FG2, lines: [{item: A, qty: 1}, {item: C, qty: 3}]}
+    policies:
+      - {item: FG1, lead_days: 5}
+      - {item: FG2, lead_days: 5}
+      - {item: A, lead_days: 3, min_lot: 100}
+      - {item: B, lead_days: 3}
+      - {item: C, lead_days: 3}
+    demand:
+      - {order: SO1, item: FG1, qty: 100, due: 2026-12-20}
+      - {order: SO2, item: FG2, qty: 50, due: 2026-12-20}
+  checks:
+    - run: mrp
+      expect:
+        gross: {A: 250, B: 100, C: 150}
+        planned: {A: {qty: 250, count: 1, need: 2026-12-15, release: 2026-12-12}, FG1: {action: make, qty: 100}}
+        fulfilment: {SO1/1: {on_time: true}, SO2/1: {on_time: true}}
+
+- id: S24
+  title: BOM revision chosen by production date
+  persona: production planner
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: FG, procurement: make}, {id: A}, {id: D}]
+    boms:
+      - {id: BOM-FG, item: FG, rev: A, valid_to: 2027-01-01, lines: [{item: A, qty: 2}]}
+      - {id: BOM-FG, item: FG, rev: B, valid_from: 2027-01-01, lines: [{item: A, qty: 1}, {item: D, qty: 1}]}
+    policies: [{item: FG, lead_days: 5}, {item: A, lead_days: 2}, {item: D, lead_days: 2}]
+    demand:
+      - {order: SO1, item: FG, qty: 10, due: 2026-12-20}
+      - {order: SO2, item: FG, qty: 10, due: 2027-02-01}
+  checks:
+    - run: bom
+      params: {item: FG, qty: 10, date: 2026-12-15}
+      expect: {revision: A, totals: {A: 20}}
+    - run: bom
+      params: {item: FG, qty: 10, date: 2027-01-10}
+      expect: {revision: B, totals: {A: 10, D: 10}}
+    - run: mrp
+      expect:
+        gross: {A: 30, D: 10}
+
+- id: S25
+  title: Missing BOM component and missing BOM block planning
+  persona: production planner
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: FG, procurement: make}, {id: FG2, procurement: make}, {id: A}]
+    boms: [{item: FG, lines: [{item: A, qty: 1}, {item: Z9, qty: 1}]}]
+    policies: [{item: FG, lead_days: 2}, {item: FG2, lead_days: 2}, {item: A, lead_days: 2}]
+    demand: [{order: SO25, item: FG2, qty: 10, due: 2026-12-10}]
+  checks:
+    - run: bom
+      params: {item: FG, qty: 1}
+      expect: {issues: [unknown_component]}
+    - run: mrp
+      expect:
+        issues: [missing_bom]
+        fulfilment: {SO25/1: {on_time: false, ready: null, reasons_contain: "No released BOM"}}
+
+- id: S26
+  title: Approved alternate material covers part of a shortage
+  persona: production planner
+  today: 2026-12-01
+  data: &alt_base
+    calendar: {weekend: []}
+    items: [{id: FG, procurement: make}, {id: A}, {id: B}, {id: C}, {id: D}]
+    boms: [{item: FG, lines: [{item: A, qty: 1}]}]
+    stock: [{item: A, qty: 40}, {item: B, qty: 35}]
+    alternates: [{item: A, alternate: B, ratio: 1}]
+    policies: [{item: FG, lead_days: 2}, {item: A, lead_days: 5}]
+    demand: [{order: SO26, item: FG, qty: 100, due: 2026-12-20, customer: C1}]
+  checks:
+    - run: mrp
+      expect:
+        alternate_used: {B: 35}
+        planned: {A: {qty: 25}}
+    - run: mrp
+      params: {substitute: false}
+      expect:
+        planned: {A: {qty: 60}}
+
+- id: S26b
+  title: Unapproved alternate is never used
+  persona: production planner
+  today: 2026-12-01
+  data:
+    <<: *alt_base
+    alternates: [{item: A, alternate: B, ratio: 1, approved: false}]
+  checks:
+    - run: mrp
+      expect: {alternate_used: {B: 0}, planned: {A: {qty: 60}}}
+
+- id: S26c
+  title: Alternate keeps the stock it needs for its own demand
+  persona: production planner
+  today: 2026-12-01
+  data:
+    <<: *alt_base
+    demand:
+      - {order: SO26, item: FG, qty: 100, due: 2026-12-20, customer: C1}
+      - {order: SO27, item: B, qty: 30, due: 2026-12-05, customer: C2}
+  checks:
+    - run: mrp
+      expect:
+        alternate_used: {B: 5}
+        planned: {A: {qty: 55}}
+        fulfilment: {SO27/1: {from_stock: 30, on_time: true}}
+
+- id: S26d
+  title: Conversion ratio - two units of the alternate replace one
+  persona: production planner
+  today: 2026-12-01
+  data:
+    <<: *alt_base
+    alternates: [{item: A, alternate: B, ratio: 2}]
+  checks:
+    - run: mrp
+      expect: {alternate_used: {B: 35}, planned: {A: {qty: 42.5}}}
+
+- id: S42
+  title: Substitution limited to a maximum share
+  persona: production planner
+  today: 2026-12-01
+  data:
+    <<: *alt_base
+    alternates: [{item: A, alternate: B, ratio: 1, max_share_pct: 20}]
+  checks:
+    - run: mrp
+      expect: {alternate_used: {B: 20}, planned: {A: {qty: 40}}}
+
+- id: S43
+  title: Several alternates used in priority order, unapproved skipped
+  persona: production planner
+  today: 2026-12-01
+  data:
+    <<: *alt_base
+    stock: [{item: A, qty: 40}, {item: B, qty: 10}, {item: C, qty: 15}, {item: D, qty: 50}]
+    alternates:
+      - {item: A, alternate: B, priority: 2}
+      - {item: A, alternate: C, priority: 1}
+      - {item: A, alternate: D, priority: 3, approved: false}
+  checks:
+    - run: mrp
+      expect: {alternate_used: {C: 15, B: 10, D: 0}, planned: {A: {qty: 35}}}
+
+- id: S44
+  title: Approved alternate also out of stock leaves the shortage
+  persona: production planner
+  today: 2026-12-01
+  data:
+    <<: *alt_base
+    stock: [{item: A, qty: 40}]
+  checks:
+    - run: mrp
+      expect: {alternate_used: {B: 0}, planned: {A: {qty: 60}}}
+
+- id: S45
+  title: Alternate restricted to another customer is not used
+  persona: production planner
+  today: 2026-12-01
+  data:
+    <<: *alt_base
+    alternates: [{item: A, alternate: B, customers_only: [C9]}]
+  checks:
+    - run: mrp
+      expect: {alternate_used: {B: 0}, planned: {A: {qty: 60}}}
+
+- id: S27
+  title: Scrap allowance and yield increase gross requirements
+  persona: production planner
+  today: 2026-12-01
+  data:
+    items: [{id: FG, procurement: make}, {id: A}]
+    boms: [{item: FG, yield_pct: 95, lines: [{item: A, qty: 2, scrap_pct: 5}]}]
+  checks:
+    - run: bom
+      params: {item: FG, qty: 100}
+      expect: {totals: {A: 221.0526}}
+
+- id: S28
+  title: Phantom assembly is exploded through, never planned
+  persona: production planner
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: FG, procurement: make}, {id: PH, procurement: make, phantom: true}, {id: A}, {id: B}, {id: C}]
+    boms:
+      - {item: FG, lines: [{item: PH, qty: 1}, {item: A, qty: 1}]}
+      - {item: PH, lines: [{item: B, qty: 2}, {item: C, qty: 1}]}
+    policies: [{item: FG, lead_days: 2}, {item: A, lead_days: 2}, {item: B, lead_days: 2}, {item: C, lead_days: 2}]
+    demand: [{order: SO28, item: FG, qty: 10, due: 2026-12-20}]
+  checks:
+    - run: bom
+      params: {item: FG, qty: 10}
+      expect: {totals: {A: 10, B: 20, C: 10}, components: [A, B, C]}
+    - run: mrp
+      expect: {no_planned: [PH], gross: {B: 20, C: 10}}
+
+- id: S29
+  title: Preferred alternative BOM is selected
+  persona: production planner
+  today: 2026-12-01
+  data:
+    items: [{id: FG, procurement: make}, {id: A}, {id: E}]
+    boms:
+      - {item: FG, alternative: "1", priority: 2, lines: [{item: A, qty: 3}]}
+      - {item: FG, alternative: "2", priority: 1, lines: [{item: E, qty: 1}]}
+  checks:
+    - run: bom
+      params: {item: FG, qty: 4}
+      expect: {totals: {E: 4}, components: [E]}
+
+- id: S39
+  title: Minimum production run size creates surplus output
+  persona: production planner
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: FG, procurement: make}, {id: A}]
+    boms: [{item: FG, lines: [{item: A, qty: 1}]}]
+    stock: [{item: A, qty: 1000}]
+    policies: [{item: FG, lead_days: 3, min_lot: 500, multiple: 100}, {item: A, lead_days: 1}]
+    demand: [{order: SO39, item: FG, qty: 120, due: 2026-12-20}]
+  checks:
+    - run: mrp
+      expect: {planned: {FG: {qty: 500}}, excess: {FG: 380}, gross: {A: 500}}
+
+- id: S38
+  title: Working calendar - weekends and holidays move release dates
+  persona: procurement manager
+  today: 2026-12-01
+  data:
+    calendar: {weekend: [4, 5], holidays: [2026-12-02]}
+    items: [{id: RM1}, {id: RM2}]
+    policies:
+      - {item: RM1, lead_days: 5}
+      - {item: RM2, lead_days: 5, receiving_days: 1, inspection_days: 2}
+    demand:
+      - {order: SO38, line: 1, item: RM1, qty: 10, due: 2026-12-14}
+      - {order: SO38, line: 2, item: RM2, qty: 10, due: 2026-12-14}
+  checks:
+    - run: mrp
+      expect:
+        planned:
+          RM1: {release: 2026-12-07, ready: 2026-12-14}
+          RM2: {release: 2026-12-01, lead_days: 8}
+        fulfilment: {SO38/1: {on_time: true}, SO38/2: {on_time: true}}
+
+- id: S80
+  title: Missing supplier lead time is a blocker, never zero
+  persona: procurement manager
+  today: 2026-12-01
+  data:
+    items: [{id: RM1}]
+    demand: [{order: SO80, item: RM1, qty: 10, due: 2026-12-14}]
+  checks:
+    - run: mrp
+      expect:
+        issues: [missing_lead_time]
+        planned: {RM1: {release: null, ready: null}}
+        fulfilment: {SO80/1: {on_time: false, ready: null, reasons_contain: "lead time of RM1 is not maintained"}}

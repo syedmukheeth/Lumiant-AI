@@ -1,0 +1,304 @@
+# Customer orders and inventory availability (docs/SCENARIO_CATALOGUE.md, scenarios 1–16).
+# Synthetic, fictional records. Unless a scenario tests the calendar, every day is a working day so dates are easy
+# to verify by hand. Planning date 2026-12-01.
+
+- id: S01
+  title: Full order fulfilment from usable stock
+  persona: order planner
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: FG1}]
+    stock: [{item: FG1, qty: 120}]
+    demand: [{order: SO1, item: FG1, qty: 100, due: 2026-12-05, customer: C1}]
+  checks:
+    - run: mrp
+      expect:
+        fulfilment: {SO1/1: {from_stock: 100, from_planned: 0, on_time: true, ready: 2026-12-01}}
+        no_planned: [FG1]
+
+- id: S02
+  title: Partial availability, replenishment in time
+  persona: order planner
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: FG1}]
+    stock: [{item: FG1, qty: 300}]
+    policies: [{item: FG1, lead_days: 10}]
+    demand: [{order: SO2, item: FG1, qty: 500, due: 2026-12-20, customer: C1}]
+  checks:
+    - run: mrp
+      expect:
+        fulfilment: {SO2/1: {from_stock: 300, from_planned: 200, on_time: true, ready: 2026-12-20}}
+        planned: {FG1: {qty: 200, action: buy, release: 2026-12-10, need: 2026-12-20}}
+
+- id: S02b
+  title: Partial availability, replenishment too late
+  persona: order planner
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: FG1}]
+    stock: [{item: FG1, qty: 300}]
+    policies: [{item: FG1, lead_days: 30}]
+    demand: [{order: SO2, item: FG1, qty: 500, due: 2026-12-20, customer: C1}]
+  checks:
+    - run: mrp
+      expect:
+        fulfilment: {SO2/1: {from_stock: 300, from_planned: 200, on_time: false, ready: 2026-12-31, late_days: 11, reasons_contain: "earliest ready 2026-12-31"}}
+        issues: [release_overdue]
+
+- id: S03
+  title: Competing orders, allocation by due date then priority
+  persona: order planner
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: FG1}]
+    stock: [{item: FG1, qty: 100}]
+    policies: [{item: FG1, lead_days: 5}]
+    demand:
+      - {order: SO1, item: FG1, qty: 60, due: 2026-12-10, priority: 5, customer: C1}
+      - {order: SO2, item: FG1, qty: 60, due: 2026-12-08, priority: 5, customer: C2}
+      - {order: SO3, item: FG1, qty: 60, due: 2026-12-10, priority: 1, customer: C3}
+  checks:
+    - run: mrp
+      expect:
+        fulfilment:
+          SO2/1: {from_stock: 60, on_time: true}
+          SO3/1: {from_stock: 40, from_planned: 20}
+          SO1/1: {from_stock: 0, from_planned: 60}
+
+- id: S03b
+  title: Competing orders, tenant policy allocates by customer priority first
+  persona: order planner
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    allocation: {keys: [priority, due]}
+    items: [{id: FG1}]
+    stock: [{item: FG1, qty: 100}]
+    policies: [{item: FG1, lead_days: 5}]
+    demand:
+      - {order: SO1, item: FG1, qty: 60, due: 2026-12-10, priority: 5, customer: C1}
+      - {order: SO2, item: FG1, qty: 60, due: 2026-12-08, priority: 5, customer: C2}
+      - {order: SO3, item: FG1, qty: 60, due: 2026-12-10, priority: 1, customer: C3}
+  checks:
+    - run: mrp
+      expect:
+        fulfilment:
+          SO3/1: {from_stock: 60}
+          SO2/1: {from_stock: 40, from_planned: 20}
+          SO1/1: {from_stock: 0}
+
+- id: S05
+  title: Customer increases a confirmed order (no double counting)
+  persona: order planner
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: FG1}]
+    stock: [{item: FG1, qty: 120}]
+    policies: [{item: FG1, lead_days: 5}]
+    # The order now reads 150 (was 100): demand is the current state of the order, never original + change.
+    demand: [{order: SO5, item: FG1, qty: 150, due: 2026-12-15, customer: C1}]
+  checks:
+    - run: mrp
+      expect:
+        gross: {FG1: 150}
+        planned: {FG1: {qty: 30}}
+
+- id: S06
+  title: Customer cancels after a purchase order was placed
+  persona: order planner
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: FG1}]
+    supply: [{ref: PO-1, item: FG1, qty: 200, due: 2026-12-10}]
+    demand: [{order: SO9, item: FG1, qty: 50, due: 2026-12-15, customer: C2}]
+  checks:
+    - run: mrp
+      expect:
+        fulfilment: {SO9/1: {from_receipts: 50, on_time: true}}
+        excess: {FG1: 150}
+        no_planned: [FG1]
+
+- id: S07
+  title: Order lines with different delivery dates (time-phased)
+  persona: order planner
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: FG1}]
+    stock: [{item: FG1, qty: 50}]
+    supply: [{ref: PO-1, item: FG1, qty: 100, due: 2026-12-10}]
+    demand:
+      - {order: SO7, line: 1, item: FG1, qty: 40, due: 2026-12-05, customer: C1}
+      - {order: SO7, line: 2, item: FG1, qty: 40, due: 2026-12-08, customer: C1}
+      - {order: SO7, line: 3, item: FG1, qty: 60, due: 2026-12-12, customer: C1}
+  checks:
+    - run: mrp
+      expect:
+        fulfilment:
+          SO7/1: {from_stock: 40, on_time: true}
+          SO7/2: {from_stock: 10, from_receipts: 30, on_time: false, ready: 2026-12-10, late_days: 2, reasons_contain: "PO-1"}
+          SO7/3: {from_receipts: 60, on_time: true}
+        no_planned: [FG1]
+
+- id: S08
+  title: Partial delivery now, backorder from an open purchase order
+  persona: order planner
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: FG1}]
+    stock: [{item: FG1, qty: 30}]
+    supply: [{ref: PO-2, item: FG1, qty: 100, due: 2026-12-15}]
+    demand: [{order: SO8, item: FG1, qty: 80, due: 2026-12-05, customer: C1}]
+  checks:
+    - run: mrp
+      expect:
+        fulfilment: {SO8/1: {from_stock: 30, from_receipts: 50, on_time: false, ready: 2026-12-15}}
+        no_planned: [FG1]
+
+- id: S10
+  title: Returns, inspection and blocked stock are not available
+  persona: warehouse manager
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: FG1}]
+    policies: [{item: FG1, lead_days: 3}]
+    stock:
+      - {item: FG1, qty: 50, status: unrestricted}
+      - {item: FG1, qty: 20, status: returns}
+      - {item: FG1, qty: 10, status: quality_inspection}
+      - {item: FG1, qty: 5, status: blocked}
+    demand: [{order: SO10, item: FG1, qty: 70, due: 2026-12-05}]
+  checks:
+    - run: mrp
+      expect:
+        usable: {FG1: 50}
+        not_usable: {FG1: {returns: 20, quality_inspection: 10, blocked: 5}}
+        fulfilment: {SO10/1: {from_stock: 50, from_planned: 20}}
+
+- id: S11
+  title: Stock present but reserved
+  persona: warehouse manager
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: FG1}]
+    policies: [{item: FG1, lead_days: 3}]
+    stock: [{item: FG1, qty: 100}]
+    reservations: [{item: FG1, qty: 30, ref: RES-1}]
+    demand: [{order: SO11, item: FG1, qty: 80, due: 2026-12-05}]
+  checks:
+    - run: mrp
+      expect:
+        fulfilment: {SO11/1: {from_stock: 70, from_planned: 10}}
+
+- id: S11b
+  title: Expired and customer-owned stock is not available
+  persona: warehouse manager
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: FG1}]
+    policies: [{item: FG1, lead_days: 2}]
+    stock:
+      - {item: FG1, qty: 40, lot: L-OLD, expiry: 2026-11-30}
+      - {item: FG1, qty: 20, lot: L-NEW, expiry: 2027-06-30}
+      - {item: FG1, qty: 25, owner: customer}
+    demand: [{order: SO12, item: FG1, qty: 50, due: 2026-12-05}]
+  checks:
+    - run: mrp
+      expect:
+        usable: {FG1: 20}
+        not_usable: {FG1: {expired: 40, customer-owned: 25}}
+        planned: {FG1: {qty: 30}}
+
+- id: S14
+  title: Incoming purchase order is not available today
+  persona: order planner
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: FG1}]
+    supply: [{ref: PO-3, item: FG1, qty: 100, due: 2026-12-20}]
+    demand:
+      - {order: SO14, line: 1, item: FG1, qty: 40, due: 2026-12-05}
+      - {order: SO14, line: 2, item: FG1, qty: 60, due: 2026-12-25}
+  checks:
+    - run: mrp
+      expect:
+        fulfilment:
+          SO14/1: {from_stock: 0, from_receipts: 40, on_time: false, ready: 2026-12-20}
+          SO14/2: {from_receipts: 60, on_time: true}
+
+- id: S16
+  title: Safety stock is protected from customer demand
+  persona: inventory controller
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: FG1}]
+    stock: [{item: FG1, qty: 100}]
+    policies: [{item: FG1, wh: W1, lead_days: 5, safety_stock: 30}]
+    demand: [{order: SO16, item: FG1, qty: 90, due: 2026-12-10}]
+  checks:
+    - run: mrp
+      expect:
+        fulfilment: {SO16/1: {from_stock: 70, from_planned: 20}}
+
+- id: S16b
+  title: Stock below safety stock creates a replenishment requirement
+  persona: inventory controller
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: FG1}]
+    stock: [{item: FG1, qty: 10}]
+    policies: [{item: FG1, wh: W1, lead_days: 5, safety_stock: 30}]
+  checks:
+    - run: mrp
+      expect:
+        planned: {FG1: {qty: 20}}
+
+- id: S82
+  title: Order units converted to the base unit; unknown unit is not aggregated
+  persona: order planner
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: FG1, uom: EA}]
+    conversions: [{from: BOX, to: EA, factor: 12}]
+    stock: [{item: FG1, qty: 100, uom: EA}]
+    demand:
+      - {order: SO20, item: FG1, qty: 5, uom: BOX, due: 2026-12-05}
+      - {order: SO21, item: FG1, qty: 3, uom: DRUM, due: 2026-12-05}
+  checks:
+    - run: mrp
+      expect:
+        fulfilment: {SO20/1: {from_stock: 60, on_time: true}}
+        gross: {FG1: 60}
+        issues: [missing_uom_conversion]
+
+- id: S52
+  title: Lot sizing - minimum lot and multiple create visible excess
+  persona: procurement manager
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: RM1}]
+    policies: [{item: RM1, lead_days: 5, min_lot: 50, multiple: 10}]
+    demand:
+      - {order: SO30, line: 1, item: RM1, qty: 13, due: 2026-12-10}
+      - {order: SO30, line: 2, item: RM1, qty: 10, due: 2026-12-10}
+  checks:
+    - run: mrp
+      expect:
+        planned: {RM1: {qty: 50, net: 23, count: 1}}
+        excess: {RM1: 27}
