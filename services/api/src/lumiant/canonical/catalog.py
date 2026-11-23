@@ -454,6 +454,18 @@ CATALOG: dict[str, DatasetDef] = {
             FieldDef("priority", INT, ATT, "Order priority (1 = most important)"),
             FieldDef("order_date", DT, DAT, "Order date"),
             FieldDef("status", S, DIM, "OPEN, PARTIAL, CANCELLED …"),
+            FieldDef("ship_days", INT, ATT, "Working days from dispatch to the customer"),
+            FieldDef("unit_price", D, ATT, "Selling price per unit", sensitivity=COST, currency_field="currency"),
+            FieldDef("currency", S, DIM, "Order currency"),
+            FieldDef("margin_pct", D, ATT, "Contribution margin, percent of order value", sensitivity=COST),
+            FieldDef(
+                "penalty_per_day",
+                D,
+                ATT,
+                "Contractual late-delivery penalty per working day",
+                sensitivity=COST,
+                currency_field="currency",
+            ),
         ),
         {
             "item": JoinDef("item", "item", (("item_id", "item_id"),)),

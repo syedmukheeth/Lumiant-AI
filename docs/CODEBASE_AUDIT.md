@@ -4,7 +4,7 @@
 
 **Labels:** **[V]** verified in code or by running it · **[R]** recommendation · **[A]** assumption · **[U]** unverified.
 
-> **Update 2026-10-31, after the audit:** LA-02, LA-03 and LA-04 are **fixed** in the working tree (uncommitted; ISSUES #40–#42). The rest of this report records the audited state of `647ef7b` and is kept as written, so read references to those three findings as history. All other findings remain open, including LA-10 (limits of the grounding check itself).
+> **Update 2026-10-31, after the audit:** LA-02, LA-03 and LA-04 are **fixed** in the working tree (uncommitted; ISSUES #40–#42). The rest of this report records the audited state of `647ef7b` and is kept as written, so read references to those three findings as history. All other findings remain open, including LA-10 (limits of the grounding check itself). A second round of testing found LA-39 to LA-50, including a P0 browser leak across users: see [QUESTIONS_AND_LIMITATIONS.md](QUESTIONS_AND_LIMITATIONS.md), which also answers the audit's questions.
 
 | Document | Covers |
 |---|---|

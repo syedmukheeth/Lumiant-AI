@@ -6,37 +6,47 @@
 @custom-variant rail-collapsed (&:where([data-rail="collapsed"] *));
 
 /*
- * Lumiant design tokens (docs/02-architecture/FRONTEND.md § Design tokens, ADR-0011).
+ * Lumiant design tokens (docs/UI_UX_DESIGN_SYSTEM.md, docs/BRAND_IMPLEMENTATION.md; supersedes the graphite palette
+ * of ADR-0011).
  *
- * Graphite neutrals with one working accent (emerald) for UI and one signal accent (amber) reserved for things that
- * need attention. :root is the dark theme; [data-theme="light"] is set before first paint from the saved choice or,
- * with none saved, from the OS setting. Data colors (--viz-*, --status-*) are a separate, validated set: UI accents
- * are never used as series colors. Every text pair is WCAG AA (TEST_RUNS S07-1).
+ * Brand colours are sampled from the official logos: navy #101a2e (dark-logo background), navy #112545 (wordmark),
+ * gold #c4872f (tagline and dot), teal #045b62. Dark theme: navy planes whose panel colour equals the dark logo's
+ * background, teal as the working accent. Light theme: white panels (= the light logo's background), navy ink and navy
+ * as the working accent. Gold is a restrained brand accent for non-text marks only (active indicator, recommendation
+ * mark). Amber stays reserved for things that need attention. :root is the dark theme; [data-theme="light"] is set
+ * before first paint from the saved choice or the OS setting. Data colors (--viz-*, --status-*) are a separate,
+ * validated set. Every text pair is WCAG AA and control boundaries are ≥ 3:1 (checked 23 Nov 2026).
  */
 :root {
+  /* brand (fixed, from the logos) */
+  --brand-navy: #101a2e;
+  --brand-navy-ink: #112545;
+  --brand-gold: #d29a47;
+  --brand-teal: #045b62;
+
   /* planes: page → panel → raised (hover, inputs) → floating (popovers, palette) */
-  --bg: #0b0c0e;
-  --surface: #121316;
-  --surface-2: #191b1f;
-  --surface-3: #212328;
-  --ink: #edeef0;
-  --ink-2: #b4b8bf;
-  --ink-3: #8f949d;
-  --line: #24262b;
-  --line-strong: #33363d;
+  --bg: #0a1222;
+  --surface: #101a2e;
+  --surface-2: #16223a;
+  --surface-3: #1c2945;
+  --ink: #eef2f7;
+  --ink-2: #b7c1d1;
+  --ink-3: #8f9bb0;
+  --line: #1e2b45;
+  --line-strong: #2b3a58;
   /* form-control boundary, ≥ 3:1 on every plane (WCAG 1.4.11) */
-  --control-line: #6c717b;
-  --accent: #3fcf9e;
-  --accent-strong: #62dbb2;
-  --accent-ink: #04231a;
-  --accent-soft: #0e2a22;
+  --control-line: #6e7c95;
+  --accent: #3cc2b6;
+  --accent-strong: #62d3c9;
+  --accent-ink: #03201e;
+  --accent-soft: #0b2c35;
   --signal: #f0a04b;
-  --signal-soft: #2c1d0f;
+  --signal-soft: #2e2214;
   --ok: #5fd38d;
 
   /* glass is only for chrome that floats over scrolling content (command bar, palette, dock) */
-  --glass: rgb(11 12 14 / 0.78);
-  --glass-strong: rgb(18 19 22 / 0.94);
+  --glass: rgb(10 18 34 / 0.8);
+  --glass-strong: rgb(16 26 46 / 0.95);
   --glass-line: rgb(255 255 255 / 0.07);
   --highlight: rgb(255 255 255 / 0.04);
   --elev-1: inset 0 1px 0 0 var(--highlight), 0 1px 2px 0 rgb(0 0 0 / 0.4);
@@ -44,7 +54,7 @@
   --elev-3: inset 0 1px 0 0 var(--highlight), 0 0 0 1px var(--glass-line), 0 28px 64px -20px rgb(0 0 0 / 0.75);
   /* the accent edge of an active or selected thing: a hairline, never a glow */
   --ring-accent: 0 0 0 1px color-mix(in oklab, var(--accent) 50%, transparent);
-  --scrim: rgb(4 5 6 / 0.6);
+  --scrim: rgb(4 8 16 / 0.6);
 
   /* data viz (dataviz reference palette, dark steps; fixed order, never cycled) */
   --viz-1: #3987e5;
@@ -55,9 +65,9 @@
   --viz-6: #008300;
   --viz-7: #9085e9;
   --viz-8: #e66767;
-  --viz-grid: #24262b;
-  --viz-axis: #3a3d45;
-  --viz-cursor: rgb(237 238 240 / 0.05);
+  --viz-grid: #1e2b45;
+  --viz-axis: #34445f;
+  --viz-cursor: rgb(238 242 247 / 0.05);
   /* status: reserved meaning, always shown with an icon + label */
   --status-good: #0ca30c;
   --status-warning: #fab219;
@@ -98,32 +108,33 @@
 }
 
 :root[data-theme="light"] {
-  --bg: #f6f7f8;
+  --brand-gold: #c4872f;
+  --bg: #f5f7fa;
   --surface: #ffffff;
-  --surface-2: #f0f1f3;
+  --surface-2: #eef1f5;
   --surface-3: #ffffff;
-  --ink: #111316;
-  --ink-2: #41454d;
-  --ink-3: #5f656f;
-  --line: #e3e5e9;
-  --line-strong: #cdd1d7;
-  --control-line: #7d838d;
-  --accent: #0a7556;
-  --accent-strong: #086247;
+  --ink: #0f1d33;
+  --ink-2: #3a4760;
+  --ink-3: #5a6780;
+  --line: #e1e6ee;
+  --line-strong: #c9d1dd;
+  --control-line: #7a8598;
+  --accent: #112545;
+  --accent-strong: #0b1a33;
   --accent-ink: #ffffff;
-  --accent-soft: #dcf3ea;
+  --accent-soft: #e4e9f2;
   --signal: #a8480c;
   --signal-soft: #fbe9d9;
   --ok: #1f7440;
 
-  --glass: rgb(255 255 255 / 0.8);
-  --glass-strong: rgb(255 255 255 / 0.95);
-  --glass-line: rgb(17 19 22 / 0.08);
+  --glass: rgb(255 255 255 / 0.82);
+  --glass-strong: rgb(255 255 255 / 0.96);
+  --glass-line: rgb(15 29 51 / 0.08);
   --highlight: rgb(255 255 255 / 0.9);
-  --elev-1: 0 1px 2px 0 rgb(17 19 22 / 0.05), 0 0 0 1px rgb(17 19 22 / 0.02);
-  --elev-2: 0 12px 28px -14px rgb(17 19 22 / 0.18);
-  --elev-3: 0 0 0 1px var(--glass-line), 0 28px 64px -22px rgb(17 19 22 / 0.28);
-  --scrim: rgb(17 19 22 / 0.32);
+  --elev-1: 0 1px 2px 0 rgb(15 29 51 / 0.05), 0 0 0 1px rgb(15 29 51 / 0.02);
+  --elev-2: 0 12px 28px -14px rgb(15 29 51 / 0.18);
+  --elev-3: 0 0 0 1px var(--glass-line), 0 28px 64px -22px rgb(15 29 51 / 0.28);
+  --scrim: rgb(15 29 51 / 0.32);
 
   --viz-1: #2a78d6;
   --viz-2: #eb6834;
@@ -133,9 +144,9 @@
   --viz-6: #008300;
   --viz-7: #6250d6;
   --viz-8: #e34948;
-  --viz-grid: #e3e5e9;
-  --viz-axis: #cdd1d7;
-  --viz-cursor: rgb(17 19 22 / 0.04);
+  --viz-grid: #e1e6ee;
+  --viz-axis: #c9d1dd;
+  --viz-cursor: rgb(15 29 51 / 0.04);
   --status-critical: #c93030;
   color-scheme: light;
 }
@@ -158,6 +169,8 @@
   --color-signal: var(--signal);
   --color-signal-soft: var(--signal-soft);
   --color-ok: var(--ok);
+  --color-brand-gold: var(--brand-gold);
+  --color-brand-navy: var(--brand-navy);
   --color-glass: var(--glass);
   --color-glass-strong: var(--glass-strong);
   --color-glass-line: var(--glass-line);

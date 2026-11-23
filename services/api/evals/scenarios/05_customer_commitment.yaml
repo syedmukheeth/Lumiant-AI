@@ -1,0 +1,113 @@
+# Customer Commitment Protection (combined scenarios P, Q, R; docs/CUSTOMER_REVENUE_PROTECTION.md).
+# Synthetic, fictional. Every day is a working day so the timeline is easy to verify. Planning date 2026-12-01.
+# Timeline: material arrival (supplier lead + receiving + inspection) → production (2 days) → ship (1 day) → customer.
+
+- id: C-P
+  title: High-value order at risk - paying more for the fast supplier protects it
+  persona: procurement manager
+  today: 2026-12-01
+  data: &commit
+    calendar: {weekend: []}
+    items: [{id: FG, procurement: make}, {id: RM}]
+    boms: [{item: FG, lines: [{item: RM, qty: 1}]}]
+    policies:
+      - {item: FG, lead_days: 2}
+      - {item: RM, lead_days: 20}  # the planner's default: the cheap supplier's lead time
+    demand:
+      - {order: SO-P, item: FG, qty: 100, due: 2026-12-11, customer: KEY, priority: 1, ship_days: 1,
+         unit_price: 5000, currency: SAR, margin_pct: 20, penalty_per_day: 2000}
+    suppliers: [{id: SA, name: Supplier A}, {id: SB, name: Supplier B}]
+    offers:
+      - {supplier: SA, item: RM, price: 100, lead_days: 20, freight: 0, duty_pct: 0}
+      - {supplier: SB, item: RM, price: 140, lead_days: 7, freight: 0, duty_pct: 0}
+  checks:
+    # Need: customer 12-11, ship 1 day → ready 12-10, production 2 days → material by 12-08.
+    # A: arrives 12-21 → ready 12-23 → delivered 12-24 (13 days late). B: arrives 12-08 → ready 12-10 → delivered 12-11.
+    - run: commitment
+      params: {order: SO-P/1}
+      expect:
+        at_risk: true
+        feasible: true
+        recommended: SB
+        recommended_delivery: 2026-12-11
+        options:
+          SA: {meets_deadline: false, customer_delivery: 2026-12-24, material_arrival: 2026-12-21, incremental_cost: 0}
+          SB: {meets_deadline: true, customer_delivery: 2026-12-11, material_arrival: 2026-12-08, incremental_cost: 4000.00}
+        exposure: {order_value: 500000, margin_value: 100000.00, premium: 4000.00, premium_pct_of_value: 0.8,
+                   premium_pct_of_margin: 4.0, penalty_if_cheapest: 26000}
+        explanation_contains: "costs 4000 SAR more than the cheapest eligible offers"
+
+- id: C-Q
+  title: Fastest supplier lacks quantity - split sourcing meets the date
+  persona: procurement manager
+  today: 2026-12-01
+  data:
+    <<: *commit
+    suppliers: [{id: SA, name: Supplier A}, {id: SB, name: Supplier B}, {id: SC, name: Supplier C}]
+    offers:
+      - {supplier: SA, item: RM, price: 100, lead_days: 20, freight: 0, duty_pct: 0}
+      - {supplier: SB, item: RM, price: 140, lead_days: 7, capacity: 60, freight: 0, duty_pct: 0}
+      - {supplier: SC, item: RM, price: 150, lead_days: 7, freight: 0, duty_pct: 0}
+  checks:
+    # B alone cannot supply 100. C alone: 15,000. Split B 60 × 140 + C 40 × 150 = 14,400, arrives 12-08 → recommended.
+    - run: commitment
+      params: {order: SO-P/1}
+      expect:
+        feasible: true
+        recommended_kind: split
+        options:
+          SB: {eligible: false}
+          SC: {meets_deadline: true, total_cost: 15000.00}
+          split: {meets_deadline: true, total_cost: 14400.00}
+
+- id: C-R
+  title: No supplier can meet the date - infeasibility and fallbacks
+  persona: order planner
+  today: 2026-12-01
+  data:
+    <<: *commit
+    stock: [{item: FG, qty: 30}]
+    offers:
+      - {supplier: SA, item: RM, price: 100, lead_days: 20, freight: 0, duty_pct: 0}
+      - {supplier: SB, item: RM, price: 140, lead_days: 15, freight: 0, duty_pct: 0}
+  checks:
+    - run: commitment
+      params: {order: SO-P/1}
+      expect:
+        at_risk: true
+        feasible: false
+        recommended: null
+        options: {SB: {meets_deadline: false, customer_delivery: 2026-12-19}}
+        fallbacks_contain: ["Earliest achievable delivery with eligible suppliers: 2026-12-19", "Partial delivery now: 30 of 100"]
+
+- id: C-P2
+  title: Quality gate - the fast supplier rejects too much, the cheap one is too slow
+  persona: procurement manager
+  today: 2026-12-01
+  data:
+    <<: *commit
+    deliveries:
+      - {supplier: SB, item: RM, promised: 2026-06-10, received: 2026-06-10, ordered: 100, received_qty: 100, rejected: 12}
+      - {supplier: SB, item: RM, promised: 2026-07-10, received: 2026-07-10, ordered: 100, received_qty: 100, rejected: 12}
+      - {supplier: SB, item: RM, promised: 2026-08-10, received: 2026-08-10, ordered: 100, received_qty: 100, rejected: 12}
+  checks:
+    # SB's 12% rejection exceeds the 5% gate of the commitment policy: never recommended despite its speed.
+    - run: commitment
+      params: {order: SO-P/1}
+      expect:
+        feasible: false
+        recommended: null
+        options: {SB: {eligible: false}}
+        reasons_contain: {SB: "exceeds the 5% quality limit"}
+
+- id: C-P3
+  title: Order already on time - no premium sourcing proposed
+  persona: order planner
+  today: 2026-12-01
+  data:
+    <<: *commit
+    stock: [{item: RM, qty: 100}]
+  checks:
+    - run: commitment
+      params: {order: SO-P/1}
+      expect: {at_risk: false, feasible: true, option_count: 0}

@@ -55,9 +55,13 @@ class DuplicateFinding:
 
 def compare(a: Item, b: Item) -> DuplicateFinding | None:
     na, nb = normalize(a.description), normalize(b.description)
-    sim = round(SequenceMatcher(None, na, nb).ratio(), 3)
-    reasons: list[str] = []
     same_mpn = bool(a.mpn and b.mpn and a.mpn.replace("-", "").upper() == b.mpn.replace("-", "").upper())
+    matcher = SequenceMatcher(None, na, nb)
+    # quick_ratio() is a cheap upper bound of ratio(): pairs that cannot reach the threshold are skipped early.
+    if not same_mpn and na != nb and matcher.quick_ratio() < 0.85:
+        return None
+    sim = round(matcher.ratio(), 3)
+    reasons: list[str] = []
     same_maker = bool(a.manufacturer and a.manufacturer.upper() == b.manufacturer.upper())
     diff_attrs = [
         k

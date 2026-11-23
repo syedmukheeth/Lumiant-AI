@@ -14,6 +14,7 @@ import yaml
 
 from lumiant.planning import builder
 from lumiant.planning.bom import explode
+from lumiant.planning.commitment import analyse
 from lumiant.planning.duplicates import find_duplicates
 from lumiant.planning.model import ZERO
 from lumiant.planning.mrp import MrpResult, run_mrp
@@ -220,6 +221,50 @@ def run_check(sc: dict[str, Any], check: dict[str, Any]) -> None:
                 same(g[2], w["arrival"], "transfer arrival")
             if "cost" in w:
                 same(g[3], w["cost"], "transfer cost")
+    elif kind == "commitment":
+        s = sc.get("data", {})
+        a = analyse(
+            data,
+            str(params["order"]),
+            offers=builder.offers(s.get("offers", [])),
+            suppliers=builder.suppliers(s.get("suppliers", [])),
+            deliveries=builder.deliveries(s.get("deliveries", [])),
+            prices=builder.prices(s.get("price_history", [])),
+            fx=builder.fx(s.get("fx", [])),
+        )
+        assert a is not None, "order not found"
+        rec = next((o for o in a.options if o.recommended), None)
+
+        def opt(key: str) -> Any:
+            if key == "split":
+                return next(o for o in a.options if o.kind == "split")
+            return next(o for o in a.options if o.kind == "supplier" and o.suppliers == [key])
+
+        for f in ("at_risk", "feasible", "recommended_delivery"):
+            if f in exp:
+                same(getattr(a, f), exp[f], f)
+        if "recommended" in exp:
+            same(
+                rec.suppliers[0] if rec and rec.kind == "supplier" else (None if rec is None else "split"),
+                exp["recommended"],
+                "recommended",
+            )
+        if "recommended_kind" in exp:
+            same(rec.kind if rec else None, exp["recommended_kind"], "recommended kind")
+        if "option_count" in exp:
+            same(len(a.options), exp["option_count"], "option count")
+        for key, fields in (exp.get("options") or {}).items():
+            o = opt(str(key))
+            for f, v in fields.items():
+                same(getattr(o, f), v, f"option {key}.{f}")
+        for key, text in (exp.get("reasons_contain") or {}).items():
+            assert text in " | ".join(opt(str(key)).reasons), opt(str(key)).reasons
+        for f, v in (exp.get("exposure") or {}).items():
+            same(getattr(a.exposure, f), v, f"exposure.{f}")
+        if "explanation_contains" in exp:
+            assert exp["explanation_contains"] in " | ".join(a.explanation), a.explanation
+        for text in exp.get("fallbacks_contain", []):
+            assert text in " | ".join(a.fallbacks), a.fallbacks
     elif kind == "assess":
         a = assess(params["question"], params.get("available", {}))
         same(a.mode, exp["mode"], "assessment mode")

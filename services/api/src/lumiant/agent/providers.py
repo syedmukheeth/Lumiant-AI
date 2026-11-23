@@ -160,6 +160,115 @@ def _abc_class(q: str) -> str | None:
 
 _QTY = re.compile(r"(?<![\w-])(\d+(?:\.\d+)?)\s*(units?|pcs|pieces|ea|kg|m|l|tons?)?(?![\w-])", re.IGNORECASE)
 
+_NOT_ITEM_WORDS = frozenset(
+    [
+        "what",
+        "which",
+        "where",
+        "when",
+        "much",
+        "many",
+        "have",
+        "need",
+        "does",
+        "compare",
+        "supplier",
+        "suppliers",
+        "vendor",
+        "vendors",
+        "best",
+        "cheapest",
+        "cheaper",
+        "fastest",
+        "faster",
+        "price",
+        "prices",
+        "cost",
+        "costs",
+        "order",
+        "orders",
+        "stock",
+        "items",
+        "item",
+        "units",
+        "should",
+        "could",
+        "would",
+        "there",
+        "their",
+        "about",
+        "from",
+        "with",
+        "this",
+        "that",
+        "these",
+        "those",
+        "show",
+        "give",
+        "tell",
+        "find",
+        "quote",
+        "quotes",
+        "before",
+        "after",
+        "urgent",
+        "quality",
+        "lowest",
+        "highest",
+        "warehouse",
+        "plant",
+        "make",
+        "made",
+        "into",
+        "goes",
+        "components",
+        "bill",
+        "materials",
+        "material",
+        "explode",
+        "want",
+        "buying",
+        "purchase",
+    ],
+)
+
+# Customer order ids such as SO-1001 or SO-1001/10 (order line).
+_ORDER_ID = re.compile(r"\b([A-Z]{1,5}-\d{3,}(?:/\d+)?)\b")
+
+# Customer Commitment Protection: questions about saving a late order, revenue at stake, or paying for speed.
+_COMMIT_ALWAYS = (
+    r"protect (this |the |our |that )?(customer|order|commitment|delivery|revenue)|"
+    r"(revenue|money|value|sales|income) (is |are )?(at risk|at stake)|"
+    r"how much (money|revenue|value|sales) .{0,40}(risk|stake|lose|losing)|"
+    r"worth (paying|spending) (more|extra)|pay (more|extra|a premium)|premium (sourcing|supplier|freight)|"
+    r"delivery[- ]first|commitment protection|customer commitments?|"
+    r"(cheap|cheaper|cheapest|expensive|faster|fastest|quicker|quickest|slower)\b.{0,40}\b(or|vs\.?|versus)\b.{0,40}"
+    r"\b(cheap|cheaper|cheapest|expensive|faster|fastest|quicker|quickest|slower)\b|"
+    r"penalt(y|ies)|(save|rescue) (this |the |that |our )?([\w-]+ )?(order|customer|deal|delivery)|"
+    r"(lose|losing) (the |this |a |our )?customer"
+)
+_COMMIT_SOURCING = (
+    r"suppliers?|vendors?|faster|quicker|fastest|expensive|expedit|\bsplit|sourc(e|ing)|buy (it )?from|"
+    r"\bpay(ing)?\b|premium"
+)
+_COMMIT_DEADLINE = (
+    r"deadline|due date|customer( delivery)? date|on time|in time|(make|meet|hit) (the |our |their )?(date|deadline)|"
+    r"\blate\b|delivery date|out the door|\bmeet\b|\bhit\b"
+)
+_COMMIT_OPEN = r"any way|what can (we|i) do|how (can|do|could) (we|i)|options?|alternatives?|still (deliver|make|ship)"
+_STATED_QTY = re.compile(r"\b\d+(?:\.\d+)?\s*(units?|pcs|pieces|ea)\b|\bneed \d+", re.IGNORECASE)
+
+
+def _commitment_intent(q: str, order: str | None) -> bool:
+    """Is this about protecting a customer order (delivery-first sourcing) rather than a plain status or quote?"""
+    if _has(q, _COMMIT_ALWAYS):
+        return True
+    sourcing = _has(q, _COMMIT_SOURCING)
+    if order:
+        return sourcing or _has(q, _COMMIT_OPEN)
+    # "Fastest supplier for 27 units of X by Friday" is a supplier quote, not an order rescue.
+    return sourcing and _has(q, _COMMIT_DEADLINE) and not _STATED_QTY.search(q)
+
 
 def _quantity_in(question: str, item_id: str) -> Decimal | None:
     """A quantity the user typed ('1000 units of X'), ignoring the item code itself and dates."""
@@ -221,6 +330,17 @@ class RuleBasedProvider:
             r"\s+in\s+(?:the\s+)?(?:warehouse|plant)\b|\s+in\s+\S+\s*$", candidate, maxsplit=1, flags=re.IGNORECASE
         )[0]
         candidate = candidate.strip(" '\"")
+        # Code-like tokens first ("RM-IMPELLER, I need 27" -> RM-IMPELLER): an exact code match is unambiguous.
+        for code in dict.fromkeys(re.findall(r"[A-Za-z0-9]+(?:[-_./][A-Za-z0-9]+)+", text)):
+            if len(code) >= 4:
+                ids = (code.upper(),)
+                hit = [
+                    r
+                    for r in find_items(ctx, code)
+                    if {str(r["item_id"]).upper(), str(r["item_code"]).upper()} & set(ids)
+                ]
+                if len(hit) == 1:
+                    return hit[0], None
         tokens = [candidate] + [t.strip("'\".,") for t in text.split() if len(t) >= 5 and any(c.isdigit() for c in t)]
         for term in dict.fromkeys(tokens):
             if len(term) < 3:
@@ -239,6 +359,13 @@ class RuleBasedProvider:
                         {"label": f"{r['item_code']} — {r['description']}", "item_id": str(r["item_id"])} for r in found
                     ],
                 )
+        # Last resort: one plain word that names exactly one item ("the impeller" -> RM-IMPELLER).
+        for word in dict.fromkeys(re.findall(r"[A-Za-z]{4,}", text)):
+            if word.lower() in _NOT_ITEM_WORDS:
+                continue
+            found = find_items(ctx, word)
+            if len(found) == 1:
+                return found[0], None
         return None, Decision(
             "unsupported", message="I couldn't find an item matching that. Try the item code from the Inventory page."
         )
@@ -321,7 +448,9 @@ class RuleBasedProvider:
             return Decision("tools", [ToolCall("planning_scope", {"question": question[:1000]})])
         planning_tenant = has("item_alternate") or has("bom_component") or has("customer_order_line")
         if planning_tenant and _has(
-            q, r"duplicate|same (item|material|product) (twice|under|with)|double (item )?codes?"
+            q,
+            r"duplicate|same (item|material|product|part) (twice|under|with)|double (item )?codes?|"
+            r"under (two|2|different|multiple|several) (codes|numbers|part numbers|item numbers)",
         ):
             return Decision("tools", [ToolCall("duplicate_items")])
         if has("bom_component") and _has(
@@ -335,6 +464,18 @@ class RuleBasedProvider:
             return Decision(
                 "tools", [ToolCall("bom_explosion", {"item_id": str(item["item_id"]), "quantity": str(bom_qty)})]
             )
+        order_m = _ORDER_ID.search(question.upper())
+        order = order_m.group(1) if order_m else None
+        if has("customer_order_line") and has("supplier_item") and _commitment_intent(q, order):
+            if not ctx.principal.has(Permission.COST_READ):
+                return Decision(
+                    "unsupported",
+                    message="Commitment protection compares supplier prices and order value, which need cost access.",
+                )
+            args_c: dict[str, Any] = {"hint": question[:300]}
+            if order:
+                args_c["order_id"] = order
+            return Decision("tools", [ToolCall("customer_commitment", args_c)])
         if has("supplier_item") and _has(
             q,
             r"suppliers?|vendors?|quotations?|\bquote\b|who should (we|i) buy|landed cost|before (approving|placing|raising)",
@@ -366,20 +507,33 @@ class RuleBasedProvider:
                 args["need_date"] = (_date.today() + timedelta(days=days)).isoformat()
             return Decision("tools", [ToolCall("supplier_comparison", args)])
         if has("customer_order_line"):
-            order = re.search(r"\b([A-Z]{1,5}-\d{3,})\b", question.upper())
+            order_line = re.search(r"\b([A-Z]{1,5}-\d{3,})\b", question.upper())
             if _has(
                 q,
                 r"material requirements?|\bmrp\b|what (should|do|must) we (buy|purchase|order|make|manufacture|produce)|"
-                r"planned orders?|raw materials?|purchase (plan|requirements?)|what is missing|shortages?",
+                r"planned orders?|raw materials?|purchase (plan|requirements?)|what is missing|shortages?|"
+                r"what (should|do|must) (i|we) (need to )?(buy|purchase|order|make|manufacture|produce)|"
+                r"need to (order|buy|purchase)|what to (order|buy|purchase)|short of|running short|what('s| is) short",
             ):
                 return Decision("tools", [ToolCall("material_plan", {})])
-            if _has(
-                q,
-                r"fulfil|fulfill|can we (deliver|ship|meet|supply|make)|orders? (at risk|be late|on time|late)|"
-                r"which orders|promise date|backorder|deliver (it|this|them|on time)|open orders?",
-            ) or (order and _has(q, r"\blate\b|on time|when|ready|deliver|ship|status")):
-                return Decision("tools", [ToolCall("order_fulfilment", {"order_id": order.group(1)} if order else {})])
-        if mapping.has_ref("item", "critical") and _has(q, r"obsole|stop (buying|purchasing)|superseded|lifecycle"):
+            if (
+                _has(
+                    q,
+                    r"fulfil|fulfill|can we (deliver|ship|meet|supply|make)|orders? (at risk|be late|on time|late)|"
+                    r"which orders|promise date|backorder|deliver (it|this|them|on time)|open orders?",
+                )
+                or (order_line and _has(q, r"\blate\b|on time|when|ready|deliver|ship|status"))
+                or (
+                    _has(q, r"\b(customer )?orders?\b")
+                    and _has(q, r"\b(late|delay(ed|s)?|on time|at risk|miss(ing)?|behind|slip(ping)?)\b")
+                )
+            ):
+                return Decision(
+                    "tools", [ToolCall("order_fulfilment", {"order_id": order_line.group(1)} if order_line else {})]
+                )
+        if mapping.has_ref("item", "critical") and _has(
+            q, r"obsole|stop (buying|purchasing)|superseded|lifecycle|get rid of|dispose|write[- ]?off|clear out|scrap"
+        ):
             return Decision("tools", [ToolCall("lifecycle_review")])
         return None
 
@@ -438,7 +592,7 @@ class RuleBasedProvider:
         if _has(q, r"expir|shelf[- ]life|best before"):
             return Decision("tools", [ToolCall("expiring_lots", {"days": parse_days(q, 60)})])
         # Excess first: "above the reordering rule maximum" names a reorder rule but asks about excess.
-        if _has(q, r"excess|overstock|over-stock|above (the )?max"):
+        if _has(q, r"excess|overstock|over-stock|above (the )?max|get rid of|clear out|too much stock"):
             return Decision("tools", [ToolCall("excess_stock")])
         if _has(q, r"reorder|low stock|running low|below (the )?min"):
             return Decision("tools", [ToolCall("below_reorder")])

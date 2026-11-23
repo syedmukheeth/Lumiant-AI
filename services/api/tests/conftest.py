@@ -21,6 +21,7 @@ from tests.helpers import app_db_url
 os.environ.setdefault("LUMIANT_RATE_LIMIT_LOGIN_PER_MIN", "100000")
 os.environ.setdefault("LUMIANT_RATE_LIMIT_EXPORT_PER_MIN", "100000")
 os.environ.setdefault("LUMIANT_RATE_LIMIT_CHAT_PER_MIN", "100000")
+os.environ.setdefault("LUMIANT_RATE_LIMIT_PLANNING_PER_MIN", "100000")
 
 TENANT_DIR = BASE_DIR / "config" / "tenants"
 AS_OF = date(2026, 10, 1)

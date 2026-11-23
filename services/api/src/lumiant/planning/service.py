@@ -16,6 +16,7 @@ from lumiant.auth.principal import Principal
 from lumiant.core.errors import AppError
 from lumiant.planning import scenario
 from lumiant.planning.bom import explode
+from lumiant.planning.commitment import analyse
 from lumiant.planning.duplicates import find_duplicates
 from lumiant.planning.loader import LoadedPlanning, load
 from lumiant.planning.model import SupplierPolicy
@@ -209,6 +210,13 @@ class PlanningService:
         return {**self._meta(loaded), "findings": jsonable(found)}
 
     def lifecycle(self, principal: Principal, today: date | None = None) -> dict[str, Any]:
+        if not self.query.mapping(principal.tenant_id).has_ref("item", "critical"):
+            # Without criticality an item could be called obsolete from inactivity alone (scenario 20): refuse.
+            raise AppError(
+                "analysis_unavailable",
+                "Lifecycle review needs item criticality (e.g. critical spares), which this tenant does not provide.",
+                409,
+            )
         loaded = self._load(principal, today)
         mrp = run_mrp(loaded.data) if loaded.data.demand else None
         findings = review(
@@ -221,6 +229,51 @@ class PlanningService:
         )
         self._record(principal, "lifecycle", "item")
         return {**self._meta(loaded), "findings": jsonable(findings)}
+
+    def commitments(self, principal: Principal, today: date | None = None) -> dict[str, Any]:
+        """Open order lines that are late or cannot be dated: the candidates for commitment protection."""
+        if not principal.has(Permission.COST_READ):  # rows carry order value
+            raise AppError("forbidden_field", "Commitment protection shows order value, which needs cost access.", 403)
+        loaded, result = self.mrp(principal, today)
+        lines = [f for f in result.fulfilment(loaded.data.calendar) if not f.on_time]
+        by_key = {d.key: d for d in loaded.data.demand}
+        rows = [
+            {
+                "key": f.key,
+                "item_id": f.item_id,
+                "customer_id": f.customer_id,
+                "quantity": f.quantity,
+                "due": f.due,
+                "delivery": f.delivery,
+                "late_days": f.late_days,
+                "order_value": by_key[f.key].value if f.key in by_key else None,
+                "currency": by_key[f.key].currency if f.key in by_key else "",
+            }
+            for f in lines
+        ]
+        return {**self._meta(loaded), "at_risk": jsonable(rows)}
+
+    def commitment(self, principal: Principal, order_key: str, today: date | None = None) -> dict[str, Any]:
+        """Customer Commitment Protection analysis for one order line (needs cost access: prices and order value)."""
+        if not principal.has(Permission.COST_READ):
+            raise AppError(
+                "forbidden_field",
+                "Commitment protection uses supplier prices and order value, which need cost access.",
+                403,
+            )
+        loaded = self._load(principal, today)
+        analysis = analyse(
+            loaded.data,
+            order_key,
+            offers=loaded.offers,
+            suppliers=loaded.suppliers,
+            deliveries=loaded.deliveries,
+            prices=loaded.prices,
+        )
+        if analysis is None:
+            raise AppError("not_found", f"Order line {order_key} is not open in your scope.", 404)
+        self._record(principal, "commitment", "customer_order_line")
+        return {**self._meta(loaded), **jsonable(analysis)}
 
     def assess(self, principal: Principal, question: str) -> dict[str, Any]:
         loaded = self._load(principal, None)

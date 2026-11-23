@@ -1,4 +1,4 @@
-"""Planning tools for the assistant: order fulfilment, material plan, BOM, suppliers, duplicates, lifecycle, scope.
+"""Planning tools for the assistant: fulfilment, material plan, BOM, suppliers, commitments, duplicates, lifecycle.
 
 Each tool calls `PlanningService` (the same code the API uses) and words its answer only from the returned data, so
 the grounding check can trace every number. Answers are recommendations; nothing is ordered, approved or changed.
@@ -6,6 +6,7 @@ the grounding check can trace every number. Answers are recommendations; nothing
 
 from __future__ import annotations
 
+import re
 from datetime import date
 from decimal import Decimal
 from typing import Any
@@ -23,6 +24,31 @@ class OrderArgs(_Args):
     order_id: str | None = Field(
         default=None, min_length=1, max_length=64, description="Customer order id; omit for all open orders"
     )
+
+
+class CommitmentArgs(_Args):
+    order_id: str | None = Field(
+        default=None, min_length=1, max_length=64, description="Customer order or order line (SO-1001 or SO-1001/10)"
+    )
+    hint: str | None = Field(
+        default=None, max_length=300, description="The user's words, to pick the order by customer or product named"
+    )
+
+
+def _pick_by_hint(rows: list[dict[str, Any]], hint: str | None) -> list[dict[str, Any]]:
+    """At-risk lines whose customer, item or item word (FG-PUMP-100 -> "pump") the user named."""
+    if not hint:
+        return []
+    text = hint.upper()
+    words = set(re.findall(r"[A-Z0-9]+", text))
+    picked = []
+    for r in rows:
+        cust, item = str(r["customer_id"]).upper(), str(r["item_id"]).upper()
+        parts = {w for w in re.split(r"[-_./ ]", item) if len(w) >= 4 and w.isalpha()}
+        cust_parts = {w for w in re.split(r"[-_./ ]", cust) if len(w) >= 4 and w.isalpha() and w != "CUST"}
+        if cust in text or item in text or parts & words or cust_parts & words:
+            picked.append(r)
+    return picked
 
 
 class ItemFilterArgs(_Args):
@@ -285,6 +311,112 @@ def planning_scope(ctx: ToolContext, a: ScopeArgs) -> ToolOutput:
     return ToolOutput("planning_scope", "What can be calculated", answer, [], None, [], out["questions"][:3], out)
 
 
+def customer_commitment(ctx: ToolContext, a: CommitmentArgs) -> ToolOutput:
+    svc = _svc(ctx)
+    listing = svc.commitments(ctx.principal)
+    at_risk = listing["at_risk"]
+    by_value = sorted(at_risk, key=lambda r: Decimal(r["order_value"] or 0), reverse=True)  # most value at stake first
+    key = None
+    basis = ""
+    note = ""
+    if a.order_id:
+        wanted = a.order_id.upper()
+        key = next(
+            (r["key"] for r in at_risk if r["key"].upper() == wanted or r["key"].upper().startswith(wanted + "/")), None
+        )
+        if key is None:
+            known = svc.fulfilment(ctx.principal, order_id=wanted.split("/")[0])["lines"]
+            known = [ln for ln in known if "/" not in wanted or ln["key"].upper() == wanted]
+            note = (
+                f"{a.order_id} is on time with the current plan; no premium sourcing is needed."
+                if known
+                else f"I couldn't find an open order {a.order_id} in your scope."
+            )
+    elif by_value:
+        named = _pick_by_hint(by_value, a.hint)
+        key = (named or by_value)[0]["key"]
+        basis = "" if named else "the highest-value order at risk, "
+    if key is None:
+        answer = note or "Every open order line can be delivered on time; no premium sourcing is needed."
+        out = {**listing, "summary": {"at_risk": len(at_risk)}}
+        return ToolOutput(
+            "customer_commitment",
+            "Customer commitment protection",
+            answer,
+            [],
+            None,
+            [{"code": "recommendation_only", "message": "Nothing is ordered or approved."}],
+            [],
+            out,
+        )
+    out = svc.commitment(ctx.principal, key)
+    opts = out["options"]
+    rec = next((o for o in opts if o["recommended"]), None)
+    exp = out["exposure"]
+    if not out["at_risk"]:
+        answer = f"{key} is on time with the current plan; no premium sourcing is needed."
+    elif out["feasible"] and rec:
+        answer = (
+            f"{key} ({basis}{out['quantity']} {out['item_id']} for {out['customer_id']}, due {out['due']}) can still be "
+            f"delivered on {out['recommended_delivery']} by sourcing from {rec['label']}."
+        )
+        if exp.get("order_value") is not None:
+            answer += f" Order value at stake: {exp['order_value']} {exp['currency']}."
+        if out["explanation"]:
+            answer += " " + out["explanation"][0]
+    else:
+        answer = f"No eligible sourcing option delivers {key} ({basis}{out['item_id']} for {out['customer_id']}) by {out['due']}."
+        if out["fallbacks"]:
+            answer += " " + " ".join(out["fallbacks"][:2])
+    cols = [
+        ("label", "Option", "text"),
+        ("material_id", "Material", "text"),
+        ("material_arrival", "Material arrival", "date"),
+        ("production_complete", "Production completion", "date"),
+        ("customer_delivery", "Customer delivery", "date"),
+        ("total_cost", "Total cost", "text"),
+        ("incremental_cost", "vs cheapest eligible", "text"),
+        ("feasible", "Feasible", "text"),
+    ]
+    rows = [
+        {
+            **o,
+            "feasible": ("yes" if o["meets_deadline"] else "no")
+            if o["eligible"]
+            else "not eligible: " + "; ".join(o["reasons"]),
+        }
+        for o in opts
+    ]
+    others = [r["key"] for r in by_value if r["key"] != key]
+    if others and not a.order_id:
+        answer += f" {len(at_risk)} order lines are at risk in total; ask about any of them, e.g. {others[0]}."
+    out = {
+        **out,
+        "at_risk_lines": at_risk,
+        "summary": {
+            "at_risk": len(at_risk),
+            "options": len(opts),
+            "eligible": sum(1 for o in opts if o["eligible"]),
+            "meet_deadline": sum(1 for o in opts if o["eligible"] and o["meets_deadline"]),
+        },
+    }
+    return ToolOutput(
+        "customer_commitment",
+        "Customer commitment protection",
+        answer,
+        [_table(f"Sourcing options for {key} (due {out['due']})", cols, rows)],
+        None,
+        [
+            {
+                "code": "approval_required",
+                "message": "Recommendation only: a buyer approves; no purchase order is created.",
+            }
+        ],
+        ["Compare suppliers for the critical material", "Which orders are at risk?"],
+        out,
+    )
+
+
 PLANNING_TOOLS = (
     ToolDef(
         "order_fulfilment",
@@ -313,6 +445,13 @@ PLANNING_TOOLS = (
         SupplierArgs,
         (Permission.INVENTORY_READ, Permission.COST_READ),
         supplier_comparison,
+    ),
+    ToolDef(
+        "customer_commitment",
+        "Customer Commitment Protection: for a late customer order (by id, or the customer or product named), which supplier or split meets the customer date across supplier, receiving, production and shipping, what it costs versus the cheapest eligible offer, and the order value and penalties at stake.",
+        CommitmentArgs,
+        (Permission.INVENTORY_READ, Permission.COST_READ),
+        customer_commitment,
     ),
     ToolDef(
         "duplicate_items",

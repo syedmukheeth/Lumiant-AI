@@ -119,6 +119,22 @@ def test_other_tenants_are_untouched(svc: PlanningService, principals: dict[str,
     with pytest.raises(AppError) as exc:
         svc.fulfilment(principals["alpha.admin"])
     assert exc.value.status_code == 409  # alpha has no customer orders mapped
+    with pytest.raises(AppError) as exc:
+        svc.lifecycle(principals["alpha.admin"])
+    assert exc.value.status_code == 409  # no criticality data: never judge obsolescence from inactivity alone
+
+
+def test_planning_sections_follow_role_and_tenant_data(
+    query_service: QueryService, principals: dict[str, Principal]
+) -> None:
+    from types import SimpleNamespace
+
+    from lumiant.api.auth import planning_sections
+
+    container = SimpleNamespace(query=query_service)
+    assert planning_sections(principals["delta.admin"], container) == ["planning", "procurement", "master_data"]  # type: ignore[arg-type]
+    assert planning_sections(principals["delta.planner"], container) == ["planning", "master_data"]  # type: ignore[arg-type]
+    assert planning_sections(principals["alpha.admin"], container) == ["master_data"]  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
@@ -129,6 +145,29 @@ def test_other_tenants_are_untouched(svc: PlanningService, principals: dict[str,
         ("What raw materials should we buy?", "material_plan"),
         ("Show the bill of materials for FG-SKID-1", "bom_explosion"),
         ("Compare suppliers for 27 units of RM-IMPELLER", "supplier_comparison"),
+        ("Is it worth paying more to protect order SO-1001?", "customer_commitment"),
+        ("Which customer commitments are at risk?", "customer_commitment"),
+        # Everyday wording (natural-language regression set)
+        ("Can we still deliver SO-1001 on time if we use a faster supplier?", "customer_commitment"),
+        ("Which orders are we going to miss and how much money is at stake?", "customer_commitment"),
+        ("How do we save the CUST-OASIS order?", "customer_commitment"),
+        ("What happens if we buy from the expensive supplier to make the deadline?", "customer_commitment"),
+        ("how much revenue is at risk from late orders", "customer_commitment"),
+        ("Which supplier gets SO-1001 out the door in time?", "customer_commitment"),
+        ("Is there any way to hit the customer date for SO-1005?", "customer_commitment"),
+        ("cheaper supplier or faster supplier for the pump order?", "customer_commitment"),
+        ("What will it cost us to avoid late penalties?", "customer_commitment"),
+        ("Can we split the impeller order between suppliers to meet the date?", "customer_commitment"),
+        ("Are any customer orders going to be late?", "order_fulfilment"),
+        ("When will SO-1001 ship?", "order_fulfilment"),
+        ("What do I need to order this week?", "material_plan"),
+        ("What are we short of?", "material_plan"),
+        ("Who's the best supplier for RM-IMPELLER, I need 27?", "supplier_comparison"),
+        ("Which vendor is cheapest for 10 RM-IMPELLER?", "supplier_comparison"),
+        ("Fastest supplier for 27 units of RM-IMPELLER, we're late", "supplier_comparison"),
+        ("What goes into a FG-PUMP-100?", "bom_explosion"),
+        ("Do we have the same part under two codes?", "duplicate_items"),
+        ("What stock can we get rid of?", "lifecycle_review"),
         ("Find duplicate item codes", "duplicate_items"),
         ("Which items are obsolete?", "lifecycle_review"),
         ("Do we have enough machine capacity next month?", "planning_scope"),
@@ -151,6 +190,25 @@ def test_assistant_supplier_question_without_cost_access_is_refused(
     assert "SAR" not in json.dumps(out, default=str)
 
 
+def test_assistant_commitment_answer_is_grounded_and_cost_gated(
+    agent: AgentService, principals: dict[str, Principal]
+) -> None:
+    out = agent.chat(principals["delta.admin"], "Is it worth paying more to protect order SO-1001?")
+    assert "SO-1001/10" in out["answer"]
+    assert out["grounding"]["passed"], out["grounding"]
+    named = agent.chat(principals["delta.admin"], "Should we pay extra for faster delivery on SO-1002?")
+    assert named["tool_calls"][0]["args"]["order_id"] == "SO-1002"
+    assert "SO-1002/10" in named["answer"]  # the order asked about, never silently another one
+    by_customer = agent.chat(principals["delta.admin"], "How do we save the CUST-HARBOR order?")
+    assert "SO-1002/10" in by_customer["answer"]
+    assert by_customer["grounding"]["passed"]
+    unknown = agent.chat(principals["delta.admin"], "Can we still deliver SO-9999 on time with a faster supplier?")
+    assert "SO-9999 is not open in your scope" in unknown["answer"]
+    refused = agent.chat(principals["delta.planner"], "Is it worth paying more to protect order SO-1001?")
+    assert refused["kind"] == "unsupported"
+    assert "555000" not in json.dumps(refused, default=str)
+
+
 def test_planning_api_scope_and_permissions(data_dir: Any, tmp_path_factory: pytest.TempPathFactory) -> None:
     settings = Settings(
         _env_file=None,  # type: ignore[call-arg]
@@ -167,9 +225,84 @@ def test_planning_api_scope_and_permissions(data_dir: Any, tmp_path_factory: pyt
         assert r.status_code == 200
         assert {ln["warehouse_id"] for ln in r.json()["lines"]} == {"RYD1"}
         assert c.get("/api/planning/suppliers?item=RM-IMPELLER&qty=5", headers=CSRF).status_code == 403
+        sections = set(c.get("/api/auth/me").json()["sections"])
+        assert {"planning", "master_data"} <= sections
+        assert "procurement" not in sections  # no cost access: supplier pages are not offered
         assert c.post(
             "/api/planning/assess", json={"question": "Can our capacity handle Ramadan demand?"}
         ).status_code in (401, 403)
         r = c.post("/api/planning/assess", json={"question": "Can our capacity handle Ramadan demand?"}, headers=CSRF)
         assert r.status_code == 200
         assert r.json()["mode"] == "unsupported"
+
+
+@pytest.mark.security
+def test_planning_endpoints_are_rate_limited_per_user(data_dir: Any, tmp_path_factory: pytest.TempPathFactory) -> None:
+    settings = Settings(
+        _env_file=None,  # type: ignore[call-arg]
+        app_env="test",
+        auth_mode="dev",
+        dev_jwt_secret="planning-limit-" + "x" * 40,
+        data_dir=data_dir,
+        app_db_url=app_db_url(tmp_path_factory.mktemp("planninglimit") / "app.db"),
+        log_level="WARNING",
+        rate_limit_planning_per_min=2,
+    )
+    with TestClient(create_app(settings)) as c:
+        assert c.get("/api/planning/duplicates").status_code == 401  # unauthenticated first, never a limit leak
+        c.post("/api/auth/dev-login", json={"username": "delta.admin"}, headers=CSRF)
+        codes = [c.get("/api/planning/duplicates").status_code for _ in range(3)]
+        assert codes == [200, 200, 429]
+        assert c.get("/api/inventory/filters").status_code == 200  # other routes keep their own budget
+
+
+def test_commitment_protection_on_the_pump_order(svc: PlanningService, principals: dict[str, Principal]) -> None:
+    listing = svc.commitments(principals["delta.admin"], AS_OF)
+    keys = {ln["key"] for ln in listing["at_risk"]}
+    assert "SO-1001/10" in keys
+    assert "SO-1003/10" not in keys  # on time: nothing to protect
+    out = svc.commitment(principals["delta.admin"], "SO-1001/10", AS_OF)
+    assert out["at_risk"] is True
+    assert out["feasible"] is True
+    assert out["recommended_delivery"] == "2026-10-29"
+    rec = [o for o in out["options"] if o["recommended"]]
+    assert len(rec) == 1
+    assert rec[0]["suppliers"] == ["SUP-BETA"]
+    by_supplier = {o["suppliers"][0]: o for o in out["options"] if o["kind"] == "supplier"}
+    assert by_supplier["SUP-ALPHA"]["eligible"] is False  # 12% rejection exceeds the 5% commitment gate
+    assert by_supplier["SUP-ZETA"]["eligible"] is False  # not approved
+    assert out["exposure"]["order_value"] == "555000"
+    assert out["approval_required"] is True
+    assert out["recommendation_only"] is True
+
+
+def test_commitment_needs_cost_access_and_a_known_order(svc: PlanningService, principals: dict[str, Principal]) -> None:
+    with pytest.raises(AppError) as exc:
+        svc.commitment(principals["delta.planner"], "SO-1001/10", AS_OF)
+    assert exc.value.status_code == 403
+    with pytest.raises(AppError) as exc:
+        svc.commitment(principals["delta.admin"], "SO-9999/10", AS_OF)
+    assert exc.value.status_code == 404
+
+
+def test_commitment_api(data_dir: Any, tmp_path_factory: pytest.TempPathFactory) -> None:
+    settings = Settings(
+        _env_file=None,  # type: ignore[call-arg]
+        app_env="test",
+        auth_mode="dev",
+        dev_jwt_secret="commitment-secret-" + "x" * 40,
+        data_dir=data_dir,
+        app_db_url=app_db_url(tmp_path_factory.mktemp("commitdb") / "app.db"),
+        log_level="WARNING",
+    )
+    with TestClient(create_app(settings)) as c:
+        assert c.get("/api/planning/commitments").status_code == 401
+        c.post("/api/auth/dev-login", json={"username": "delta.planner"}, headers=CSRF)
+        assert c.get("/api/planning/commitments").status_code == 403
+        assert c.get("/api/planning/commitment?order=SO-1001/10").status_code == 403
+    with TestClient(create_app(settings)) as c:
+        c.post("/api/auth/dev-login", json={"username": "delta.admin"}, headers=CSRF)
+        assert c.get("/api/planning/commitment?order=bad order").status_code == 422
+        r = c.get(f"/api/planning/commitment?order=SO-1001/10&as_of={AS_OF.isoformat()}")
+        assert r.status_code == 200
+        assert r.json()["feasible"] is True

@@ -172,10 +172,21 @@ class DemandLine:
     priority: int = 5  # 1 = most important
     order_date: date | None = None
     kind: Literal["customer_order", "forecast", "safety_stock", "dependent"] = "customer_order"
+    ship_days: int = 0  # working days from dispatch to the customer; goods must be ready `ship_days` before `due`
+    # Commercial facts for customer commitment protection (all optional; never guessed when missing).
+    unit_price: Decimal | None = None
+    currency: str = ""
+    margin_pct: Decimal | None = None  # contribution margin, percent of order value
+    penalty_per_day: Decimal | None = None  # contractual late-delivery penalty per working day late
+    confirmed: bool = True
 
     @property
     def key(self) -> str:
         return f"{self.order_id}/{self.line}"
+
+    @property
+    def value(self) -> Decimal | None:
+        return None if self.unit_price is None else self.quantity * self.unit_price
 
 
 @dataclass(frozen=True)

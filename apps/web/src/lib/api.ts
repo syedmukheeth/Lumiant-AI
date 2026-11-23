@@ -74,7 +74,7 @@ export type Me = {
   roles: string[];
   permissions: string[];
   scope: { all_warehouses: boolean; warehouses: string[]; departments: string[] };
-  sections: ("overview" | "inventory" | "risks" | "costs" | "assistant" | "reports" | "admin")[];
+  sections: ("overview" | "inventory" | "risks" | "costs" | "assistant" | "reports" | "admin" | "planning" | "procurement" | "master_data")[];
   auth_mode: string;
 };
 
@@ -224,4 +224,189 @@ export type AbcResult = {
   rule: string;
   provenance: Provenance;
   warnings: ResultWarning[];
+};
+
+// ---------------------------------------------------------------------------------------- planning (/api/planning)
+/** Every planning result is a recommendation: nothing is ordered, approved, merged or disposed of. */
+export type PlanningIssue = { code: string; severity: "info" | "warning" | "blocker"; message: string; item_id: string | null; reference: string | null };
+
+export type PlanningMeta = {
+  today: string;
+  issues: PlanningIssue[];
+  available: Record<string, number>;
+  recommendation_only: true;
+};
+
+export type FulfilmentLine = {
+  key: string;
+  item_id: string;
+  warehouse_id: string;
+  customer_id: string;
+  quantity: string;
+  due: string;
+  from_stock: string;
+  from_receipts: string;
+  from_alternates: string;
+  from_planned: string;
+  unplanned: string;
+  ready: string | null;
+  on_time: boolean;
+  late_days: number | null;
+  reasons: string[];
+};
+
+export type PlannedOrder = {
+  planned_order: string;
+  item_id: string;
+  warehouse_id: string;
+  action: "make" | "buy";
+  net: string;
+  quantity: string;
+  excess: string;
+  need: string;
+  release: string | null;
+  ready: string | null;
+  lead_days: number | null;
+  bom: string | null;
+  for_orders: string[];
+  explanation: string;
+  issues: string[];
+};
+
+export type ExcessSupply = { item_id: string; warehouse_id: string; source: string; reference: string; quantity: string };
+
+export type BomLineView = {
+  component_id: string;
+  quantity: string;
+  level: number;
+  path: string[];
+  bom: string;
+  explanation: string;
+  phantom: boolean;
+  subassembly: boolean;
+};
+
+export type SupplierOfferView = {
+  supplier_id: string;
+  supplier_name: string;
+  eligible: boolean;
+  reasons: string[];
+  notes: string[];
+  order_quantity: string;
+  excess_quantity: string;
+  unit_price: string | null;
+  landed_unit_cost: string | null;
+  effective_unit_cost: string | null;
+  unknown_charges: string[];
+  total_cost: string | null;
+  currency: string;
+  fx_note: string;
+  lead_days: number | null;
+  earliest_delivery: string | null;
+  meets_need_date: boolean | null;
+  latest_release: string | null;
+  rejection_pct: string | null;
+  on_time_pct: string | null;
+  evidence_lots: number;
+  price_vs_last_pct: string | null;
+  price_vs_average_pct: string | null;
+  score: string | null;
+  rank: number | null;
+  allocated: string;
+};
+
+export type SupplierComparisonView = PlanningMeta & {
+  item_id: string;
+  quantity: string;
+  need_date: string | null;
+  policy: string;
+  offers: SupplierOfferView[];
+  split: SupplierOfferView[];
+  recommendation: string;
+  gaps: string[];
+};
+
+/** Customer Commitment Protection (/api/planning/commitments, /api/planning/commitment). Needs cost access. */
+export type CommitmentAtRisk = {
+  key: string;
+  item_id: string;
+  customer_id: string;
+  quantity: string;
+  due: string;
+  delivery: string | null;
+  late_days: number | null;
+  order_value: string | null;
+  currency: string;
+};
+
+export type SourcingOption = {
+  label: string;
+  kind: "supplier" | "split";
+  material_id: string;
+  suppliers: string[];
+  quantity: string;
+  total_cost: string | null;
+  currency: string;
+  lead_days: number | null;
+  material_arrival: string | null;
+  material_needed_by: string;
+  production_complete: string | null;
+  customer_delivery: string | null;
+  meets_deadline: boolean;
+  eligible: boolean;
+  reasons: string[];
+  notes: string[];
+  incremental_cost: string | null;
+  recommended: boolean;
+};
+
+export type CommitmentExposure = {
+  order_value: string | null;
+  currency: string;
+  margin_value: string | null;
+  penalty_per_day: string | null;
+  penalty_if_cheapest: string | null;
+  premium: string | null;
+  premium_pct_of_value: string | null;
+  premium_pct_of_margin: string | null;
+  missing: string[];
+};
+
+export type CommitmentAnalysis = PlanningMeta & {
+  order_key: string;
+  item_id: string;
+  customer_id: string;
+  quantity: string;
+  due: string;
+  baseline: FulfilmentLine & { delivery: string | null };
+  at_risk: boolean;
+  critical: { item_id: string; warehouse_id: string; quantity: string; needed_by: string; planned_arrival: string | null; reason: string }[];
+  options: SourcingOption[];
+  recommended_delivery: string | null;
+  feasible: boolean;
+  exposure: CommitmentExposure;
+  explanation: string[];
+  fallbacks: string[];
+  limitations: string[];
+  approval_required: boolean;
+};
+
+export type DuplicateFinding = {
+  item_a: string;
+  item_b: string;
+  verdict: "probable_duplicate" | "possible_duplicate" | "conflict" | "different_specification";
+  confidence: string;
+  similarity: number;
+  reasons: string[];
+  action: string;
+};
+
+export type LifecycleFinding = {
+  item_id: string;
+  verdict: string;
+  on_hand: string;
+  evidence: string[];
+  still_needed: string | null;
+  possible_excess: string | null;
+  action: string;
 };

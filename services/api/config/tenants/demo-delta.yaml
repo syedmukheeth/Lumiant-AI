@@ -169,4 +169,4 @@ datasets:
       capacity: capacity
   customer_order_line:
     source: mfg.customer_order_line
-    fields: {order_id: order_id, line: line, customer_id: customer_id, item_id: item_id, warehouse_id: warehouse_id, quantity: quantity, uom: uom, due_date: due_date, priority: priority, order_date: order_date, status: status}
+    fields: {order_id: order_id, line: line, customer_id: customer_id, item_id: item_id, warehouse_id: warehouse_id, quantity: quantity, uom: uom, due_date: due_date, priority: priority, order_date: order_date, status: status, ship_days: ship_days, unit_price: unit_price, currency: currency, margin_pct: margin_pct, penalty_per_day: penalty_per_day}

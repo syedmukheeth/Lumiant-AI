@@ -65,6 +65,8 @@ class DemandEntry:
     coverage: list[Coverage] = field(default_factory=list)
     unplanned: Decimal = ZERO  # could not be planned at all (blocker)
     ready: date | None = None
+    customer_due: date | None = None  # the date the customer needs the goods (need = due − ship days)
+    ship_days: int = 0
 
     @property
     def covered(self) -> Decimal:
@@ -126,6 +128,7 @@ class LineFulfilment:
     on_time: bool
     late_days: int | None
     reasons: list[str]
+    delivery: date | None = None  # ready + working days to ship to the customer
 
 
 @dataclass
@@ -136,6 +139,8 @@ class MrpResult:
     positions: dict[tuple[str, str], ItemPosition]
     issues: list[Issue]
     unconsumed: dict[tuple[str, str], list[tuple[str, str, Decimal]]] = field(default_factory=dict)
+    _order_index: dict[str, PlannedOrder] = field(default_factory=dict, repr=False)
+    _entry_index: dict[str, DemandEntry] = field(default_factory=dict, repr=False)
 
     def excess_supply(self) -> list[tuple[str, str, str, str, Decimal]]:
         """Open receipts and lot-size surplus no demand consumes: potential excess (scenarios 6, combined N)."""
@@ -147,7 +152,14 @@ class MrpResult:
         ]
 
     def order(self, order_id: str) -> PlannedOrder:
-        return next(p for p in self.planned_orders if p.id == order_id)
+        if len(self._order_index) != len(self.planned_orders):
+            self._order_index = {p.id: p for p in self.planned_orders}
+        return self._order_index[order_id]
+
+    def entry(self, entry_id: str) -> DemandEntry:
+        if len(self._entry_index) != len(self.entries):
+            self._entry_index = {e.id: e for e in self.entries}
+        return self._entry_index[entry_id]
 
     def requirements(self) -> dict[tuple[str, str], dict[str, Decimal]]:
         """Gross, covered and planned quantity per item and warehouse."""
@@ -169,9 +181,11 @@ class MrpResult:
             receipts = sum((c.quantity for c in e.coverage if c.source == "receipt"), ZERO)
             alts = sum((c.quantity for c in e.coverage if c.source == "alternate"), ZERO)
             planned = sum((c.quantity for c in e.coverage if c.source == "planned"), ZERO)
-            on_time = e.ready is not None and e.ready <= e.need and e.unplanned == 0
+            due = e.customer_due or e.need
+            delivery = add_working_days(e.ready, e.ship_days, cal) if e.ready and e.ship_days else e.ready
+            on_time = delivery is not None and delivery <= due and e.unplanned == 0
             late = (
-                working_days_between(e.need, e.ready, cal) if e.ready and e.ready > e.need else (0 if e.ready else None)
+                working_days_between(due, delivery, cal) if delivery and delivery > due else (0 if delivery else None)
             )
             lines.append(
                 LineFulfilment(
@@ -180,7 +194,7 @@ class MrpResult:
                     e.warehouse_id,
                     next(iter(e.customers), ""),
                     e.quantity,
-                    e.need,
+                    due,
                     stock,
                     receipts,
                     alts,
@@ -190,6 +204,7 @@ class MrpResult:
                     on_time,
                     late,
                     self._reasons(e),
+                    delivery,
                 )
             )
         return lines
@@ -217,7 +232,7 @@ class MrpResult:
                         f"need date {entry.need.isoformat()}."
                     )
                 for child_id in po.children:
-                    child = next(x for x in self.entries if x.id == child_id)
+                    child = self.entry(child_id)
                     if child.ready is None or child.ready > (po.release or child.need):
                         out.extend(self._reasons(child, depth + 1))
         return list(dict.fromkeys(out))
@@ -284,6 +299,11 @@ class _Run:
         self.pending: dict[tuple[str, str], list[DemandEntry]] = defaultdict(list)
         self.leftover: dict[tuple[str, str], list[_Lot]] = {}
         self._open: dict[tuple[str, str, date], PlannedOrder] = {}
+        self._order_by_id: dict[str, PlannedOrder] = {}
+        # Policy index: exact (item, warehouse) first, then the item-wide policy (PlanningData.policy semantics).
+        self._policies: dict[tuple[str, str | None], PlanningPolicy] = {}
+        for pol in data.policies:
+            self._policies.setdefault((pol.item_id, pol.warehouse_id), pol)
         self.llc, cycle_issues = low_level_codes(data.boms)
         self.issues += cycle_issues
         self.cyclic = {i.item_id for i in cycle_issues if i.item_id}
@@ -369,7 +389,7 @@ class _Run:
             self.pools[(sup.item_id, sup.warehouse_id)].append(_Lot(qty, sup.due, "receipt", sup.reference))
         # Safety stock is protected from customer demand; a shortfall becomes its own (last) requirement.
         for key in list(self.positions):
-            policy = self.d.policy(*key)
+            policy = self._policy(*key)
             pos = self.positions[key]
             pos.safety_stock = policy.safety_stock
             if policy.safety_stock and self.d.allocation.protect_safety_stock:
@@ -430,12 +450,14 @@ class _Run:
                 dl.item_id,
                 dl.warehouse_id,
                 qty,
-                dl.due,
+                subtract_working_days(dl.due, dl.ship_days, self.d.calendar) if dl.ship_days else dl.due,
                 dl.kind,
                 (dl.key,),
                 frozenset({dl.customer_id}) if dl.customer_id else frozenset(),
                 dl.priority,
                 dl.order_date,
+                customer_due=dl.due,
+                ship_days=dl.ship_days,
             )
         )
 
@@ -493,7 +515,7 @@ class _Run:
                 remaining -= take
                 e.coverage.append(Coverage(lot.source, lot.reference, e.item_id, take, lot.available))
                 if lot.source == "planned":
-                    po = next(p for p in self.orders if p.id == lot.reference)
+                    po = self._order_by_id[lot.reference]
                     po.net += take  # the lot-size surplus is now promised to this demand
                     po.pegs = tuple(dict.fromkeys((*po.pegs, *e.pegs)))
         return remaining
@@ -541,7 +563,7 @@ class _Run:
         if item is None:
             e.unplanned += net
             return
-        policy = self.d.policy(e.item_id, e.warehouse_id)
+        policy = self._policy(e.item_id, e.warehouse_id)
         merge_key = (e.item_id, e.warehouse_id, e.need)
         existing = self._open.get(merge_key)
         if existing is not None:
@@ -611,6 +633,7 @@ class _Run:
                 )
             )
         self.orders.append(po)
+        self._order_by_id[po.id] = po
         self._open[merge_key] = po
         self._pos(e.item_id, e.warehouse_id).planned += qty
         e.coverage.append(Coverage("planned", po.id, e.item_id, net, None))
@@ -659,6 +682,13 @@ class _Run:
             )
             po.children.append(child.id)
             self._add_entry(child)
+
+    def _policy(self, item_id: str, warehouse_id: str) -> PlanningPolicy:
+        return (
+            self._policies.get((item_id, warehouse_id))
+            or self._policies.get((item_id, None))
+            or PlanningPolicy(item_id)
+        )
 
     def _components(self, item_id: str, on: date) -> list[str]:
         from lumiant.planning.bom import select_bom

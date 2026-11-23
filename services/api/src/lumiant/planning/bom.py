@@ -54,6 +54,28 @@ class Explosion:
 
 def select_bom(boms: tuple[Bom, ...] | list[Bom], item_id: str, on: date, alternative: str | None = None) -> Bom | None:
     """The released BOM valid on `on` (scenario 24): a future revision never applies to an earlier date."""
+    return _select_bom(_by_item(boms).get(item_id, ()), item_id, on, alternative)
+
+
+# BOMs indexed by parent item, per BOM collection (identity-checked; a run plans against one collection).
+_INDEX: dict[int, tuple[object, dict[str, list[Bom]]]] = {}
+
+
+def _by_item(boms: tuple[Bom, ...] | list[Bom]) -> dict[str, list[Bom]]:
+    hit = _INDEX.get(id(boms))
+    if hit is not None and hit[0] is boms and isinstance(boms, tuple):
+        return hit[1]
+    index: dict[str, list[Bom]] = defaultdict(list)
+    for bom in boms:
+        index[bom.item_id].append(bom)
+    if isinstance(boms, tuple):  # lists can change in place, so only immutable collections are cached
+        if len(_INDEX) > 16:
+            _INDEX.clear()
+        _INDEX[id(boms)] = (boms, index)
+    return index
+
+
+def _select_bom(boms: tuple[Bom, ...] | list[Bom], item_id: str, on: date, alternative: str | None) -> Bom | None:
     valid = [b for b in boms if b.item_id == item_id and b.valid_on(on)]
     if alternative is not None:
         valid = [b for b in valid if b.alternative == alternative]

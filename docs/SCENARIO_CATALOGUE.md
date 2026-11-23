@@ -138,7 +138,7 @@ Each scenario lists the capability that handles it, its status and the automated
 | 88 | Invalid relationships | Tested | S25 (unknown component), loader skips unresolved supply |
 | 89 | Duplicate transactions | Planned | Source keys are kept; deduplication rules not built |
 
-## Combined scenarios (A–O)
+## Combined scenarios (A–R)
 
 | Id | Scenario | Status | Evidence |
 |---|---|---|---|
@@ -157,6 +157,9 @@ Each scenario lists the capability that handles it, its status and the automated
 | M | Partial receipt with rejected goods | Tested | C-M |
 | N | Cancellation after procurement | Tested | C-N |
 | O | Multi-plant transfer and production dependency | Tested | C-O |
+| P | Revenue protection: high-value order, cheap supplier too slow, fast one costs more (plus quality gate and already-on-time variants) | Tested | C-P, C-P2, C-P3; int:test_commitment_protection_on_the_pump_order |
+| Q | Fastest supplier lacks quantity: split sourcing meets the date | Tested | C-Q |
+| R | No option meets the date: infeasibility with fallbacks (earliest date, partial delivery, alternates) | Tested | C-R |
 
 ## Industry and operational extensions (Part 14)
 

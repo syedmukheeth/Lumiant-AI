@@ -387,22 +387,23 @@ def load(query: QueryService, principal: Principal, today: date) -> LoadedPlanni
                     )
                 )
     demand = []
-    for row in r.rows(
-        "customer_order_line",
-        [
-            "order_id",
-            "line",
-            "customer_id",
-            "item_id",
-            "warehouse_id",
-            "quantity",
-            "uom",
-            "due_date",
-            "priority",
-            "order_date",
-            "status",
-        ],
-    ):
+    order_fields = [
+        "order_id",
+        "line",
+        "customer_id",
+        "item_id",
+        "warehouse_id",
+        "quantity",
+        "uom",
+        "due_date",
+        "priority",
+        "order_date",
+        "status",
+        "ship_days",
+    ]
+    if can_cost:  # order value, margin and penalties are cost-sensitive (commitment protection needs cost:read)
+        order_fields += ["unit_price", "currency", "margin_pct", "penalty_per_day"]
+    for row in r.rows("customer_order_line", order_fields):
         if str(row.get("status") or "OPEN").upper() in CLOSED:
             continue
         demand.append(
@@ -417,6 +418,11 @@ def load(query: QueryService, principal: Principal, today: date) -> LoadedPlanni
                 str(row.get("customer_id") or ""),
                 int(row.get("priority") or 5),
                 row.get("order_date"),
+                ship_days=int(row.get("ship_days") or 0),
+                unit_price=_dec(row.get("unit_price")),
+                currency=str(row.get("currency") or ""),
+                margin_pct=_dec(row.get("margin_pct")),
+                penalty_per_day=_dec(row.get("penalty_per_day")),
             )
         )
 

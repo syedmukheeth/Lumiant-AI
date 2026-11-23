@@ -169,6 +169,12 @@ def planning_data(raw: Rec) -> PlanningData:
                 int(r.get("priority", 5)),
                 day(r.get("order_date")),
                 r.get("kind", "customer_order"),
+                int(r.get("ship_days", 0)),
+                dec(r.get("unit_price")),
+                r.get("currency", ""),
+                dec(r.get("margin_pct")),
+                dec(r.get("penalty_per_day")),
+                bool(r.get("confirmed", True)),
             )
             for r in raw.get("demand", [])
         ),

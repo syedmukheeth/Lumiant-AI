@@ -9,13 +9,14 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict, Field
 
-from lumiant.auth.deps import get_container, require, require_csrf
+from lumiant.auth.deps import get_container, rate_limit, require, require_csrf
 from lumiant.auth.permissions import Permission
 from lumiant.auth.principal import Principal
 from lumiant.container import Container
 from lumiant.planning.service import POLICIES, PlanningService
 
-router = APIRouter(prefix="/api/planning", tags=["planning"])
+# Every planning route is per-user rate-limited (ENTERPRISE_SECURITY_REVIEW.md, LA-11 for this surface).
+router = APIRouter(prefix="/api/planning", tags=["planning"], dependencies=[Depends(rate_limit("planning"))])
 Reader = Annotated[Principal, Depends(require(Permission.INVENTORY_READ))]
 CostReader = Annotated[Principal, Depends(require(Permission.INVENTORY_READ, Permission.COST_READ))]
 Code = Annotated[str, Query(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_.\-/ ]+$")]
@@ -69,6 +70,25 @@ def suppliers(
     as_of: AsOf = None,
 ) -> dict[str, Any]:
     return _svc(container).suppliers(principal, item, qty, need_date=need_date, policy=policy, today=as_of)
+
+
+@router.get("/commitments")
+def commitments(
+    principal: CostReader,
+    container: Container = Depends(get_container),  # noqa: B008
+    as_of: AsOf = None,
+) -> dict[str, Any]:
+    return _svc(container).commitments(principal, as_of)
+
+
+@router.get("/commitment")
+def commitment(
+    principal: CostReader,
+    order: Annotated[str, Query(min_length=3, max_length=80, pattern=r"^[A-Za-z0-9_.\-]+/[A-Za-z0-9_.\-]+$")],
+    container: Container = Depends(get_container),  # noqa: B008
+    as_of: AsOf = None,
+) -> dict[str, Any]:
+    return _svc(container).commitment(principal, order, as_of)
 
 
 @router.get("/duplicates")

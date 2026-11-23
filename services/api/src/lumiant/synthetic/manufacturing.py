@@ -502,10 +502,20 @@ def build(as_of: date) -> SyntheticDataset:
             "priority": prio,
             "order_date": day(ordered),
             "status": "OPEN",
+            # Commercial terms for customer commitment protection (fictional): selling price, margin, penalty.
+            "ship_days": 1 if wh == "JED1" else 2,
+            "unit_price": price_of[item_id],
+            "currency": "SAR",
+            "margin_pct": margin_of[item_id],
+            "penalty_per_day": (price_of[item_id] * D(qty) * D("0.005")).quantize(D("0.01")) if prio <= 2 else None,
         }
 
+    price_of = {"FG-PUMP-100": D("18500"), "FG-VALVE-50": D("2900"), "FG-SKID-1": D("52000")}
+    margin_of = {"FG-PUMP-100": D("22"), "FG-VALVE-50": D("18"), "FG-SKID-1": D("25")}
     orders = [
-        so("SO-1001", "10", "CUST-OASIS", "FG-PUMP-100", "RYD1", "30", 21, 1, -5),  # urgent, key customer
+        so(
+            "SO-1001", "10", "CUST-OASIS", "FG-PUMP-100", "RYD1", "30", 28, 1, -5
+        ),  # key customer: protectable with a faster supplier
         so("SO-1002", "10", "CUST-HARBOR", "FG-PUMP-100", "RYD1", "15", 35, 3, -10),
         so("SO-1003", "10", "CUST-DUNE-WATER", "FG-VALVE-50", "RYD1", "60", 14, 2, -3),
         so("SO-1004", "10", "CUST-OASIS", "FG-SKID-1", "RYD1", "4", 45, 2, -1),
