@@ -306,3 +306,16 @@ def test_commitment_api(data_dir: Any, tmp_path_factory: pytest.TempPathFactory)
         r = c.get(f"/api/planning/commitment?order=SO-1001/10&as_of={AS_OF.isoformat()}")
         assert r.status_code == 200
         assert r.json()["feasible"] is True
+
+
+def test_capability_gap_audit_row_fits_the_audit_columns(
+    svc: PlanningService, principals: dict[str, Principal], query_service: QueryService
+) -> None:
+    # SQLite ignores VARCHAR lengths and PostgreSQL enforces them: a long reason code passed here and failed CI there.
+    out = svc.assess(principals["delta.admin"], "Can our machine capacity handle Ramadan demand?")
+    assert out["capability_gaps"]
+    rows = query_service.audit.recent("demo-delta", limit=200)
+    gap = next(r for r in rows if r.action == "planning:capability_gap")
+    assert gap.reason_code == "capability_gap"
+    assert all(len(r.reason_code or "") <= 64 for r in rows)
+    assert all(len(r.dataset or "") <= 64 for r in rows)

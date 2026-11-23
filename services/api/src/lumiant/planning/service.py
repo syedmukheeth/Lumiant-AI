@@ -286,7 +286,8 @@ class PlanningService:
                 "scenario",
                 "allow",
                 "gap",
-                reason="; ".join(a.capability_gaps)[:200],
+                reason="capability_gap",  # a code: the audit column is 64 characters (enforced on PostgreSQL)
+                fields=tuple(a.capabilities),
             )
         return {**self._meta(loaded), **jsonable(a)}
 

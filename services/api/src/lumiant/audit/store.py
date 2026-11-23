@@ -108,7 +108,8 @@ class AuditStore:
                         dataset=rec.dataset,
                         fields=",".join(rec.fields)[:1000] or None,
                         decision=rec.decision,
-                        reason_code=rec.reason_code,
+                        # Codes are short by contract; clip so an over-long one can never fail a request closed.
+                        reason_code=rec.reason_code[:64] if rec.reason_code else None,
                         row_count=rec.row_count,
                         duration_ms=rec.duration_ms,
                         status=rec.status,
