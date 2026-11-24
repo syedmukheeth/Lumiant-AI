@@ -1,0 +1,298 @@
+# Combined real-world cases, item-master quality, lifecycle, balancing and the scenario assessor
+# (combined A, B, D, E, F, I, J, K, M, N, O; scenarios 12, 13, 19, 20, 69–79). Synthetic. Planning date 2026-12-01.
+
+- id: C-A
+  title: Urgent order, partial stock, short component, slow preferred supplier
+  persona: order planner
+  today: 2026-12-01
+  data: &combined_a
+    calendar: {weekend: []}
+    items: [{id: FG, procurement: make}, {id: RM1}, {id: RM2}, {id: RM1B, description: similar but unapproved}]
+    boms: [{item: FG, lines: [{item: RM1, qty: 2}, {item: RM2, qty: 1}]}]
+    stock: [{item: FG, qty: 400}, {item: RM1, qty: 800}, {item: RM2, qty: 700}, {item: RM1B, qty: 500}]
+    alternates: [{item: RM1, alternate: RM1B, approved: false}]
+    policies: [{item: FG, lead_days: 3}, {item: RM1, lead_days: 20}, {item: RM2, lead_days: 5}]
+    demand: [{order: SO-A, item: FG, qty: 1000, due: 2026-12-16, customer: KEY1, priority: 1}]
+    suppliers: [{id: SPREF, name: Preferred Steel}, {id: SALT, name: Approved Alternative Steel}]
+    offers:
+      - {supplier: SPREF, item: RM1, price: 50, lead_days: 20, freight: 0, duty_pct: 0}
+      - {supplier: SALT, item: RM1, price: 60, lead_days: 7, freight: 0, duty_pct: 0}
+  checks:
+    - run: mrp
+      expect:
+        fulfilment: {SO-A/1: {from_stock: 400, from_planned: 600, on_time: false, ready: 2026-12-24, late_days: 8, reasons_contain: RM1}}
+        planned: {FG: {qty: 600, action: make, release: 2026-12-13}, RM1: {qty: 400, ready: 2026-12-21}}
+        no_planned: [RM2]
+        alternate_used: {RM1B: 0}
+        issues: [release_overdue]
+    - run: suppliers
+      params: {item: RM1, qty: 400, need_date: 2026-12-13, policy: {name: urgent, mode: fastest}}
+      expect: {best: SALT, ineligible: {SPREF: after the need date}}
+
+- id: C-A2
+  title: Same order if RM1 comes from the approved alternative supplier (what-if)
+  persona: order planner
+  today: 2026-12-01
+  data:
+    <<: *combined_a
+    policies: [{item: FG, lead_days: 3}, {item: RM1, lead_days: 7}, {item: RM2, lead_days: 5}]
+  checks:
+    - run: mrp
+      expect:
+        fulfilment: {SO-A/1: {on_time: true, ready: 2026-12-16}}
+        planned: {RM1: {release: 2026-12-06, ready: 2026-12-13}}
+
+- id: C-B
+  title: Three finished products with different dates compete for a shared material
+  persona: production planner
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: FG1, procurement: make}, {id: FG2, procurement: make}, {id: FG3, procurement: make}, {id: A}]
+    boms:
+      - {item: FG1, lines: [{item: A, qty: 1}]}
+      - {item: FG2, lines: [{item: A, qty: 1}]}
+      - {item: FG3, lines: [{item: A, qty: 2}]}
+    stock: [{item: A, qty: 100}]
+    policies: [{item: FG1, lead_days: 2}, {item: FG2, lead_days: 2}, {item: FG3, lead_days: 2}, {item: A, lead_days: 5}]
+    demand:
+      - {order: SO-B1, item: FG1, qty: 50, due: 2026-12-10, priority: 3}
+      - {order: SO-B2, item: FG2, qty: 40, due: 2026-12-20, priority: 1}
+      - {order: SO-B3, item: FG3, qty: 30, due: 2026-12-15}
+  checks:
+    - run: mrp
+      expect:
+        gross: {A: 150}
+        planned: {A: {qty: 50, count: 2}}
+        fulfilment: {SO-B1/1: {on_time: true}, SO-B2/1: {on_time: true}, SO-B3/1: {on_time: true, ready: 2026-12-15}}
+
+- id: C-D
+  title: Excess in one warehouse, shortage in another - transfer before buying
+  persona: warehouse manager
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: T1}]
+    stock: [{item: T1, wh: W1, qty: 500}, {item: T1, wh: W3, qty: 100}]
+    policies: [{item: T1, lead_days: 20}]
+    demand:
+      - {order: SO-D1, item: T1, wh: W1, qty: 100, due: 2026-12-10}
+      - {order: SO-D2, item: T1, wh: W2, qty: 300, due: 2026-12-10}
+    lanes:
+      - {from: W1, to: W2, lead_days: 2, cost: 1.5}
+      - {from: W3, to: W2, lead_days: 1, allowed: false, note: different legal entity}
+  checks:
+    - run: mrp
+      expect: {planned: {T1: {wh: W2, qty: 300}}, fulfilment: {SO-D2/1: {on_time: false}}}
+    - run: transfers
+      params: {item: T1, destination: W2, shortage: 300}
+      expect: {options: [{source: W1, qty: 300, arrival: 2026-12-03, cost: 450.00}]}
+
+- id: C-O
+  title: Surplus in one plant, production in another depends on it
+  persona: production planner
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: FGO, procurement: make}, {id: RMX}]
+    boms: [{item: FGO, lines: [{item: RMX, qty: 1}]}]
+    stock: [{item: RMX, wh: P1, qty: 200}]
+    policies: [{item: FGO, lead_days: 2}, {item: RMX, lead_days: 15}]
+    demand: [{order: SO-O, item: FGO, wh: P2, qty: 100, due: 2026-12-12}]
+    lanes: [{from: P1, to: P2, lead_days: 3, cost: 2}]
+  checks:
+    - run: mrp
+      expect: {planned: {RMX: {wh: P2, qty: 100}}, fulfilment: {SO-O/1: {on_time: false}}}
+    - run: transfers
+      params: {item: RMX, destination: P2, shortage: 100}
+      expect: {options: [{source: P1, qty: 100, arrival: 2026-12-04, cost: 200.00}]}
+
+- id: C-E
+  title: Possible duplicate items both used in active BOMs
+  persona: master data steward
+  today: 2026-12-01
+  data:
+    items:
+      - {id: E1, description: Bolt M10x50 SS, group: FAST}
+      - {id: E2, description: "BOLT M10 X 50 S/S", group: FAST}
+      - {id: FGE1, procurement: make}
+      - {id: FGE2, procurement: make}
+    boms:
+      - {item: FGE1, lines: [{item: E1, qty: 4}]}
+      - {item: FGE2, lines: [{item: E2, qty: 4}]}
+    stock: [{item: E1, qty: 50}, {item: E2, qty: 70}]
+    last_movement: {E1: 2025-10-01, E2: 2025-09-01}
+  checks:
+    - run: duplicates
+      expect: {findings: {"E1|E2": possible_duplicate}}
+    - run: obsolescence
+      expect: {verdicts: {E1: active, E2: active}}
+
+- id: S69
+  title: Duplicate detection - exact, part number, units, specifications
+  persona: master data steward
+  today: 2026-12-01
+  data:
+    items:
+      - {id: D1, description: Gasket Rubber 50 mm, group: SEAL}
+      - {id: D2, description: "GASKET, RUBBER 50MM", group: SEAL}
+      - {id: D3, description: Gasket Rubber 80 mm, group: SEAL}
+      - {id: D4, description: Bearing 6204 2RS, group: BRG, manufacturer: Acme, mpn: AB-1234}
+      - {id: D5, description: Ball bearing deep groove, group: BRG, manufacturer: Acme, mpn: AB1234}
+      - {id: D6, description: Valve Ball 2 inch, group: VLV, uom: EA}
+      - {id: D7, description: VALVE BALL 2 INCH, group: VLV, uom: PC}
+      - {id: D8, description: Pipe Steel Sch40, group: PIPE, attributes: {size: "10"}}
+      - {id: D9, description: Pipe Steel Sch40, group: PIPE, attributes: {size: "12"}}
+  checks:
+    - run: duplicates
+      expect:
+        findings:
+          "D1|D2": probable_duplicate
+          "D1|D3": different_specification
+          "D4|D5": probable_duplicate
+          "D6|D7": conflict
+          "D8|D9": different_specification
+        none: ["D1|D6", "D4|D8"]
+
+- id: S74
+  title: Lifecycle review - candidates, critical spares, slow movers, active use
+  persona: inventory controller
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items:
+      - {id: O1}
+      - {id: O2, critical: true, description: Compressor seal kit}
+      - {id: O3}
+      - {id: O6}
+      - {id: FGX, procurement: make}
+    boms: [{item: FGX, lines: [{item: O6, qty: 1}]}]
+    stock: [{item: O1, qty: 10}, {item: O2, qty: 5}, {item: O3, qty: 8}, {item: O6, qty: 20}]
+    last_movement: {O1: 2025-07-20, O2: 2024-06-01, O3: 2026-05-15, O6: 2025-04-01}
+  checks:
+    - run: obsolescence
+      expect:
+        verdicts: {O1: obsolete_candidate, O2: critical_keep, O3: slow_moving_review, O6: active}
+        possible_excess: {O1: 10}
+
+- id: C-K
+  title: Critical spare with no movement is kept, ordinary item is a candidate
+  persona: maintenance planner
+  today: 2026-12-01
+  data:
+    items: [{id: K1, critical: true}, {id: K2}]
+    stock: [{item: K1, qty: 2}, {item: K2, qty: 2}]
+    last_movement: {K1: 2024-05-01, K2: 2024-05-01}
+  checks:
+    - run: obsolescence
+      expect: {verdicts: {K1: critical_keep, K2: obsolete_candidate}}
+
+- id: C-F
+  title: BOM redesign - old material still needed for orders on the old revision
+  persona: production planner
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items:
+      - {id: FGF, procurement: make}
+      - {id: R_OLD, lifecycle: superseded, superseded_by: R_NEW}
+      - {id: R_NEW}
+    boms:
+      - {id: BOM-FGF, item: FGF, rev: A, valid_to: 2027-01-01, lines: [{item: R_OLD, qty: 2}]}
+      - {id: BOM-FGF, item: FGF, rev: B, valid_from: 2027-01-01, lines: [{item: R_NEW, qty: 2}]}
+    stock: [{item: R_OLD, qty: 100}]
+    policies: [{item: FGF, lead_days: 5}, {item: R_NEW, lead_days: 5}]
+    demand: [{order: SO-F, item: FGF, qty: 30, due: 2026-12-20}]
+    last_movement: {R_OLD: 2026-10-01}
+  checks:
+    - run: mrp
+      expect: {gross: {R_OLD: 60}, no_planned: [R_OLD, R_NEW]}
+    - run: obsolescence
+      expect: {verdicts: {R_OLD: superseded_run_down}, possible_excess: {R_OLD: 40}}
+
+- id: C-I
+  title: Missing BOM, lead time and unit conversion - what can still be answered
+  persona: order planner
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: FGI, procurement: make}, {id: RMI}, {id: OKI}]
+    stock: [{item: OKI, qty: 10}]
+    demand:
+      - {order: SO-I1, item: FGI, qty: 10, due: 2026-12-20}
+      - {order: SO-I2, item: RMI, qty: 5, uom: DRUM, due: 2026-12-20}
+      - {order: SO-I3, item: RMI, qty: 5, due: 2026-12-20}
+      - {order: SO-I4, item: OKI, qty: 5, due: 2026-12-20}
+  checks:
+    - run: mrp
+      expect:
+        issues: [missing_bom, missing_uom_conversion, missing_lead_time]
+        fulfilment:
+          SO-I1/1: {ready: null, on_time: false}
+          SO-I3/1: {ready: null, on_time: false}
+          SO-I4/1: {from_stock: 5, on_time: true}
+    - run: assess
+      params:
+        question: Can we fulfil these orders and what should we buy?
+        available: {demand: 4, stock: 1}
+      expect: {mode: preliminary, capabilities: [order_fulfilment, material_requirements], missing: [boms]}
+
+- id: C-J
+  title: Seasonal demand and production capacity - reported as not yet supported
+  persona: production planner
+  today: 2026-12-01
+  data: {}
+  checks:
+    - run: assess
+      params:
+        question: Demand rises every Ramadan season; can our production capacity cope?
+        available: {demand: 10, stock: 10, boms: 3}
+      expect: {mode: unsupported, capabilities: [forecasting, capacity], gaps: true}
+
+- id: C-M
+  title: Partial receipt with rejected goods
+  persona: procurement manager
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: RMM}]
+    stock: [{item: RMM, qty: 45}, {item: RMM, qty: 15, status: blocked}]
+    supply: [{ref: PO-M (open 40 of 100), item: RMM, qty: 40, due: 2026-12-12}]
+    policies: [{item: RMM, lead_days: 5}]
+    demand: [{order: SO-M, item: RMM, qty: 120, due: 2026-12-10}]
+  checks:
+    - run: mrp
+      expect:
+        not_usable: {RMM: {blocked: 15}}
+        fulfilment: {SO-M/1: {from_stock: 45, from_receipts: 40, from_planned: 35, on_time: false}}
+        planned: {RMM: {qty: 35, release: 2026-12-05}}
+
+- id: C-N
+  title: Customer cancellation after materials were purchased
+  persona: inventory controller
+  today: 2026-12-01
+  data:
+    calendar: {weekend: []}
+    items: [{id: RMN}]
+    supply: [{ref: PO-N, item: RMN, qty: 300, due: 2026-12-05}]
+    demand: [{order: SO-N2, item: RMN, qty: 120, due: 2026-12-15}]
+  checks:
+    - run: mrp
+      expect: {excess: {RMN: 180}, fulfilment: {SO-N2/1: {from_receipts: 120, on_time: true}}}
+
+- id: Q-1
+  title: Combined question - orders, short material, slow supplier, approved alternative
+  persona: order planner
+  today: 2026-12-01
+  data: {}
+  checks:
+    - run: assess
+      params:
+        question: >-
+          We have three open customer orders. One raw material is insufficient, our preferred supplier has a long
+          lead time and we have an approved alternative material. Give me the best fulfilment plan.
+        available: {demand: 3, stock: 10, boms: 2, supply: 1, lead_times: 5, alternates: 1, offers: 4, suppliers: 3}
+      expect: {mode: full, capabilities: [order_fulfilment, material_requirements, substitution, supplier_comparison]}
+    - run: assess
+      params: {question: what is the weather tomorrow, available: {stock: 10}}
+      expect: {mode: clarify}

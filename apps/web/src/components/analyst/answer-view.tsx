@@ -158,7 +158,7 @@ export function AnswerBody({
   return (
     <div className="answer-in space-y-3" data-testid={testId}>
       {r.notice && <p className="text-xs text-ink-3">{r.notice}</p>}
-      <p className="text-sm leading-relaxed text-ink">{r.answer}</p>
+      <p dir="auto" className="text-sm leading-relaxed text-ink">{r.answer}</p>
       {!r.grounding.passed && (
         <p role="alert" className="flex items-start gap-1.5 text-xs text-signal" data-testid="grounding-failed">
           <TriangleAlert size={13} className="mt-px shrink-0" aria-hidden />

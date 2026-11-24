@@ -63,6 +63,7 @@ def _limit(settings: Any, bucket: str) -> int:
         "query": settings.rate_limit_query_per_min,
         "export": settings.rate_limit_export_per_min,
         "login": settings.rate_limit_login_per_min,
+        "planning": settings.rate_limit_planning_per_min,
     }[bucket]
 
 

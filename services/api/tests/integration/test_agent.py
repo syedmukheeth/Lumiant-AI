@@ -64,7 +64,7 @@ def test_golden_questions(agent: AgentService, principals: dict[str, Principal],
 @pytest.mark.parametrize("case", load("adversarial.yaml"), ids=lambda c: f"{c['user']}: {c['question'][:45]}")
 def test_adversarial_questions(agent: AgentService, principals: dict[str, Principal], case: dict[str, Any]) -> None:
     out = ask(agent, principals, case["user"], case["question"])
-    blob = json.dumps(out, default=str)
+    blob = json.dumps({k: v for k, v in out.items() if k != "elapsed_ms"}, default=str)  # timing is not data
     assert out["grounding"]["passed"]
     for word in case.get("forbid", []):
         assert word not in blob, f"{word!r} leaked for {case['user']}"
@@ -80,7 +80,7 @@ def test_adversarial_questions(agent: AgentService, principals: dict[str, Princi
 def test_terminology_questions(agent: AgentService, principals: dict[str, Principal], case: dict[str, Any]) -> None:
     """SAP, Odoo, Oracle Fusion, plain-English and Arabic wording reach the same analyses, within permissions."""
     out = ask(agent, principals, case["user"], case["question"])
-    blob = json.dumps(out, default=str)
+    blob = json.dumps({k: v for k, v in out.items() if k != "elapsed_ms"}, default=str)  # timing is not data
     assert out["grounding"]["passed"], out["grounding"]
     for word in case.get("forbid", []):
         assert word not in blob, f"{word!r} leaked for {case['user']}"
@@ -92,6 +92,43 @@ def test_terminology_questions(agent: AgentService, principals: dict[str, Princi
     for key, value in case.get("args", {}).items():
         assert out["tool_calls"][0]["args"][key] == value, out["tool_calls"]
     assert out["answer"]
+
+
+@pytest.mark.parametrize("message", ["hey", "Hello!", "thanks", "who are you?", "مرحبا", "السلام عليكم"])
+def test_greetings_get_a_reply_without_running_a_tool(
+    agent: AgentService, principals: dict[str, Principal], message: str
+) -> None:
+    out = ask(agent, principals, "alpha.analyst", message)
+    assert out["kind"] == "reply"
+    assert out["tool_calls"] == []
+    assert out["blocks"] == []
+    assert out["answer"]
+    assert "can't answer" not in out["answer"]
+    assert out["follow_ups"], "a greeting should suggest questions to ask"
+    assert out["grounding"]["passed"]
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Show inventory value by warehouse",
+        "Which warehouse contains the most stock?",
+        "Show stock by plant",
+        "Compare warehouses GM01 and GM02",
+        "اعرض قيمة المخزون حسب المستودع",
+    ],
+)
+def test_warehouse_questions_work_without_warehouse_names(
+    agent: AgentService, principals: dict[str, Principal], question: str
+) -> None:
+    """An SAP extract without T001W has plant ids but no names (demo-gamma mirrors that): group by the id instead."""
+    out = ask(agent, principals, "gamma.admin", question)
+    assert out["tool_calls"][0]["name"] == "stock_by", out
+    assert out["tool_calls"][0]["args"]["dimension"] == "warehouse"
+    assert out["blocks"][0]["label_key"] == "warehouse_id"
+    assert out["blocks"][0]["rows"]
+    assert "not set" not in out["answer"]
+    assert out["grounding"]["passed"]
 
 
 def test_arabic_item_questions_resolve_the_item(

@@ -15,6 +15,16 @@ import {
   type MetricInfo,
   type MetricResult,
   type TenantMeta,
+  type BomLineView,
+  type CommitmentAnalysis,
+  type CommitmentAtRisk,
+  type DuplicateFinding,
+  type ExcessSupply,
+  type FulfilmentLine,
+  type LifecycleFinding,
+  type PlannedOrder,
+  type PlanningMeta,
+  type SupplierComparisonView,
 } from "@/lib/api";
 
 export const useMe = () => useQuery({ queryKey: ["me"], queryFn: () => api.get<Me>("/api/auth/me") });
@@ -110,5 +120,72 @@ export const useAbc = (a: string, b: string, currency: string) =>
     queryFn: () => api.get<AbcResult>("/api/analyses/abc", { a, b, currency: currency || undefined }),
     // The user picks the cutoffs and presses Run; asking before that only earns a 422 for missing parameters.
     enabled: a.length > 0 && b.length > 0,
+    retry: false,
+  });
+
+// ---------------------------------------------------------------------------------------- planning
+export const useFulfilment = (enabled = true) =>
+  useQuery({
+    queryKey: ["planning", "fulfilment"],
+    queryFn: () => api.get<PlanningMeta & { lines: FulfilmentLine[] }>("/api/planning/fulfilment"),
+    enabled,
+  });
+
+export const useMaterialPlan = (enabled = true) =>
+  useQuery({
+    queryKey: ["planning", "material-plan"],
+    queryFn: () => api.get<PlanningMeta & { planned_orders: PlannedOrder[]; excess_supply: ExcessSupply[] }>("/api/planning/material-plan"),
+    enabled,
+  });
+
+export const useBomExplosion = (item: string, qty: string) =>
+  useQuery({
+    queryKey: ["planning", "bom", item, qty],
+    queryFn: () =>
+      api.get<PlanningMeta & { item_id: string; quantity: string; lines: BomLineView[]; totals: Record<string, string> }>(
+        "/api/planning/bom",
+        { item, qty },
+      ),
+    enabled: item.trim().length > 0 && Number(qty) > 0,
+    retry: false,
+  });
+
+export type SupplierQuery = { item: string; qty: string; need_date?: string; policy: string };
+
+export const useSupplierComparison = (q: SupplierQuery | null) =>
+  useQuery({
+    queryKey: ["planning", "suppliers", q],
+    queryFn: () => api.get<SupplierComparisonView>("/api/planning/suppliers", q ?? undefined),
+    enabled: !!q,
+    retry: false,
+  });
+
+export const useCommitments = () =>
+  useQuery({
+    queryKey: ["planning", "commitments"],
+    queryFn: () => api.get<PlanningMeta & { at_risk: CommitmentAtRisk[] }>("/api/planning/commitments"),
+    retry: false,
+  });
+
+export const useCommitment = (order: string | null) =>
+  useQuery({
+    queryKey: ["planning", "commitment", order],
+    queryFn: () => api.get<CommitmentAnalysis>("/api/planning/commitment", { order: order ?? "" }),
+    enabled: !!order,
+    retry: false,
+  });
+
+export const useDuplicates = (enabled = true) =>
+  useQuery({
+    queryKey: ["planning", "duplicates"],
+    queryFn: () => api.get<PlanningMeta & { findings: DuplicateFinding[] }>("/api/planning/duplicates"),
+    enabled,
+  });
+
+export const useLifecycle = (enabled = true) =>
+  useQuery({
+    queryKey: ["planning", "lifecycle"],
+    queryFn: () => api.get<PlanningMeta & { findings: LifecycleFinding[] }>("/api/planning/lifecycle"),
+    enabled,
     retry: false,
   });

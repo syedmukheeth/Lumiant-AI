@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { DataBadge } from "@/components/shell/synthetic-tape";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
+import { BrandLogo } from "@/components/ui/brand-logo";
 import { api, ApiError, type DevUser } from "@/lib/api";
 import { humanize } from "@/lib/format";
 import { useDevUsers } from "@/lib/hooks";
@@ -33,14 +34,10 @@ export default function LoginPage() {
   return (
     <div className="mx-auto flex min-h-dvh max-w-2xl flex-col px-4 py-10 sm:py-16">
       <div className="flex items-center justify-between">
-        <div className="rise flex items-center gap-3">
-          <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-control bg-accent text-base font-bold text-accent-ink">
-            L
-          </span>
-          <div className="leading-none">
-            <p className="text-lg font-semibold tracking-[0.14em] text-ink">LUMIANT</p>
-            <p className="mt-1.5 text-xs text-ink-3">Inventory intelligence platform</p>
-          </div>
+        <div className="rise flex flex-col items-start gap-2">
+          <h1 className="sr-only">Lumiant — sign in</h1>
+          <BrandLogo height={52} plate />
+          <p className="pl-2 text-xs text-ink-3">Inventory intelligence platform</p>
         </div>
         <ThemeToggle />
       </div>

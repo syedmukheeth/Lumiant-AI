@@ -1,0 +1,172 @@
+# SYNTHETIC manufacturing & distribution tenant for the planning engine (BOM, MRP, suppliers, alternates).
+# Hand-authored, deterministic records: lumiant.synthetic.manufacturing. Column names equal the canonical names.
+id: demo-delta
+display_name: "Demo Delta Industrial (synthetic)"
+data_classification: synthetic
+source_system: "Synthetic DuckDB warehouse - manufacturing planning schema"
+connection:
+  type: duckdb
+  path: data/synthetic/demo-delta.duckdb
+freshness:
+  object: mfg._extract_metadata
+  column: extracted_at
+policies:
+  max_rows: 1000
+  default_rows: 100
+  query_timeout_s: 15
+  stale_after_hours: 36
+
+departments:
+  - {id: MFG, name: "Manufacturing"}
+  - {id: DIST, name: "Distribution"}
+warehouses:
+  - {id: RYD1, department: MFG}
+  - {id: DMM1, department: MFG}
+  - {id: JED1, department: DIST}
+
+roles:
+  super_admin: [dashboard:read, inventory:read, cost:read, query:run, query:view_sql, audit:read, admin:tenant, chat:use, export:data]
+  planner_no_cost: [dashboard:read, inventory:read, query:run, chat:use]
+
+dev_users:
+  - {username: delta.admin, display_name: "Dana Admin", roles: [super_admin], warehouses: ["*"]}
+  - {username: delta.planner, display_name: "Rami Planner (Riyadh, no cost access)", roles: [planner_no_cost], warehouses: [RYD1]}
+
+datasets:
+  item:
+    source: mfg.item
+    fields:
+      item_id: item_id
+      item_code: item_code
+      description: description
+      item_group: item_group
+      inventory_stage: inventory_stage
+      abc_class: abc_class
+      base_uom: base_uom
+      status: status
+      lot_tracked: lot_tracked
+      shelf_life_days: shelf_life_days
+      storage_temp_min: storage_temp_min
+      storage_temp_max: storage_temp_max
+      flammability_class: flammability_class
+      default_supplier_id: default_supplier_id
+      manufacturer: manufacturer
+      mpn: mpn
+      lifecycle_status: lifecycle_status
+      superseded_by: superseded_by
+      critical: critical
+  warehouse:
+    source: mfg.warehouse
+    fields: {warehouse_id: warehouse_id, name: name, department_id: department_id, site: site, temperature_controlled: temperature_controlled, flammable_storage: flammable_storage}
+  storage_location:
+    source: mfg.storage_location
+    fields: {location_id: location_id, warehouse_id: warehouse_id, name: name}
+  stock_balance:
+    source: mfg.stock_balance
+    fields:
+      item_id: item_id
+      warehouse_id: warehouse_id
+      location_id: location_id
+      lot_id: lot_id
+      quantity: quantity
+      uom: uom
+      valuation_price: valuation_price
+      currency: currency
+      stock_status: stock_status
+  item_warehouse:
+    source: mfg.item_warehouse
+    fields:
+      item_id: item_id
+      warehouse_id: warehouse_id
+      abc_class: abc_class
+      planning_type: planning_type
+      price_control: price_control
+      valuation_price: valuation_price
+      currency: currency
+      procurement_type: procurement_type
+      phantom: phantom
+      lead_days: lead_days
+      receiving_days: receiving_days
+      inspection_days: inspection_days
+      safety_stock: safety_stock
+      lot_rule: lot_rule
+      lot_size: lot_size
+      min_lot: min_lot
+      lot_multiple: lot_multiple
+  reorder_policy:
+    source: mfg.reorder_policy
+    fields: {item_id: item_id, warehouse_id: warehouse_id, min_stock: min_stock, max_stock: max_stock, reorder_level: reorder_level}
+  lot:
+    source: mfg.lot
+    fields: {lot_id: lot_id, item_id: item_id, warehouse_id: warehouse_id, receipt_date: receipt_date, expiry_date: expiry_date, supplier_id: supplier_id, unit_cost: unit_cost, currency: currency}
+  inventory_transaction:
+    source: mfg.inventory_transaction
+    fields: {txn_id: txn_id, txn_type: txn_type, item_id: item_id, warehouse_id: warehouse_id, location_id: location_id, lot_id: lot_id, quantity: quantity, uom: uom, unit_cost: unit_cost, currency: currency, posting_date: posting_date}
+  purchase_record:
+    source: mfg.purchase_record
+    fields:
+      po_id: po_id
+      line: line
+      item_id: item_id
+      supplier_id: supplier_id
+      warehouse_id: warehouse_id
+      order_date: order_date
+      receipt_date: receipt_date
+      quantity: quantity
+      uom: uom
+      unit_price: unit_price
+      currency: currency
+      status: status
+      expected_date: expected_date
+      open_quantity: open_quantity
+      received_quantity: received_quantity
+      rejected_quantity: rejected_quantity
+  supplier:
+    source: mfg.supplier
+    fields: {supplier_id: supplier_id, name: name, country: country, approved: approved, status: status, certification: certification, certification_expiry: certification_expiry, currency: currency, payment_terms: payment_terms}
+  department:
+    source: mfg.department
+    fields: {department_id: department_id, name: name}
+  bom_component:
+    source: mfg.bom_component
+    fields:
+      bom_id: bom_id
+      parent_item_id: parent_item_id
+      revision: revision
+      alternative: alternative
+      priority: priority
+      base_quantity: base_quantity
+      yield_pct: yield_pct
+      status: status
+      valid_from: valid_from
+      valid_to: valid_to
+      component_item_id: component_item_id
+      quantity: quantity
+      uom: uom
+      scrap_pct: scrap_pct
+      sequence: sequence
+  item_alternate:
+    source: mfg.item_alternate
+    fields: {item_id: item_id, alternate_item_id: alternate_item_id, ratio: ratio, priority: priority, approved: approved, valid_from: valid_from, valid_to: valid_to, max_share_pct: max_share_pct, customer_id: customer_id, note: note}
+  supplier_item:
+    source: mfg.supplier_item
+    fields:
+      supplier_id: supplier_id
+      item_id: item_id
+      supplier_item_code: supplier_item_code
+      price: price
+      currency: currency
+      price_unit: price_unit
+      uom: uom
+      moq: moq
+      order_multiple: order_multiple
+      lead_days: lead_days
+      valid_from: valid_from
+      valid_to: valid_to
+      approved: approved
+      freight_per_unit: freight_per_unit
+      duty_pct: duty_pct
+      capacity: capacity
+  customer_order_line:
+    source: mfg.customer_order_line
+    fields: {order_id: order_id, line: line, customer_id: customer_id, item_id: item_id, warehouse_id: warehouse_id, quantity: quantity, uom: uom, due_date: due_date, priority: priority, order_date: order_date, status: status, ship_days: ship_days, unit_price: unit_price, currency: currency, margin_pct: margin_pct, penalty_per_day: penalty_per_day}

@@ -23,7 +23,7 @@ def write(tmp_path: Path, raw: dict[str, object], name: str = "t.yaml") -> Path:
 
 def test_demo_tenants_load() -> None:
     reg = TenantRegistry.load(TENANT_DIR)
-    assert set(reg.ids()) == {"demo-alpha", "demo-beta", "demo-gamma"}
+    assert set(reg.ids()) == {"demo-alpha", "demo-beta", "demo-gamma", "demo-delta"}
     alpha = reg.get("demo-alpha")
     assert alpha.synthetic
     assert reg.get("demo-gamma").synthetic
@@ -188,7 +188,7 @@ def test_private_directory_adds_extract_tenants(tmp_path: Path) -> None:
     assert cfg.customer_extract
     assert not cfg.synthetic
     assert not cfg.ai.external_provider_approved
-    assert set(reg.ids()) == {"demo-alpha", "demo-beta", "demo-gamma", "client-x"}
+    assert set(reg.ids()) == {"demo-alpha", "demo-beta", "demo-gamma", "demo-delta", "client-x"}
 
 
 def test_missing_private_directory_is_an_error(tmp_path: Path) -> None:

@@ -174,8 +174,19 @@ def find_items(ctx: ToolContext, text: str, limit: int = 6) -> list[dict[str, An
     return ctx.query.run_plan(plan, ctx.principal, action="agent:resolve_item").rows
 
 
+# Display-only fields a tenant may not map (an SAP extract without T001W has plant ids but no plant names).
+_OPTIONAL_REFS = {"name", "warehouse.name"}
+
+
+def _mapped(ctx: ToolContext, dataset: str, dims: list[str]) -> list[str]:
+    """The dimensions this tenant can serve: optional display fields that are not mapped are left out."""
+    mapping = ctx.query.mapping(ctx.principal.tenant_id)
+    return [d for d in dims if d not in _OPTIONAL_REFS or mapping.has_ref(dataset, d)]
+
+
 def visible_warehouses(ctx: ToolContext) -> list[dict[str, Any]]:
-    plan = QueryPlan.model_validate({"dataset": "warehouse", "dimensions": ["warehouse_id", "name"]})
+    dims = _mapped(ctx, "warehouse", ["warehouse_id", "name"])
+    plan = QueryPlan.model_validate({"dataset": "warehouse", "dimensions": dims})
     return ctx.query.run_plan(plan, ctx.principal, action="agent:resolve_warehouse").rows
 
 
@@ -184,7 +195,7 @@ def stock_position(ctx: ToolContext, a: ItemArgs) -> ToolOutput:
     plan = QueryPlan.model_validate(
         {
             "dataset": "stock_balance",
-            "dimensions": ["warehouse_id", "warehouse.name"],
+            "dimensions": _mapped(ctx, "stock_balance", ["warehouse_id", "warehouse.name"]),
             "measures": [{"field": "quantity", "agg": "sum", "alias": "qty"}],
             "filters": [
                 {"field": "item_id", "op": "eq", "value": a.item_id},
@@ -203,12 +214,21 @@ def stock_position(ctx: ToolContext, a: ItemArgs) -> ToolOutput:
         answer = (
             f"Item {a.item_id} is held in {len(rows)} warehouse{'s' if len(rows) != 1 else ''}. "
             f"The largest holding is {_quantity(top['qty'])} {top['uom']} in "
-            f"{top['warehouse.name'] or top['warehouse_id']} ({top['warehouse_id']})."
+            + (
+                f"{top['warehouse.name']} ({top['warehouse_id']})."
+                if top.get("warehouse.name")
+                else f"warehouse {top['warehouse_id']}."
+            )
         )
+    named = "warehouse.name" in plan.dimensions
     block = {
         "type": "table",
         "title": f"Stock of {a.item_id} by warehouse",
-        "columns": [_col("warehouse_id", "Warehouse"), _col("warehouse.name", "Name"), _col("qty", "On hand", "qty")],
+        "columns": [
+            _col("warehouse_id", "Warehouse"),
+            *([_col("warehouse.name", "Name")] if named else []),
+            _col("qty", "On hand", "qty"),
+        ],
         "rows": rows,
     }
     return ToolOutput(
@@ -256,6 +276,9 @@ def narrow_filters(a: NarrowArgs) -> tuple[list[dict[str, Any]], str]:
 
 def stock_by(ctx: ToolContext, a: StockByArgs) -> ToolOutput:
     dims, label_key, label = _DIMS[a.dimension]
+    dims = _mapped(ctx, "stock_balance", dims)
+    if label_key not in dims:
+        label_key = dims[0]  # e.g. plant id when the tenant has no plant names
     valued = a.measure == "value"
     if valued and not ctx.principal.has(Permission.COST_READ):
         raise AppError("forbidden_field", "Your role cannot view inventory values; I can show quantities instead.", 403)
@@ -287,7 +310,8 @@ def stock_by(ctx: ToolContext, a: StockByArgs) -> ToolOutput:
             f"Of the selected {label.lower()}s{where}, the highest" if a.only else f"The highest {label.lower()}{where}"
         )
         shown = _money(top[unit_key], top["total"]) if valued else f"{_quantity(top['total'])} {top[unit_key]}"
-        answer = f"{lead} is {top[label_key] or 'not set'} with {shown}."
+        name = top.get(label_key) or (top.get("warehouse_id") if a.dimension == "warehouse" else None)
+        answer = f"{lead} is {name or 'not set'} with {shown}."
         if len(units) > 1:
             answer += f" Results are shown separately per {'currency' if valued else 'unit'} ({', '.join(units)}) and never added together."
     blocks = [
@@ -802,3 +826,9 @@ def tools_for(principal: Principal) -> list[ToolDef]:
 
 def decimal_sum(rows: list[dict[str, Any]], key: str) -> Decimal:
     return sum((Decimal(str(r[key])) for r in rows), Decimal(0))
+
+
+# Planning tools live in their own module (they call lumiant.planning); registered here so TOOLS stays the one list.
+from lumiant.agent.planning_tools import PLANNING_TOOLS  # noqa: E402
+
+TOOLS.update({t.name: t for t in PLANNING_TOOLS})  # type: ignore[has-type]

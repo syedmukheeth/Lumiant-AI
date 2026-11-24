@@ -141,6 +141,22 @@ Steps 1 and 2 (normalisation) and the glossary half of step 4 are built. Cost: z
 
 Result: the full API suite has 583 passed and 6 skipped (Redis and Postgres tests that need external services). Before this change it had 480. Ruff, ruff format and mypy are clean. Arabic coverage is Modern Standard business Arabic. Gulf dialect phrasing and transliterated Arabic ("kam qeemat al makhzoon") are not covered yet.
 
+### Reinforcement with the client's own SAP exports (20 Nov 2026)
+
+The client's two exports, "Warehouse Stocks of Material" (MB52 layout) and "Material Master", were used to check the assistant. They were not used as training data.
+
+- **How:** they were loaded with the documented local intake (`lumiant-ingest sap`, see `docs/07-customer/CLIENT_DATA_INTAKE.md`) into `services/api/var/private/`. That folder is git-ignored and the tenant is `customer_extract`, which never uses external AI. The control totals matched exactly and every compared line reconciled.
+- **Check:** 129 questions were run against the real data. The run printed only routing results (expected tool versus chosen tool), never answers or figures.
+- **Found and fixed:**
+  - Every warehouse question failed with HTTP 400. The tools assumed plant names exist, but an SAP extract without T001W has plant ids only. They now group by plant id. The synthetic twin `demo-gamma` had the same gap, so `test_warehouse_questions_work_without_warehouse_names` covers it without real data.
+  - "transit and transfer", "restricted-use", "value in quality inspection" and "value unrestricted" are now understood as SAP stock-status and value terms.
+  - "no price", "zero price", "no ABC indicator" and "no material master" now reach the data-quality check.
+  - "valuation class" is no longer read as "valuation".
+  - "materials worth the most" now reaches the value ranking.
+  - Grouping by a field no tool supports yet (unit of measure, valuation class, MRP type, purchasing group) now gets a clear answer instead of an item search.
+- **Result:** 122 of 129 questions routed correctly before the fixes, and 129 of 129 after. The phrasing, but none of the data, was added to `evals/terminology.yaml` as 25 cases on `demo-gamma`, so CI keeps it covered.
+- **Not used:** quantities, values, prices, descriptions and user ids. Nothing from the files is committed or stored outside `var/private/`. The client's own Z material types still read as unmapped until the client explains them (Q-019).
+
 Still open: step 3 (an Oracle Fusion knowledge pack as onboarding suggestions), ambiguity prompts, and Arabic answers in the built-in templates. Today the built-in assistant answers Arabic questions in English, while an approved LLM is asked to reply in the user's language.
 
 Sources:

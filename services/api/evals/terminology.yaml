@@ -93,3 +93,31 @@
 - {user: alpha.analyst, question: "اعرض قيمة المخزون حسب المستودع", tool: stock_by, args: {measure: quantity}, forbid: ["USD"]}
 - {user: alpha.analyst, question: "ما الأصناف الأعلى قيمة؟", kind: unsupported, forbid: ["USD"]}
 - {user: gamma.viewer, question: "اعرض قيمة المخزون حسب حالة المخزون", tool: stock_by, args: {measure: quantity}, forbid: ["SAR"]}
+
+# --- SAP list-export column labels (MB52 stock list + material master), on the SAP twin demo-gamma ---
+# Phrasing learned from a client's real exports; only the wording is kept here, never their data.
+- {user: gamma.admin, question: "Show unrestricted stock by storage location", tool: stock_by, args: {dimension: location}}
+- {user: gamma.admin, question: "What is the value unrestricted by storage location?", tool: stock_by, args: {dimension: location, measure: value}}
+- {user: gamma.admin, question: "How much stock is in quality inspection?", tool: stock_by, args: {dimension: stock_status}}
+- {user: gamma.admin, question: "Show the value in quality inspection", tool: stock_by, args: {dimension: stock_status, measure: value}}
+- {user: gamma.admin, question: "Show restricted-use stock", tool: stock_by, args: {dimension: stock_status}}
+- {user: gamma.admin, question: "Show transit and transfer stock", tool: stock_by, args: {dimension: stock_status}}
+- {user: gamma.admin, question: "Show returns stock", tool: stock_by, args: {dimension: stock_status}}
+- {user: gamma.admin, question: "Show stock by material type", tool: stock_by, args: {dimension: stage}}
+- {user: gamma.admin, question: "Which material groups hold the most value?", tool: stock_by, args: {dimension: item_group, measure: value}}
+- {user: gamma.admin, question: "Show inventory value by plant", tool: stock_by, args: {dimension: warehouse, measure: value}}
+- {user: gamma.admin, question: "Show stock by ABC indicator", tool: stock_by, args: {dimension: abc}}
+- {user: gamma.admin, question: "Which materials have no price?", tool: data_quality}
+- {user: gamma.admin, question: "Which materials have a zero price?", tool: data_quality}
+- {user: gamma.admin, question: "Which materials have no ABC indicator?", tool: data_quality}
+- {user: gamma.admin, question: "Which stock has no material master?", tool: data_quality}
+- {user: gamma.admin, question: "What is the total value unrestricted?", tool: inventory_summary}
+- {user: gamma.admin, question: "What is our total stock value in SAR?", tool: inventory_summary}
+- {user: gamma.admin, question: "Which materials are worth the most?", tool: top_value_items}
+- {user: gamma.admin, question: "How few materials hold most of the value?", tool: concentration}
+- {user: gamma.admin, question: "Show stock by base unit of measure", kind: unsupported}
+- {user: gamma.admin, question: "Show stock by valuation class", kind: unsupported}
+- {user: gamma.admin, question: "Show stock by MRP type", kind: unsupported}
+- {user: gamma.admin, question: "اعرض المخزون تحت فحص الجودة", tool: stock_by, args: {dimension: stock_status}}
+- {user: gamma.admin, question: "اعرض المخزون حسب مجموعة المواد", tool: stock_by, args: {dimension: item_group}}
+- {user: gamma.viewer, question: "What is the value unrestricted by storage location?", tool: stock_by, args: {measure: quantity}, forbid: ["SAR"]}

@@ -64,7 +64,7 @@ def test_health_and_security_headers(client: TestClient) -> None:
     assert r.headers["X-Frame-Options"] == "DENY"
     assert "X-Request-ID" in r.headers
     ready = client.get("/api/health/ready").json()
-    assert ready == {"status": "ok", "sources_available": 3, "sources_total": 3}  # alpha, beta, gamma
+    assert ready == {"status": "ok", "sources_available": 4, "sources_total": 4}  # alpha, beta, gamma, delta
 
 
 def test_dev_users_listed_with_notice(client: TestClient) -> None:
@@ -146,7 +146,7 @@ def test_me_describes_principal(client: TestClient) -> None:
     assert me["tenant"]["id"] == "demo-alpha"
     assert me["scope"]["warehouses"] == ["1100", "1110", "1120"]
     assert me["scope"]["departments"] == ["NORTH"]
-    assert me["sections"] == ["overview", "inventory", "risks", "costs", "assistant", "reports"]
+    assert me["sections"] == ["overview", "inventory", "risks", "costs", "assistant", "reports", "master_data"]
     assert "cost:read" in me["permissions"]
 
 

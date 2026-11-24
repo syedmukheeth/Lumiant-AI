@@ -12,12 +12,15 @@ from pathlib import Path
 
 from lumiant.core.config import get_settings
 from lumiant.ingest.sap_exports import IntakeError, import_sap_exports
+from lumiant.synthetic import manufacturing
 from lumiant.synthetic.generator import Generator
 from lumiant.synthetic.profiles import PROFILES
 from lumiant.synthetic.sap_twin import SAP_TWINS, write_twin_exports
 from lumiant.synthetic.writer import WriterError, write_duckdb
 from lumiant.tenancy.models import TenantConfig
 from lumiant.tenancy.registry import TenantRegistry
+
+MANUFACTURING = {manufacturing.TENANT: manufacturing.build}
 
 
 def generate_tenant(
@@ -35,6 +38,12 @@ def generate_tenant(
         raise SystemExit(f"refusing to generate data for non-synthetic tenant '{tenant_id}'")
     if tenant_id in SAP_TWINS:
         return generate_sap_twin(tenant, data_dir=data_dir, as_of=as_of, n_items=n_items)
+    if tenant_id in MANUFACTURING:
+        dataset = MANUFACTURING[tenant_id](as_of)
+        assert tenant.connection.path is not None
+        target = data_dir / tenant.connection.path
+        write_duckdb(dataset, tenant, target)
+        return target, dataset.counts(), {k: len(v) for k, v in dataset.scenarios.items()}
     profile = PROFILES[tenant_id]
     dataset = Generator(profile, as_of=as_of, seed=seed, n_items=n_items, months=months).run()
     assert tenant.connection.path is not None
@@ -76,7 +85,7 @@ def main(argv: list[str] | None = None) -> int:
     settings = get_settings()
     registry = TenantRegistry.load(settings.tenant_config_dir)
     as_of = args.as_of or datetime.now(UTC).date()
-    known = PROFILES.keys() | SAP_TWINS.keys()
+    known = PROFILES.keys() | SAP_TWINS.keys() | MANUFACTURING.keys()
     tenant_ids = [t.id for t in registry if t.synthetic and t.id in known] if args.all else [args.tenant]
     for tenant_id in tenant_ids:
         if tenant_id not in known:

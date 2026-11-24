@@ -1,0 +1,267 @@
+# Supplier master, supplier evaluation and procurement (scenarios 46–60, 63, combined C, G, H, L).
+# Synthetic, fictional suppliers. Base currency SAR. Every day is a working day. Planning date 2026-12-01.
+
+- id: C-C
+  title: Cheapest vs best supplier - ranking depends on the business policy
+  persona: procurement manager
+  today: 2026-12-01
+  data: &sup
+    calendar: {weekend: []}
+    suppliers:
+      - {id: SA, name: Alpha Metals}
+      - {id: SB, name: Beta Industrial}
+      - {id: SC, name: Gamma Express}
+      - {id: SD, name: Delta Fasteners}
+      - {id: SE, name: Epsilon Bulk}
+      - {id: SE2, name: Epsilon Small Lots}
+      - {id: SF, name: Zeta Coatings, certifications: [{name: ISO 9001, expires: 2026-11-01}]}
+      - {id: SG, name: Eta New Supplier}
+      - {id: SH, name: Theta Imports}
+      - {id: SI, name: Iota Europe}
+      - {id: SJ, name: Kappa Trading}
+      - {id: SX, name: Unvetted Supplier, approved: false}
+      - {id: S1, name: Capacity One}
+      - {id: S2, name: Capacity Two}
+      - {id: SP, name: Preferred Pumps}
+      - {id: SQ, name: Quality Pumps}
+      - {id: SUSD, name: Dollar Supplier}
+      - {id: SSAR, name: Riyal Supplier}
+    offers:
+      - {supplier: SA, item: RM1, price: 90, lead_days: 20, freight: 0, duty_pct: 0}
+      - {supplier: SB, item: RM1, price: 100, lead_days: 10, freight: 0, duty_pct: 0}
+      - {supplier: SC, item: RM1, price: 130, lead_days: 3, freight: 0, duty_pct: 0}
+      - {supplier: SB, item: RM2, price: 100, lead_days: 10, freight: 0, duty_pct: 0}
+      - {supplier: SG, item: RM2, price: 80, lead_days: 5, freight: 0, duty_pct: 0}
+      - {supplier: SD, item: RM6, price: 10, lead_days: 5, breaks: [{min: 1000, price: 8}]}
+      - {supplier: SE, item: RM5, price: 10, lead_days: 5, moq: 500, freight: 0, duty_pct: 0}
+      - {supplier: SE2, item: RM5, price: 11, lead_days: 5, moq: 100, freight: 0, duty_pct: 0}
+      - {supplier: SF, item: RM7, price: 50, lead_days: 5}
+      - {supplier: SH, item: RM10, price: 25, currency: USD, lead_days: 5, freight: 0, duty_pct: 0}
+      - {supplier: SI, item: RM10, price: 20, currency: EUR, lead_days: 5}
+      - {supplier: SJ, item: RM11, price: 80, lead_days: 5, duty_pct: 5}
+      - {supplier: SX, item: RM9, price: 5, lead_days: 5}
+      - {supplier: S1, item: RM12, price: 9, lead_days: 5, capacity: 300, freight: 0, duty_pct: 0}
+      - {supplier: S2, item: RM12, price: 10, lead_days: 5, capacity: 500, freight: 0, duty_pct: 0}
+      - {supplier: SP, item: RM3, price: 110, lead_days: 10, freight: 0, duty_pct: 0}
+      - {supplier: SQ, item: RM3, price: 105, lead_days: 12, freight: 0, duty_pct: 0}
+      - {supplier: SUSD, item: RM4, price: 20, currency: USD, lead_days: 5, freight: 2, duty_pct: 5}
+      - {supplier: SSAR, item: RM4, price: 85, lead_days: 5, duty_pct: 0}
+    fx:
+      - {from: USD, to: SAR, rate: 3.70, valid_from: 2025-01-01}
+      - {from: USD, to: SAR, rate: 3.75, valid_from: 2026-01-01}
+    price_history:
+      - {supplier: SB, item: RM1, day: 2026-06-01, price: 95}
+      - {supplier: SB, item: RM1, day: 2026-09-01, price: 92}
+      - {supplier: SP, item: RM3, day: 2026-08-01, price: 95}
+    deliveries:
+      # RM1: SA cheap but 15% rejected; SB 1% rejected, always on time; SC 2% rejected, one late delivery.
+      - {supplier: SA, item: RM1, promised: 2026-06-10, received: 2026-06-10, ordered: 100, received_qty: 100, rejected: 15}
+      - {supplier: SA, item: RM1, promised: 2026-07-10, received: 2026-07-10, ordered: 100, received_qty: 100, rejected: 15}
+      - {supplier: SA, item: RM1, promised: 2026-08-10, received: 2026-08-10, ordered: 100, received_qty: 100, rejected: 15}
+      - {supplier: SA, item: RM1, promised: 2026-09-10, received: 2026-09-10, ordered: 100, received_qty: 100, rejected: 15}
+      - {supplier: SB, item: RM1, promised: 2026-06-10, received: 2026-06-09, ordered: 100, received_qty: 100, rejected: 1}
+      - {supplier: SB, item: RM1, promised: 2026-07-10, received: 2026-07-10, ordered: 100, received_qty: 100, rejected: 1}
+      - {supplier: SB, item: RM1, promised: 2026-08-10, received: 2026-08-10, ordered: 100, received_qty: 100, rejected: 1}
+      - {supplier: SB, item: RM1, promised: 2026-09-10, received: 2026-09-10, ordered: 100, received_qty: 100, rejected: 1}
+      - {supplier: SC, item: RM1, promised: 2026-06-10, received: 2026-06-10, ordered: 100, received_qty: 100, rejected: 2}
+      - {supplier: SC, item: RM1, promised: 2026-07-10, received: 2026-07-10, ordered: 100, received_qty: 100, rejected: 2}
+      - {supplier: SC, item: RM1, promised: 2026-08-10, received: 2026-08-14, ordered: 100, received_qty: 100, rejected: 2}
+      - {supplier: SC, item: RM1, promised: 2026-09-10, received: 2026-09-10, ordered: 100, received_qty: 100, rejected: 2}
+      # RM2: SB has history, SG only one delivery.
+      - {supplier: SB, item: RM2, promised: 2026-06-10, received: 2026-06-10, ordered: 50, received_qty: 50, rejected: 0}
+      - {supplier: SB, item: RM2, promised: 2026-07-10, received: 2026-07-10, ordered: 50, received_qty: 50, rejected: 0}
+      - {supplier: SB, item: RM2, promised: 2026-08-10, received: 2026-08-10, ordered: 50, received_qty: 50, rejected: 1}
+      - {supplier: SG, item: RM2, promised: 2026-09-10, received: 2026-09-10, ordered: 50, received_qty: 50, rejected: 0}
+      # RM3: the preferred supplier is late 3 of 4 times and rejects 8%; SQ is reliable.
+      - {supplier: SP, item: RM3, promised: 2026-06-10, received: 2026-06-20, ordered: 100, received_qty: 100, rejected: 8}
+      - {supplier: SP, item: RM3, promised: 2026-07-10, received: 2026-07-25, ordered: 100, received_qty: 100, rejected: 8}
+      - {supplier: SP, item: RM3, promised: 2026-08-10, received: 2026-08-10, ordered: 100, received_qty: 100, rejected: 8}
+      - {supplier: SP, item: RM3, promised: 2026-09-10, received: 2026-09-18, ordered: 100, received_qty: 100, rejected: 8}
+      - {supplier: SQ, item: RM3, promised: 2026-06-10, received: 2026-06-10, ordered: 100, received_qty: 100, rejected: 1}
+      - {supplier: SQ, item: RM3, promised: 2026-07-10, received: 2026-07-10, ordered: 100, received_qty: 100, rejected: 1}
+      - {supplier: SQ, item: RM3, promised: 2026-08-10, received: 2026-08-10, ordered: 100, received_qty: 100, rejected: 1}
+      - {supplier: SQ, item: RM3, promised: 2026-09-10, received: 2026-09-10, ordered: 100, received_qty: 100, rejected: 1}
+  checks:
+    - run: suppliers
+      params: {item: RM1, qty: 100, need_date: 2026-12-31}
+      expect:
+        ranking: [SB, SA, SC]
+        best: SB
+        offers:
+          SA: {rejection_pct: 15.0, on_time_pct: 100.0, score: 0.870}
+          SB: {rejection_pct: 1.0, score: 0.887}
+          SC: {on_time_pct: 75.0, score: 0.821}
+    - run: suppliers
+      params: {item: RM1, qty: 100, need_date: 2026-12-06, policy: {name: urgent, mode: fastest}}
+      expect:
+        best: SC
+        ranking: [SC]
+        ineligible: {SA: after the need date, SB: after the need date}
+    - run: suppliers
+      params: {item: RM1, qty: 100, need_date: 2026-12-31, policy: {name: lowest cost, mode: cheapest}}
+      expect: {best: SA, ranking: [SA, SB, SC]}
+    - run: suppliers
+      params: {item: RM1, qty: 100, need_date: 2026-12-31, policy: {name: quality-critical, mode: quality, max_rejection_pct: 5}}
+      expect:
+        best: SB
+        ranking: [SB, SC]
+        ineligible: {SA: exceeds the 5% quality limit}
+
+- id: S48
+  title: Cheapest supplier cannot deliver by the required date
+  persona: procurement manager
+  today: 2026-12-01
+  data: *sup
+  checks:
+    - run: suppliers
+      params: {item: RM1, qty: 100, need_date: 2026-12-15}
+      expect: {best: SB, ranking: [SB, SC], ineligible: {SA: earliest delivery 2026-12-21}}
+
+- id: S50
+  title: Quotation compared with historical purchase prices
+  persona: procurement manager
+  today: 2026-12-01
+  data: *sup
+  checks:
+    - run: suppliers
+      params: {item: RM1, qty: 100, need_date: 2026-12-31}
+      expect:
+        offers: {SB: {price_vs_last_pct: 8.7, price_vs_average_pct: 7.0}, SA: {price_vs_last_pct: -2.2}}
+        notes_contain: {SB: "+8.7% vs last purchase price (2026-09-01)"}
+
+- id: S51
+  title: Price breaks apply to the quantity actually needed
+  persona: procurement manager
+  today: 2026-12-01
+  data: *sup
+  checks:
+    - run: suppliers
+      params: {item: RM6, qty: 300, need_date: 2026-12-31}
+      expect: {offers: {SD: {unit_price: 10, order_quantity: 300, excess_quantity: 0}}}
+    - run: suppliers
+      params: {item: RM6, qty: 1200, need_date: 2026-12-31}
+      expect: {offers: {SD: {unit_price: 8, order_quantity: 1200}}}
+
+- id: C-H
+  title: Supplier MOQ far above demand - excess counts against the offer
+  persona: procurement manager
+  today: 2026-12-01
+  data: *sup
+  checks:
+    - run: suppliers
+      params: {item: RM5, qty: 120, need_date: 2026-12-31, policy: {name: lowest cost, mode: cheapest}}
+      expect:
+        ranking: [SE2, SE]
+        offers: {SE: {order_quantity: 500, excess_quantity: 380, total_cost: 5000.00}, SE2: {order_quantity: 120, total_cost: 1320.00}}
+        notes_contain: {SE: "380 more than needed"}
+
+- id: S55
+  title: Supplier capacity constraint - split sourcing suggested
+  persona: procurement manager
+  today: 2026-12-01
+  data: *sup
+  checks:
+    - run: suppliers
+      params: {item: RM12, qty: 600, need_date: 2026-12-31, policy: {name: lowest cost, mode: cheapest}}
+      expect:
+        split: {S1: 300, S2: 300}
+        recommendation_contains: consider splitting
+
+- id: S56
+  title: Expired mandatory certificate makes a supplier ineligible
+  persona: procurement manager
+  today: 2026-12-01
+  data: *sup
+  checks:
+    - run: suppliers
+      params: {item: RM7, qty: 10, need_date: 2026-12-31}
+      expect: {ineligible: {SF: "ISO 9001 expired on 2026-11-01"}, gaps_contain: No approved, eligible supplier}
+    - run: suppliers
+      params: {item: RM7, qty: 10, need_date: 2026-12-31, policy: {name: exception approved, require_certifications: false}}
+      expect: {eligible: [SF], notes_contain: {SF: allowed by policy exception}}
+
+- id: S57
+  title: Attractive quote without quality history is not scored
+  persona: supplier performance analyst
+  today: 2026-12-01
+  data: *sup
+  checks:
+    - run: suppliers
+      params: {item: RM2, qty: 50, need_date: 2026-12-31}
+      expect:
+        ranking: [SB, SG]
+        offers: {SG: {rejection_pct: null, score: null}}
+        notes_contain: {SG: insufficient quality and delivery evidence}
+
+- id: S58
+  title: Quotes in other currencies use the effective exchange rate
+  persona: procurement manager
+  today: 2026-12-01
+  data: *sup
+  checks:
+    - run: suppliers
+      params: {item: RM10, qty: 10, need_date: 2026-12-31}
+      expect:
+        offers: {SH: {unit_price: 93.75, fx_note: "1 USD = 3.75 SAR (rate from 2026-01-01)"}}
+        ineligible: {SI: no approved EUR→SAR exchange rate}
+
+- id: S59
+  title: Landed cost includes known charges and discloses unknown ones
+  persona: procurement manager
+  today: 2026-12-01
+  data: *sup
+  checks:
+    - run: suppliers
+      params: {item: RM11, qty: 10, need_date: 2026-12-31}
+      expect:
+        offers: {SJ: {unit_price: 80, landed_unit_cost: 84}}
+        notes_contain: {SJ: excludes unknown freight}
+
+- id: S60
+  title: No approved supplier, no supplier at all
+  persona: procurement manager
+  today: 2026-12-01
+  data: *sup
+  checks:
+    - run: suppliers
+      params: {item: RM9, qty: 10, need_date: 2026-12-31}
+      expect: {ineligible: {SX: not approved}, gaps_contain: No approved, eligible supplier, recommendation_contains: do not raise a purchase order}
+    - run: suppliers
+      params: {item: RM8, qty: 10, need_date: 2026-12-31}
+      expect: {gaps_contain: sourcing gap}
+
+- id: S63
+  title: Latest purchase-order release date
+  persona: procurement manager
+  today: 2026-12-01
+  data: *sup
+  checks:
+    - run: suppliers
+      params: {item: RM1, qty: 100, need_date: 2026-12-31, receiving_days: 1, inspection_days: 2}
+      expect: {offers: {SB: {earliest_delivery: 2026-12-14, latest_release: 2026-12-18, meets_need_date: true}}}
+
+- id: C-G
+  title: Preferred supplier with price increase, delays and declining quality
+  persona: supplier performance analyst
+  today: 2026-12-01
+  data: *sup
+  checks:
+    - run: suppliers
+      params: {item: RM3, qty: 100, need_date: 2026-12-31, policy: {name: balanced, min_on_time_pct: 80}}
+      expect:
+        best: SQ
+        ineligible: {SP: "on-time delivery 25.0% is below the 80% minimum"}
+        offers: {SP: {price_vs_last_pct: 15.8, rejection_pct: 8.0}}
+
+- id: C-L
+  title: Multi-currency quotes compared on landed cost with disclosed gaps
+  persona: procurement manager
+  today: 2026-12-01
+  data: *sup
+  checks:
+    - run: suppliers
+      params: {item: RM4, qty: 10, need_date: 2026-12-31, policy: {name: lowest cost, mode: cheapest}}
+      expect:
+        ranking: [SSAR, SUSD]
+        offers: {SUSD: {unit_price: 75, landed_unit_cost: 86.25}, SSAR: {landed_unit_cost: 85}}
+        notes_contain: {SSAR: excludes unknown freight}

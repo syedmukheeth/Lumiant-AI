@@ -1,4 +1,18 @@
-import { Boxes, Coins, Compass, FileText, LayoutDashboard, type LucideIcon, MessageSquareText, ShieldAlert, ShieldCheck } from "lucide-react";
+import {
+  Boxes,
+  Coins,
+  Compass,
+  DatabaseZap,
+  Factory,
+  FileText,
+  LayoutDashboard,
+  type LucideIcon,
+  MessageSquareText,
+  ShieldAlert,
+  ShieldCheck,
+  Truck,
+  HeartHandshake,
+} from "lucide-react";
 
 import type { Me } from "@/lib/api";
 
@@ -9,7 +23,7 @@ export type NavItem = {
   icon: LucideIcon;
   /** Second key of the "G then key" shortcut. */
   key: string;
-  group: "Monitor" | "Analyze" | "Govern";
+  group: "Monitor" | "Analyze" | "Plan" | "Procure" | "Govern";
 };
 
 /** Every page of the app. The API decides which sections a user gets (`Me.sections`); the UI only hides the rest. */
@@ -20,6 +34,10 @@ export const NAV: readonly NavItem[] = [
   { section: "risks", href: "/risks", label: "Risks", icon: ShieldAlert, key: "r", group: "Analyze" },
   { section: "costs", href: "/costs", label: "Costs", icon: Coins, key: "c", group: "Analyze" },
   { section: "assistant", href: "/assistant", label: "Assistant", icon: MessageSquareText, key: "a", group: "Analyze" },
+  { section: "planning", href: "/planning", label: "Orders & materials", icon: Factory, key: "n", group: "Plan" },
+  { section: "procurement", href: "/suppliers", label: "Supplier comparison", icon: Truck, key: "u", group: "Procure" },
+  { section: "procurement", href: "/commitments", label: "Commitment protection", icon: HeartHandshake, key: "k", group: "Procure" },
+  { section: "master_data", href: "/master-data", label: "Item master", icon: DatabaseZap, key: "m", group: "Govern" },
   { section: "reports", href: "/reports", label: "Reports", icon: FileText, key: "p", group: "Govern" },
   { section: "admin", href: "/admin", label: "Admin", icon: ShieldCheck, key: "d", group: "Govern" },
 ];

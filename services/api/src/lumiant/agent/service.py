@@ -13,6 +13,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from lumiant.agent import smalltalk
 from lumiant.agent.context import MAX_HISTORY, ChatContext, HistoryTurn
 from lumiant.agent.grounding import collect_numbers, ungrounded_numbers
 from lumiant.agent.providers import SUGGESTIONS, Decision, Provider, RuleBasedProvider, ToolCall, build_provider
@@ -188,8 +189,12 @@ class AgentService:
         provider, notice = self._provider(principal)
         decision: Decision
         refusal = self._check_context(ctx)
+        small_talk = smalltalk.reply(question, principal.display_name)
         if refusal is not None:
             provider, notice, decision = RuleBasedProvider(), None, refusal
+        elif small_talk is not None:
+            # "hey", "thanks", "who are you?": answered directly; no data is read and nothing goes to a model.
+            provider, decision = RuleBasedProvider(), Decision("reply", message=small_talk)
         else:
             try:
                 decision = provider.decide(question, ctx)
@@ -203,7 +208,11 @@ class AgentService:
                 )
                 decision = provider.decide(question, ctx)
         calls = self._narrow(decision.calls[:MAX_TOOL_CALLS], ctx) if decision.kind == "tools" else []
-        plan_detail = ", ".join(_label(c).lower() for c in calls) if calls else decision.kind
+        plan_detail = (
+            ", ".join(_label(c).lower() for c in calls)
+            if calls
+            else ("conversation" if decision.kind == "reply" else decision.kind)
+        )
         yield done(_step("understand", "Understanding the question", "done", detail=plan_detail, mode=provider.name))
 
         outputs: list[ToolOutput] = []
@@ -304,6 +313,8 @@ class AgentService:
         follow = list(dict.fromkeys(f for o in outputs for f in o.follow_ups))
         if decision.kind == "unsupported" and not outputs:
             follow = SUGGESTIONS[:5]
+        elif decision.kind == "reply":
+            follow = SUGGESTIONS[:4]
         warnings = [w for o in outputs for w in o.warnings]
         yield {
             "type": "answer",

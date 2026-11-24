@@ -30,6 +30,22 @@ class DevLogin(BaseModel):
     username: Annotated[str, StringConstraints(pattern=r"^[a-z0-9][a-z0-9._-]{2,63}$")]
 
 
+def planning_sections(principal: Principal, container: Container) -> list[str]:
+    """Planning pages appear only when the role allows them AND the tenant provides the data they need, so a
+    module is never offered where it could only show an error. The endpoints check the same rules server-side."""
+    mapping = container.query.mapping(principal.tenant_id)
+    out: list[str] = []
+    if principal.has(Permission.INVENTORY_READ) and (
+        mapping.is_mapped("customer_order_line") or mapping.is_mapped("bom_component")
+    ):
+        out.append("planning")
+    if principal.has(Permission.COST_READ) and mapping.is_mapped("supplier_item"):
+        out.append("procurement")
+    if principal.has(Permission.INVENTORY_READ):
+        out.append("master_data")
+    return out
+
+
 def me_payload(principal: Principal, container: Container) -> dict[str, Any]:
     tenant = container.tenants.get(principal.tenant_id)
     names = {w.id: w for w in tenant.warehouses}
@@ -42,7 +58,7 @@ def me_payload(principal: Principal, container: Container) -> dict[str, Any]:
             **principal.scope.summary(),
             "departments": sorted({names[w].department for w in principal.scope.ids if w in names}),
         },
-        "sections": [name for name, perm in SECTIONS if principal.has(perm)],
+        "sections": [name for name, perm in SECTIONS if principal.has(perm)] + planning_sections(principal, container),
         "auth_mode": container.settings.auth_mode.value,
     }
 

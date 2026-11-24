@@ -126,7 +126,7 @@ Three points shape the plan:
 | Requirements | Microsoft Python driver or pyodbc with ODBC Driver 18 [A], TLS |
 | Permissions | User granted `SELECT` on specific views. Avoid blanket `db_datareader` unless the schema is dedicated |
 | Authentication | Entra ID or Kerberos preferred; SQL login from vault |
-| Limitations | Two compiler/guard defects found: `LOWER` rejected and `NULLS LAST` emitted, which T-SQL does not support (LA-09). Three-part names rejected by the `SourceObject` pattern (`tenancy/models.py:15`) |
+| Limitations | Three compiler/guard defects found: `LOWER` rejected, `NULLS LAST` emitted, which T-SQL does not support (LA-09), and plans with no ordering fail to compile (LA-51). Three-part names rejected by the `SourceObject` pattern (`tenancy/models.py:15`) |
 | Difficulty | **Medium** |
 | Mapping | Explicit per view |
 | In repo | Design note only |

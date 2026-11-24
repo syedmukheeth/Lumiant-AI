@@ -17,6 +17,7 @@ import { type NavItem, navFor, sectionFor } from "@/components/shell/nav";
 import { toggleRail, useRailCollapsed } from "@/components/shell/rail-state";
 import { DataBadge } from "@/components/shell/synthetic-tape";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
+import { BrandLogo } from "@/components/ui/brand-logo";
 import { Button, IconButton } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { tooltipSurface } from "@/components/ui/float";
@@ -83,7 +84,7 @@ function RailLink({ item, active, collapsed }: { item: NavItem; active: boolean;
               layoutId="rail-active"
               transition={LAYOUT_SPRING}
               aria-hidden
-              className="absolute inset-0 rounded-control bg-surface-2 before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-accent max-md:before:hidden"
+              className="absolute inset-0 rounded-control bg-surface-2 before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-brand-gold max-md:before:hidden"
             />
           )}
           <Icon size={18} aria-hidden className={clsx("relative shrink-0", active ? "text-accent" : "text-ink-3")} />
@@ -181,17 +182,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             "md:sticky md:top-0 md:bottom-auto md:flex md:h-dvh md:flex-col md:border-t-0 md:border-r md:pb-0",
           )}
         >
-          <div className="hidden h-14 items-center gap-2.5 px-4 md:flex md:rail-collapsed:justify-center md:rail-collapsed:px-0">
-            <Link href="/overview" aria-label="Lumiant home" className="flex items-center gap-2.5">
-              <span
-                aria-hidden
-                className="grid size-7 shrink-0 place-items-center rounded-control bg-accent text-dense font-bold text-accent-ink"
-              >
-                L
+          <div className="hidden h-20 items-center px-5 md:flex md:rail-collapsed:h-14 md:rail-collapsed:justify-center md:rail-collapsed:px-0">
+            <Link href="/overview" aria-label="Lumiant home" className="flex items-center">
+              <span className="md:rail-collapsed:hidden">
+                <BrandLogo width={160} />
               </span>
-              <span className="leading-none md:rail-collapsed:sr-only">
-                <span className="block text-sm font-semibold tracking-[0.14em] text-ink">LUMIANT</span>
-                <span className="mt-1 block text-caption leading-none text-ink-3">Inventory intelligence</span>
+              <span className="hidden md:rail-collapsed:block">
+                <BrandLogo height={17} />
               </span>
             </Link>
           </div>
@@ -259,9 +256,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="flex min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2 sm:px-6 xl:flex-nowrap">
               <div className="flex min-w-0 shrink items-center gap-3">
                 <Link href="/overview" aria-label="Lumiant home" className="md:hidden">
-                  <span aria-hidden className="grid size-7 place-items-center rounded-control bg-accent text-dense font-bold text-accent-ink">
-                    L
-                  </span>
+                  <BrandLogo height={26} plate />
                 </Link>
                 <span className="min-w-0 truncate text-sm font-semibold text-ink">{user?.tenant.display_name ?? " "}</span>
                 {meta.data && (

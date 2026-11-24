@@ -44,7 +44,7 @@ export type Step = {
 export type ChatAnswer = {
   mode: "rules" | "anthropic" | "gemini";
   notice: string | null;
-  kind: "tools" | "clarify" | "unsupported";
+  kind: "tools" | "clarify" | "unsupported" | "reply";
   answer: string;
   blocks: Block[];
   tool_calls: { name: string; args: Record<string, unknown> }[];

@@ -116,7 +116,15 @@ CONCEPTS: tuple[Concept, ...] = (
         "stock status",
         "usable versus restricted stock: unrestricted, quality inspection, blocked",
         "SAP LABST / INSME / SPEME · Odoo location usage and quality checks · Oracle Fusion material status",
-        _en(r"\blabst\b", r"\binsme\b", r"\bspeme\b", r"material status"),
+        _en(
+            r"\blabst\b",
+            r"\binsme\b",
+            r"\bspeme\b",
+            r"material status",
+            r"value in qual",
+            r"restricted[- ]use",
+            r"transit and transfer",
+        ),
         _ar(r"حاله المخزون", r"غير مقيد", r"\bمقيد", r"فحص الجوده", r"تحت الفحص", r"محظور", r"مجمد"),
     ),
     Concept(
@@ -132,7 +140,9 @@ CONCEPTS: tuple[Concept, ...] = (
         "inventory value",
         "on-hand quantity multiplied by the valuation price, per currency",
         "SAP stock value (MBEW-SALK3) · Odoo inventory valuation (stock.valuation.layer) · Oracle Fusion inventory valuation",
-        _en(r"\bvaluation\b", r"stock value", r"\bsalk3\b", r"on[- ]hand value"),
+        _en(
+            r"\bvaluation\b(?! (class|type))", r"stock value", r"\bsalk3\b", r"on[- ]hand value", r"value unrestricted"
+        ),
         _ar(r"قيمه", r"تقييم"),
     ),
     Concept(
