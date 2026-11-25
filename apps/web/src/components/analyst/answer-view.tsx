@@ -2,14 +2,14 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { clsx } from "clsx";
-import { CheckCircle2, CircleDashed, Loader2, ShieldCheck, ThumbsDown, ThumbsUp, TriangleAlert, XCircle } from "lucide-react";
+import { BookOpen, CheckCircle2, CircleDashed, Loader2, ShieldCheck, ThumbsDown, ThumbsUp, TriangleAlert, XCircle } from "lucide-react";
 import { useState } from "react";
 
 import { ProvenanceButton } from "@/components/data/provenance";
 import { SimpleTable, type SimpleColumn } from "@/components/data/simple-table";
 import { Chip } from "@/components/ui/badge";
 import { IconButton } from "@/components/ui/button";
-import type { BarBlock, Block, ChatAnswer, ColumnKind, Step, TableBlock } from "@/lib/agent";
+import type { BarBlock, Block, ChatAnswer, ColumnKind, SourcesBlock, Step, TableBlock } from "@/lib/agent";
 import { api, type Row } from "@/lib/api";
 import { formatMoney, formatNumber, formatQuantity } from "@/lib/format";
 import { enterDelay } from "@/lib/motion";
@@ -71,8 +71,36 @@ export function BarView({ block }: { block: BarBlock }) {
   );
 }
 
+/** Cited passages from Lumiant's definitions (knowledge search). Product text, never tenant figures. */
+function SourcesView({ block }: { block: SourcesBlock }) {
+  return (
+    <div className="rise" data-testid="answer-sources">
+      <p className="mb-1.5 flex items-center gap-1.5 text-dense font-medium text-ink-2">
+        <BookOpen className="size-3.5 text-ai" aria-hidden />
+        {block.title}
+      </p>
+      <ol className="space-y-1.5">
+        {block.items.map((s, i) => (
+          <li key={s.id}>
+            <details className="group rounded-control border border-line bg-surface-2/60 open:bg-surface-2" open={i === 0}>
+              <summary className="flex cursor-pointer list-none items-center gap-2 px-2.5 py-1.5 text-xs text-ink-2 hover:text-ink">
+                <span className="grid size-4 shrink-0 place-items-center rounded-full border border-ai-line text-caption font-semibold text-ai">{i + 1}</span>
+                <span className="min-w-0 truncate font-medium text-ink">{s.heading}</span>
+                <span className="ml-auto shrink-0 text-ink-3">{s.source}</span>
+              </summary>
+              <p className="px-2.5 pb-2 text-xs leading-relaxed text-ink-2">{s.text}</p>
+            </details>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 export function BlockView({ block, compact }: { block: Block; compact?: boolean }) {
-  return block.type === "table" ? <TableView block={block} compact={compact} /> : <BarView block={block} />;
+  if (block.type === "table") return <TableView block={block} compact={compact} />;
+  if (block.type === "sources") return <SourcesView block={block} />;
+  return <BarView block={block} />;
 }
 
 /** The agent's work as it happens: understand → each analysis (rows, time) → wording → number check. */

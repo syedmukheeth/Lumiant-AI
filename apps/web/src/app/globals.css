@@ -74,6 +74,31 @@
   --status-serious: #ec835a;
   --status-critical: #e05252;
 
+  /* Product v2 (docs/05-plan/PRODUCT_V2_PLAN.md §3) ------------------------------------------------------------
+   * AI signature: the brand gold marks what the Analyst wrote or can do. Non-text marks and large text only
+   * (6.9:1 on the dark panel, 4.4:1 on white in light). */
+  --ai: #d29a47;
+  --ai-soft: rgb(210 154 71 / 0.12);
+  --ai-line: rgb(210 154 71 / 0.4);
+  /* sequential ramp (one hue, teal; low → high) for heatmaps and treemaps */
+  --seq-1: #12313d;
+  --seq-2: #165258;
+  --seq-3: #1d7a76;
+  --seq-4: #2ea79c;
+  --seq-5: #62d3c9;
+  /* label colour on each sequential step (≥ 4.5:1) */
+  --seq-ink-1: #eef2f7;
+  --seq-ink-2: #eef2f7;
+  --seq-ink-3: #eef2f7;
+  --seq-ink-4: #03201e;
+  --seq-ink-5: #03201e;
+  /* diverging ramp (amber ↔ teal around a neutral) for variance, over/under */
+  --div-neg: #e0884a;
+  --div-mid: #34445f;
+  --div-pos: #3cc2b6;
+  /* depth: a faint wash on the page plane only, never on panels */
+  --page-wash: linear-gradient(180deg, rgb(60 194 182 / 0.04), transparent 28rem);
+
   /* shape: controls, panels, floating layers; pills use rounded-full */
   --r-control: 0.5rem;
   --r-panel: 0.75rem;
@@ -148,6 +173,23 @@
   --viz-axis: #c9d1dd;
   --viz-cursor: rgb(15 29 51 / 0.04);
   --status-critical: #c93030;
+  --ai: #a86a17;
+  --ai-soft: rgb(196 135 47 / 0.12);
+  --ai-line: rgb(168 106 23 / 0.45);
+  --seq-1: #e2f1ef;
+  --seq-2: #b2dcd7;
+  --seq-3: #6cbab2;
+  --seq-4: #23786f;
+  --seq-5: #12564f;
+  --seq-ink-1: #0f1d33;
+  --seq-ink-2: #0f1d33;
+  --seq-ink-3: #0f1d33;
+  --seq-ink-4: #ffffff;
+  --seq-ink-5: #ffffff;
+  --div-neg: #c25e1c;
+  --div-mid: #d5dce6;
+  --div-pos: #1f7f77;
+  --page-wash: linear-gradient(180deg, rgb(17 37 69 / 0.035), transparent 28rem);
   color-scheme: light;
 }
 
@@ -187,6 +229,22 @@
   --color-status-warning: var(--status-warning);
   --color-status-serious: var(--status-serious);
   --color-status-critical: var(--status-critical);
+  --color-ai: var(--ai);
+  --color-ai-soft: var(--ai-soft);
+  --color-ai-line: var(--ai-line);
+  --color-seq-1: var(--seq-1);
+  --color-seq-2: var(--seq-2);
+  --color-seq-3: var(--seq-3);
+  --color-seq-4: var(--seq-4);
+  --color-seq-5: var(--seq-5);
+  --color-seq-ink-1: var(--seq-ink-1);
+  --color-seq-ink-2: var(--seq-ink-2);
+  --color-seq-ink-3: var(--seq-ink-3);
+  --color-seq-ink-4: var(--seq-ink-4);
+  --color-seq-ink-5: var(--seq-ink-5);
+  --color-div-neg: var(--div-neg);
+  --color-div-mid: var(--div-mid);
+  --color-div-pos: var(--div-pos);
   --shadow-e1: var(--elev-1);
   --shadow-e2: var(--elev-2);
   --shadow-e3: var(--elev-3);
@@ -212,6 +270,13 @@
   --text-kpi: 1.75rem;
   --text-kpi--line-height: 2.125rem;
   --text-kpi--letter-spacing: -0.02em;
+  /* display sizes: landing hero and hero KPIs only */
+  --text-display: 2.75rem;
+  --text-display--line-height: 1.08;
+  --text-display--letter-spacing: -0.032em;
+  --text-hero: 3.75rem;
+  --text-hero--line-height: 1.02;
+  --text-hero--letter-spacing: -0.04em;
   --ease-out: var(--ease-out-expo);
   --ease-in-out: var(--ease-in-out-smooth);
   --default-transition-duration: var(--dur-fast);
@@ -227,6 +292,8 @@ body {
 }
 
 body {
+  background-image: var(--page-wash);
+  background-repeat: no-repeat;
   font-family: var(--font-sans);
   /* Inter: open digits and an l with a tail, so codes and amounts are never ambiguous */
   font-feature-settings: "calt" 1, "ss01" 1, "cv05" 1;
