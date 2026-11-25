@@ -13,7 +13,7 @@ import { clsx } from "clsx";
 
 export type TableAlt = { columns: string[]; rows: (string | number)[][] };
 
-export const VIZ = ["var(--viz-1)", "var(--viz-2)", "var(--viz-3)", "var(--viz-4)", "var(--viz-5)", "var(--viz-7)"];
+export const VIZ = ["var(--viz-1)", "var(--viz-2)", "var(--viz-3)", "var(--viz-4)", "var(--viz-5)"];
 export const SEQ = ["var(--seq-1)", "var(--seq-2)", "var(--seq-3)", "var(--seq-4)", "var(--seq-5)"];
 /** Text colour that stays readable on the matching SEQ step. */
 export const SEQ_INK = ["var(--seq-ink-1)", "var(--seq-ink-2)", "var(--seq-ink-3)", "var(--seq-ink-4)", "var(--seq-ink-5)"];
@@ -44,7 +44,9 @@ export function ChartFrame({
       <div role="img" aria-label={label} style={height ? { height } : undefined} className="min-w-0">
         {children}
       </div>
-      <table className="sr-only">
+      {/* sr-only on the wrapper: a <table> ignores the 1px width and would widen the page. */}
+      <div className="sr-only">
+        <table>
         <caption>{label}</caption>
         <thead>
           <tr>
@@ -64,7 +66,8 @@ export function ChartFrame({
             </tr>
           ))}
         </tbody>
-      </table>
+        </table>
+      </div>
     </figure>
   );
 }

@@ -18,7 +18,7 @@ import { useBomExplosion, useFulfilment, useMaterialPlan, useMe } from "@/lib/ho
 import { enterDelay } from "@/lib/motion";
 
 const TABS = [
-  { id: "fulfilment", label: "Order fulfilment", blurb: "Can each open customer order line be delivered on time — from stock, open purchase orders, approved alternates or new make/buy — and if not, why." },
+  { id: "fulfilment", label: "Order fulfilment", blurb: "Can each open customer order line be delivered on time: from stock, open purchase orders, approved alternates or new make/buy: and if not, why." },
   { id: "materials", label: "Material plan", blurb: "What to buy or make, how much and by when, from BOMs, usable stock and open supply. Shared components are planned once." },
   { id: "bom", label: "BOM explorer", blurb: "Every component needed to make a quantity of an item, through all levels, with scrap and yield." },
 ] as const;
@@ -163,11 +163,11 @@ function MaterialPlanView() {
         />
         <div className="mt-3 space-y-2">
           <PlanningIssues issues={data.issues} />
-          <RecommendationNote>Planned orders are suggestions — no purchase or production order is created.</RecommendationNote>
+          <RecommendationNote>Planned orders are suggestions: no purchase or production order is created.</RecommendationNote>
         </div>
       </Panel>
       {data.excess_supply.length > 0 && (
-        <Panel title="Supply no demand needs" subtitle="Open receipts and lot-size surplus not consumed by any open order — possible excess.">
+        <Panel title="Supply no demand needs" subtitle="Open receipts and lot-size surplus not consumed by any open order: possible excess.">
           <ul className="divide-y divide-line text-sm">
             {data.excess_supply.map((e) => (
               <li key={`${e.reference}-${e.item_id}`} className="flex justify-between gap-3 py-2">

@@ -186,8 +186,8 @@ function AuditPanel({ me }: { me?: Me }) {
     { key: "u", label: "User", render: (r) => <span className="code text-xs">{r.user_id}</span> },
     { key: "a", label: "Action", render: (r) => <span className="code text-xs">{r.action}</span> },
     { key: "d", label: "Decision", render: (r) => <span className={clsx("text-xs font-semibold", r.decision === "deny" ? "text-signal" : "text-ink-2")}>{r.decision}{r.reason ? ` (${r.reason})` : ""}</span> },
-    { key: "n", label: "Rows", align: "right", render: (r) => <span className="figure">{r.rows ?? "—"}</span> },
-    { key: "m", label: "ms", align: "right", render: (r) => <span className="figure">{r.duration_ms ?? "—"}</span> },
+    { key: "n", label: "Rows", align: "right", render: (r) => <span className="figure">{r.rows ?? "–"}</span> },
+    { key: "m", label: "ms", align: "right", render: (r) => <span className="figure">{r.duration_ms ?? "–"}</span> },
   ];
   return (
     <Panel title="Audit log" subtitle="Who asked for what, and whether it was allowed. Result values and filter values are never stored.">

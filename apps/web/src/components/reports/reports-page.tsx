@@ -40,7 +40,7 @@ const QTY_KEYS = new Set(["quantity", "on_hand", "reorder_level", "shortfall", "
 
 function render(key: string, row: Row) {
   const v = row[key];
-  if (v === null || v === undefined || v === "") return <span className="text-ink-3">—</span>;
+  if (v === null || v === undefined || v === "") return <span className="text-ink-3">–</span>;
   if (MONEY_KEYS.has(key)) return <span className="figure">{formatMoney(v as string, row.currency as string | undefined)}</span>;
   if (QTY_KEYS.has(key)) return <span className="figure">{formatQuantity(v as string, row.uom as string | undefined)}</span>;
   if (typeof v === "number") return <span className="figure">{formatNumber(v, { maxFraction: 0 })}</span>;

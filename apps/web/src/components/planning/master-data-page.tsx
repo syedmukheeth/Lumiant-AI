@@ -50,7 +50,7 @@ function DuplicatesView() {
           ))}
         </ul>
       )}
-      <div className="mt-3"><RecommendationNote>Review only — records are never merged, renamed or deleted automatically; BOM references stay intact.</RecommendationNote></div>
+      <div className="mt-3"><RecommendationNote>Review only: records are never merged, renamed or deleted automatically; BOM references stay intact.</RecommendationNote></div>
     </Panel>
   );
 }
@@ -88,7 +88,7 @@ function LifecycleView() {
           </li>
         ))}
       </ul>
-      <div className="mt-3"><RecommendationNote>An authorised user decides — nothing is blocked or disposed of automatically.</RecommendationNote></div>
+      <div className="mt-3"><RecommendationNote>An authorised user decides: nothing is blocked or disposed of automatically.</RecommendationNote></div>
     </Panel>
   );
 }

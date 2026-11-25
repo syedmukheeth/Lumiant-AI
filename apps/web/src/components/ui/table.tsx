@@ -77,7 +77,7 @@ export function CodeName({ code, name, max = "max-w-72" }: { code: React.ReactNo
     <>
       <span className="code block text-xs text-ink-3">{code}</span>
       <span className={clsx("block truncate text-ink", max)} title={typeof name === "string" ? name : undefined}>
-        {name ?? "—"}
+        {name ?? "–"}
       </span>
     </>
   );

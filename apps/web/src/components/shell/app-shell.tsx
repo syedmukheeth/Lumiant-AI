@@ -315,7 +315,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <main className="app-main px-4 pt-6 pb-28 transition-[padding] duration-(--dur-slow) sm:px-6 md:pb-10 lg:px-8">
             {unreachable && (
               <p role="alert" className="mb-4 rounded-control border border-signal/40 bg-signal-soft p-3 text-sm text-ink">
-                The service could not be reached. {me.error instanceof ApiError ? me.error.message : ""}
+                {/* The client's network message already says "could not be reached"; never print it twice. */}
+                {me.error instanceof ApiError && me.error.message ? me.error.message : "The service could not be reached."}
               </p>
             )}
             {/* Route transition: a short fade on every page change (opacity only, so reduced motion keeps it). */}

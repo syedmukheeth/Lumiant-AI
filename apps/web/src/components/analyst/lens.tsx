@@ -53,7 +53,7 @@ export function Lens() {
         >
           <Crosshair size={14} className="text-accent" aria-hidden />
           <span>
-            <strong className="font-semibold">Lens</strong> — click anything to analyze · <kbd>Shift</kbd>-click to compare
+            <strong className="font-semibold">Lens</strong>: click anything to analyze · <kbd>Shift</kbd>-click to compare
             {selections.length > 1 && <span className="text-accent"> · {selections.length} selected</span>}
           </span>
           <button type="button" onClick={() => setLens(false)} className="rounded-full p-0.5 text-ink-3 hover:bg-surface-2 hover:text-ink" aria-label="Leave lens mode (Esc)">

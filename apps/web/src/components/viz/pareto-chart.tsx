@@ -25,7 +25,7 @@ export function ParetoChart({ items, bands, label, height = 260 }: { items: Pare
         <ComposedChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} stroke="var(--viz-grid)" />
           {cutA && <ReferenceArea yAxisId="v" x1={1} x2={cutA} fill="var(--accent)" fillOpacity={0.05} label={{ value: "A", position: "insideTopLeft", fill: "var(--ink-3)", fontSize: 11 }} />}
-          {cutA && cutB && <ReferenceArea yAxisId="v" x1={cutA} x2={cutB} fill="var(--ai)" fillOpacity={0.05} label={{ value: "B", position: "insideTopLeft", fill: "var(--ink-3)", fontSize: 11 }} />}
+          {cutA && cutB && <ReferenceArea yAxisId="v" x1={cutA} x2={cutB} fill="var(--ink-3)" fillOpacity={0.06} label={{ value: "B", position: "insideTopLeft", fill: "var(--ink-3)", fontSize: 11 }} />}
           {cutB && <ReferenceArea yAxisId="v" x1={cutB} x2={data.length} fill="var(--ink-3)" fillOpacity={0.04} label={{ value: "C", position: "insideTopLeft", fill: "var(--ink-3)", fontSize: 11 }} />}
           <XAxis dataKey="rank" type="number" domain={[1, data.length]} {...AXIS} tickCount={6} allowDecimals={false} />
           <YAxis yAxisId="v" {...AXIS} width={44} tickFormatter={compactTick} tickCount={4} />
@@ -39,17 +39,17 @@ export function ParetoChart({ items, bands, label, height = 260 }: { items: Pare
                   title={`#${d.rank} ${d.label}`}
                   lines={[
                     { label: "Value", value: d.exact, color: "var(--viz-1)" },
-                    { label: "Cumulative share", value: d.cumulativeExact, color: "var(--ai)" },
+                    { label: "Cumulative share", value: d.cumulativeExact, color: "var(--ink-2)" },
                   ]}
                 />
               ) : null;
             }}
           />
           <Bar yAxisId="v" dataKey="value" fill="var(--viz-1)" radius={[3, 3, 0, 0]} maxBarSize={14} isAnimationActive={false} />
-          <Line yAxisId="p" dataKey="cumulativePct" stroke="var(--ai)" strokeWidth={2} dot={false} type="monotone" isAnimationActive={false} />
+          <Line yAxisId="p" dataKey="cumulativePct" stroke="var(--ink-2)" strokeWidth={2} dot={false} type="monotone" isAnimationActive={false} />
         </ComposedChart>
       </ResponsiveContainer>
-      <Legend items={[{ label: "Value by item", color: "var(--viz-1)" }, { label: "Cumulative share of value", color: "var(--ai)" }]} />
+      <Legend items={[{ label: "Value by item", color: "var(--viz-1)" }, { label: "Cumulative share of value", color: "var(--ink-2)" }]} />
     </ChartFrame>
   );
 }

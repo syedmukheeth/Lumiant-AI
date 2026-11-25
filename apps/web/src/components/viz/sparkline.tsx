@@ -2,10 +2,9 @@
 
 import { useId } from "react";
 
-type Tone = "accent" | "ai" | "critical" | "muted";
+type Tone = "accent" | "critical" | "muted";
 const STROKE: Record<Tone, string> = {
   accent: "var(--accent)",
-  ai: "var(--ai)",
   critical: "var(--status-critical)",
   muted: "var(--ink-3)",
 };

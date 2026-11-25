@@ -14,7 +14,7 @@ import { clsx } from "clsx";
  */
 const DARK = { src: "/brand/lumiant-logo-dark.png", width: 232, height: 75 };
 const LIGHT = { src: "/brand/lumiant-logo-light.png", width: 230, height: 78 };
-const ALT = "Lumiant — Together we grow";
+const ALT = "Lumiant logo: Together we grow";
 
 type Props = {
   /** Display height in px (width follows the aspect ratio). Ignored when `width` is set. */

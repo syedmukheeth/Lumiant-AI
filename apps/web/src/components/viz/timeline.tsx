@@ -4,11 +4,10 @@ import { clsx } from "clsx";
 
 import { ChartFrame, shortDate } from "@/components/viz/shared";
 
-type Tone = "neutral" | "accent" | "ai" | "warning" | "critical";
+type Tone = "neutral" | "accent" | "warning" | "critical";
 const TONE: Record<Tone, string> = {
   neutral: "bg-surface-3 border-line-strong text-ink-2",
   accent: "bg-accent-soft border-accent/40 text-accent",
-  ai: "bg-ai-soft border-ai-line text-ink",
   warning: "bg-status-warning/15 border-status-warning/50 text-ink",
   critical: "bg-status-critical/15 border-status-critical/50 text-ink",
 };
@@ -48,7 +47,7 @@ export function Timeline({ lanes, from, to, label, today }: { lanes: TimelineLan
             ))}
           </div>
           <ul className="relative">
-            {today && <li aria-hidden className="pointer-events-none absolute inset-y-0 z-10 ml-36 w-[calc(100%-9rem)]"><span className="absolute inset-y-0 w-px bg-ai" style={{ left: pct(today) }} /></li>}
+            {today && <li aria-hidden className="pointer-events-none absolute inset-y-0 z-10 ml-36 w-[calc(100%-9rem)]"><span className="absolute inset-y-0 w-px bg-accent" style={{ left: pct(today) }} /></li>}
             {lanes.map((l) => (
               <li key={l.id} className="flex h-10 items-center border-b border-line/70 last:border-0">
                 <span className="w-36 shrink-0 truncate pr-3 text-xs text-ink-2" title={l.label}>

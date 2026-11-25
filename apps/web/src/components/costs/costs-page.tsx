@@ -26,7 +26,7 @@ function Figure({ label, value, note, tone }: { label: string; value: string; no
 function ComparisonResult({ data }: { data: CostComparison }) {
   const cur = data.currency;
   const m = data.methods;
-  const unit = (v?: string | null) => (v ? formatMoney(v, cur, { locale: undefined }) : "—");
+  const unit = (v?: string | null) => (v ? formatMoney(v, cur, { locale: undefined }) : "–");
   const rec = data.reconciliation;
   return (
     <div className="space-y-4" data-testid="cost-result">
@@ -87,11 +87,11 @@ function ComparisonResult({ data }: { data: CostComparison }) {
       )}
       {data.lots.length > 0 && (
         <div>
-          <p className="mb-1.5 text-dense font-medium text-ink-2">Lots on hand — lot cost</p>
+          <p className="mb-1.5 text-dense font-medium text-ink-2">Lots on hand: lot cost</p>
           <SimpleTable
             columns={[
               { key: "l", label: "Lot", render: (r) => <span className="code text-xs">{r.lot_id}</span> },
-              { key: "d", label: "Received", render: (r) => <span className="figure text-xs">{r.receipt_date ?? "—"}</span> },
+              { key: "d", label: "Received", render: (r) => <span className="figure text-xs">{r.receipt_date ?? "–"}</span> },
               { key: "q", label: "On hand", align: "right", render: (r) => <span className="figure">{formatQuantity(r.quantity as string, data.uom)}</span> },
               { key: "c", label: "Lot unit cost", align: "right", render: (r) => <span className="figure">{formatMoney(r.unit_cost as string, cur)}</span> },
             ]}
@@ -164,8 +164,8 @@ function CostComparisonPanel() {
 const abcColumns = (currency: string | null): SimpleColumn[] => [
   { key: "i", label: "Item", render: (r) => <span className="code text-xs">{r.item_id}</span> },
   { key: "v", label: "On-hand value", align: "right", render: (r) => <span className="figure">{formatMoney(r.value as string, currency)}</span> },
-  { key: "c", label: "Computed", render: (r) => r.computed ?? "—" },
-  { key: "a", label: "Assigned in source", render: (r) => r.assigned ?? "—" },
+  { key: "c", label: "Computed", render: (r) => r.computed ?? "–" },
+  { key: "a", label: "Assigned in source", render: (r) => r.assigned ?? "–" },
   { key: "d", label: "", render: (r) => (r.differs ? <Badge tone="signal">differs</Badge> : null) },
 ];
 
@@ -176,7 +176,7 @@ function AbcPanel() {
   const [run, setRun] = useState<{ a: string; b: string; currency: string } | null>(null);
   const abc = useAbc(run?.a ?? "", run?.b ?? "", run?.currency ?? "");
   return (
-    <Panel title="Computed ABC vs assigned" subtitle="Draft method: on-hand value ranking. You choose the cutoffs — there are no defaults." provenance={run ? abc.data?.provenance : undefined} warnings={abc.data?.warnings}>
+    <Panel title="Computed ABC vs assigned" subtitle="Draft method: on-hand value ranking. You choose the cutoffs: there are no defaults." provenance={run ? abc.data?.provenance : undefined} warnings={abc.data?.warnings}>
       <form
         className="mb-4 flex flex-wrap items-end gap-3"
         onSubmit={(e) => {

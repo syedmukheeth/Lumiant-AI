@@ -20,7 +20,7 @@ const TARGET = VALUE.map(() => 2_500_000);
 export const SAMPLE_TREND: { rows: TrendRow[]; series: TrendSeries[] } = {
   series: [
     { key: "value", label: "Inventory value" },
-    { key: "target", label: "Target ceiling", color: "var(--ai)", dashed: true },
+    { key: "target", label: "Target ceiling", color: "var(--ink-3)", dashed: true },
   ],
   rows: months.map((m, i) => ({
     label: m,
@@ -133,6 +133,6 @@ export const SAMPLE_TIMELINE: { lanes: TimelineLane[]; from: string; to: string;
     { id: "a", label: "SO-4821 · Pump assy", bars: [{ label: "PO-771 bearing", start: "2026-11-24", end: "2026-12-19", tone: "critical", note: "lands after due date" }], markers: [{ date: "2026-12-12", label: "Customer due" }] },
     { id: "b", label: "SO-4830 · Valve kit", bars: [{ label: "Transfer from 2100", start: "2026-11-26", end: "2026-12-03", tone: "accent" }], markers: [{ date: "2026-12-10", label: "Customer due" }] },
     { id: "c", label: "SO-4842 · Gasket set", bars: [{ label: "PO-779 rubber", start: "2026-12-01", end: "2026-12-29", tone: "warning", note: "4 days of slack" }], markers: [{ date: "2027-01-02", label: "Customer due" }] },
-    { id: "d", label: "SO-4855 · Motor", bars: [{ label: "Alternate item", start: "2026-12-08", end: "2026-12-15", tone: "ai", note: "suggested option" }], markers: [{ date: "2026-12-20", label: "Customer due" }] },
+    { id: "d", label: "SO-4855 · Motor", bars: [{ label: "Alternate item", start: "2026-12-08", end: "2026-12-15", tone: "accent", note: "suggested option" }], markers: [{ date: "2026-12-20", label: "Customer due" }] },
   ],
 };

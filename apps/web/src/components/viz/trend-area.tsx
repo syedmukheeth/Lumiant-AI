@@ -41,7 +41,7 @@ export function TrendArea({ rows, series, label, height = 240 }: { rows: TrendRo
             content={({ active, label: l }: TooltipContentProps) => {
               const row = active ? byLabel.get(String(l)) : undefined;
               return row ? (
-                <TooltipCard title={row.label} lines={series.map((s, i) => ({ label: s.label, value: row.exact[s.key] ?? "—", color: color(i, s) }))} />
+                <TooltipCard title={row.label} lines={series.map((s, i) => ({ label: s.label, value: row.exact[s.key] ?? "–", color: color(i, s) }))} />
               ) : null;
             }}
           />

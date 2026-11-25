@@ -74,12 +74,8 @@
   --status-serious: #ec835a;
   --status-critical: #e05252;
 
-  /* Product v2 (docs/05-plan/PRODUCT_V2_PLAN.md §3) ------------------------------------------------------------
-   * AI signature: the brand gold marks what the Analyst wrote or can do. Non-text marks and large text only
-   * (6.9:1 on the dark panel, 4.4:1 on white in light). */
-  --ai: #d29a47;
-  --ai-soft: rgb(210 154 71 / 0.12);
-  --ai-line: rgb(210 154 71 / 0.4);
+  /* Product v2 (docs/05-plan/PRODUCT_V2_PLAN.md §3): data ramps. No separate AI colour: AI work uses the same
+   * neutral surfaces and brand accent as everything else (owner, 2026-11-25). */
   /* sequential ramp (one hue, teal; low → high) for heatmaps and treemaps */
   --seq-1: #12313d;
   --seq-2: #165258;
@@ -96,8 +92,6 @@
   --div-neg: #e0884a;
   --div-mid: #34445f;
   --div-pos: #3cc2b6;
-  /* depth: a faint wash on the page plane only, never on panels */
-  --page-wash: linear-gradient(180deg, rgb(60 194 182 / 0.04), transparent 28rem);
 
   /* shape: controls, panels, floating layers; pills use rounded-full */
   --r-control: 0.5rem;
@@ -173,9 +167,6 @@
   --viz-axis: #c9d1dd;
   --viz-cursor: rgb(15 29 51 / 0.04);
   --status-critical: #c93030;
-  --ai: #a86a17;
-  --ai-soft: rgb(196 135 47 / 0.12);
-  --ai-line: rgb(168 106 23 / 0.45);
   --seq-1: #e2f1ef;
   --seq-2: #b2dcd7;
   --seq-3: #6cbab2;
@@ -189,7 +180,6 @@
   --div-neg: #c25e1c;
   --div-mid: #d5dce6;
   --div-pos: #1f7f77;
-  --page-wash: linear-gradient(180deg, rgb(17 37 69 / 0.035), transparent 28rem);
   color-scheme: light;
 }
 
@@ -229,9 +219,6 @@
   --color-status-warning: var(--status-warning);
   --color-status-serious: var(--status-serious);
   --color-status-critical: var(--status-critical);
-  --color-ai: var(--ai);
-  --color-ai-soft: var(--ai-soft);
-  --color-ai-line: var(--ai-line);
   --color-seq-1: var(--seq-1);
   --color-seq-2: var(--seq-2);
   --color-seq-3: var(--seq-3);
@@ -292,8 +279,6 @@ body {
 }
 
 body {
-  background-image: var(--page-wash);
-  background-repeat: no-repeat;
   font-family: var(--font-sans);
   /* Inter: open digits and an l with a tail, so codes and amounts are never ambiguous */
   font-feature-settings: "calt" 1, "ss01" 1, "cv05" 1;

@@ -108,7 +108,7 @@ export function KpiStrip({ canSeeValue }: { canSeeValue: boolean }) {
               </li>
             ))}
             {value.data && value.data.data.length > 1 && (
-              <li className="text-xs text-ink-3">Shown per currency — not converted or added.</li>
+              <li className="text-xs text-ink-3">Shown per currency, not converted or added.</li>
             )}
           </ul>
         ) : (

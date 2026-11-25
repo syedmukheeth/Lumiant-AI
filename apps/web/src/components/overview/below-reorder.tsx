@@ -64,7 +64,7 @@ export function BelowReorderPanel() {
                     <span className="code text-xs">{r.warehouse_id}</span>
                     <span className="block truncate text-xs text-ink-3">{r.warehouse_name}</span>
                   </Td>
-                  <Td>{r.abc_class ?? "—"}</Td>
+                  <Td>{r.abc_class ?? "–"}</Td>
                   <Td align="right" className="figure">
                     {formatQuantity(r.on_hand as string, String(r.uom ?? ""))}
                   </Td>

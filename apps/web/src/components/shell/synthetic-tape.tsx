@@ -5,7 +5,7 @@ export function SyntheticTape({ compact = false }: { compact?: boolean }) {
   return (
     <span
       className="inline-flex shrink-0 items-center rounded-full border border-line-strong bg-surface-2 px-2 py-0.5"
-      title="Generated demonstration data — not from any customer system"
+      title="Generated demonstration data, not from any customer system"
       data-testid="synthetic-badge"
     >
       <span className="whitespace-nowrap text-[0.625rem] leading-4 font-semibold tracking-[0.08em] text-ink-2">
@@ -27,7 +27,7 @@ export function ClientExtractTape({ compact = false }: { compact?: boolean }) {
   return (
     <span
       className="inline-flex shrink-0 items-center rounded-full border border-signal bg-signal-soft px-2 py-0.5"
-      title="Real client data loaded locally from exported files — confidential, do not share or deploy"
+      title="Real client data loaded locally from exported files. Confidential: do not share or deploy"
       data-testid="client-extract-badge"
     >
       <span className="whitespace-nowrap text-[0.625rem] leading-4 font-bold tracking-[0.08em] text-signal">

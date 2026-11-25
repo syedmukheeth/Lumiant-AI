@@ -25,7 +25,7 @@ export function RadarChart({ axes, series, label, height = 280 }: { axes: string
           <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
           <Tooltip
             content={({ active, label: l }: TooltipContentProps) =>
-              active ? <TooltipCard title={String(l)} lines={shown.map((s, i) => ({ label: s.name, value: s.exact[String(l)] ?? "—", color: color(i, s) }))} /> : null
+              active ? <TooltipCard title={String(l)} lines={shown.map((s, i) => ({ label: s.name, value: s.exact[String(l)] ?? "–", color: color(i, s) }))} /> : null
             }
           />
           {shown.map((s, i) => (

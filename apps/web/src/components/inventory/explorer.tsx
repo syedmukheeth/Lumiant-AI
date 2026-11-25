@@ -37,7 +37,7 @@ const COLUMNS: Col[] = [
     render: (r) => <CodeName code={r["item.item_code"] ?? r.item_id} name={r["item.description"] as string | null} max="max-w-80" />,
   },
   { key: "group", label: "Group", sort: "item_group", render: (r) => humanize(r["item.item_group"] as string) },
-  { key: "abc", label: "ABC", sort: "abc_class", field: "item.abc_class", render: (r) => r["item.abc_class"] ?? "—" },
+  { key: "abc", label: "ABC", sort: "abc_class", field: "item.abc_class", render: (r) => r["item.abc_class"] ?? "–" },
   {
     key: "warehouse",
     label: "Warehouse",
@@ -47,11 +47,11 @@ const COLUMNS: Col[] = [
         <span className="code block text-xs text-ink-3">
           {r.warehouse_id} · {r.location_id}
         </span>
-        <span className="block max-w-56 truncate">{r["warehouse.name"] ?? "—"}</span>
+        <span className="block max-w-56 truncate">{r["warehouse.name"] ?? "–"}</span>
       </>
     ),
   },
-  { key: "lot", label: "Lot", field: "lot_id", render: (r) => <span className="code text-xs">{r.lot_id ?? "—"}</span> },
+  { key: "lot", label: "Lot", field: "lot_id", render: (r) => <span className="code text-xs">{r.lot_id ?? "–"}</span> },
   {
     key: "status",
     label: "Stock status",

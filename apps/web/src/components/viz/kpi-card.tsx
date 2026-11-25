@@ -47,7 +47,7 @@ export function KpiCard({
   unit?: string;
   delta?: { direction: Direction; text: string; goodWhen?: "up" | "down"; period?: string };
   trend?: number[];
-  tone?: "accent" | "ai" | "critical" | "muted";
+  tone?: "accent" | "critical" | "muted";
   hint?: string;
 }) {
   return (

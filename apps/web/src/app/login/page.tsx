@@ -35,7 +35,7 @@ export default function LoginPage() {
     <div className="mx-auto flex min-h-dvh max-w-2xl flex-col px-4 py-10 sm:py-16">
       <div className="flex items-center justify-between">
         <div className="rise flex flex-col items-start gap-2">
-          <h1 className="sr-only">Lumiant — sign in</h1>
+          <h1 className="sr-only">Sign in to Lumiant</h1>
           <BrandLogo height={52} plate />
           <p className="pl-2 text-xs text-ink-3">Inventory intelligence platform</p>
         </div>
@@ -45,7 +45,7 @@ export default function LoginPage() {
       <div className="rise mt-10 flex items-start gap-3 rounded-panel border border-signal/35 bg-signal-soft p-4" style={enterDelay(1)}>
         <ShieldAlert size={16} className="mt-0.5 shrink-0 text-signal" aria-hidden />
         <div>
-          <p className="text-sm font-semibold text-ink">Development authentication — not for production</p>
+          <p className="text-sm font-semibold text-ink">Development authentication, not for production</p>
           <p className="mt-1 text-sm leading-relaxed text-ink-2">
             Pick a demo user. Each has a different role and warehouse scope so you can see access control in action.{" "}
             {hasExtract ? (

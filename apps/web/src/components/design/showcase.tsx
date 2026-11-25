@@ -1,7 +1,5 @@
 "use client";
 
-import { Sparkles } from "lucide-react";
-
 import { Panel } from "@/components/data/widget";
 import { Badge, Chip } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,7 +36,6 @@ const SWATCHES: { group: string; tokens: { name: string; note: string }[] }[] = 
       { name: "--brand-navy", note: "Logo navy" },
       { name: "--brand-teal", note: "Logo teal" },
       { name: "--brand-gold", note: "Logo gold" },
-      { name: "--ai", note: "AI signature (gold)" },
     ],
   },
   {
@@ -97,7 +94,7 @@ export function DesignShowcase() {
       <PageHeader
         title="Design system"
         description="Lumiant's colours, type, controls and charts in the current theme. Switch the theme from the command palette (Ctrl K → Theme) to see the other one."
-        actions={<Badge tone="signal">Sample values — not tenant data</Badge>}
+        actions={<Badge tone="signal">Sample values, not tenant data</Badge>}
       />
 
       <Panel title="Colour" subtitle="Tokens from app/globals.css. Brand colours come from the official logos.">
@@ -123,7 +120,7 @@ export function DesignShowcase() {
             <p className="text-page font-semibold text-ink">Page title 26</p>
             <p className="text-section font-semibold text-ink">Section 18</p>
             <p className="text-title font-semibold text-ink">Panel title 15</p>
-            <p className="text-sm text-ink-2">Body 14 — the quick review of stock that matters.</p>
+            <p className="text-sm text-ink-2">Body 14: the quick review of stock that matters.</p>
             <p className="text-kpi font-semibold text-ink figure">USD 2,767,451.83</p>
             <p className="code text-sm text-ink-2">ITEM-0001042 · LOT 24-118 · 3100</p>
           </div>
@@ -144,9 +141,6 @@ export function DesignShowcase() {
               <Badge tone="accent">Accent</Badge>
               <Badge tone="signal">Needs attention</Badge>
               <Badge tone="ok">Healthy</Badge>
-              <span className="inline-flex items-center gap-1 rounded-full border border-ai-line bg-ai-soft px-2 py-0.5 text-caption font-medium text-ink">
-                <Sparkles className="size-3 text-ai" aria-hidden /> AI answer
-              </span>
             </div>
             <div className="flex flex-wrap gap-2">
               <Chip>Which items are below reorder level?</Chip>
@@ -160,14 +154,14 @@ export function DesignShowcase() {
         <KpiCard label="Inventory value" value="USD 2.77M" trend={SAMPLE_SPARK} delta={{ direction: "up", text: "1.5%", goodWhen: "down", period: "vs Oct" }} />
         <KpiCard label="Items below reorder" value="18" trend={[24, 22, 25, 21, 19, 20, 18]} tone="critical" delta={{ direction: "down", text: "2", goodWhen: "down", period: "vs last week" }} />
         <KpiCard label="Expiring in 60 days" value="9" unit="lots" trend={[4, 6, 5, 8, 7, 9, 9]} tone="muted" delta={{ direction: "flat", text: "0" }} />
-        <KpiCard label="Data quality score" value="92" unit="/ 100" trend={[81, 84, 86, 88, 90, 91, 92]} tone="ai" hint="3 checks need data" />
+        <KpiCard label="Data quality score" value="92" unit="/ 100" trend={[81, 84, 86, 88, 90, 91, 92]} tone="accent" hint="3 checks need data" />
       </section>
 
       <div className="grid gap-4 @5xl:grid-cols-2">
-        <Panel title="Trend — inventory value" subtitle="TrendArea · area + dashed comparison line">
+        <Panel title="Trend: inventory value" subtitle="TrendArea · area + dashed comparison line">
           <TrendArea rows={SAMPLE_TREND.rows} series={SAMPLE_TREND.series} label="Sample inventory value per month over twelve months, in USD, against a target ceiling." />
         </Panel>
-        <Panel title="ABC — value concentration" subtitle="ParetoChart · bars by rank, cumulative share, class bands">
+        <Panel title="ABC: value concentration" subtitle="ParetoChart · bars by rank, cumulative share, class bands">
           <ParetoChart items={SAMPLE_PARETO} bands={[80, 95]} label="Sample Pareto curve: thirty items ranked by value with their cumulative share." />
         </Panel>
         <Panel title="Value by item group" subtitle="Treemap · share of the whole">

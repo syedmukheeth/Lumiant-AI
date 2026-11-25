@@ -24,9 +24,9 @@ describe("formatMoney", () => {
   });
 
   it("renders missing or malformed values as a dash, never as zero", () => {
-    expect(plain(formatMoney(null, "USD", { locale: L }))).toBe("—");
-    expect(plain(formatMoney("", "USD", { locale: L }))).toBe("—");
-    expect(plain(formatMoney("12abc", "USD", { locale: L }))).toBe("—");
+    expect(plain(formatMoney(null, "USD", { locale: L }))).toBe("–");
+    expect(plain(formatMoney("", "USD", { locale: L }))).toBe("–");
+    expect(plain(formatMoney("12abc", "USD", { locale: L }))).toBe("–");
   });
 
   it("supports compact axis labels", () => {
@@ -38,7 +38,7 @@ describe("quantities and counts", () => {
   it("keeps up to three decimals and appends the unit", () => {
     expect(formatQuantity("107.6130", "KG", L)).toBe("107.613 KG");
     expect(formatQuantity("17.0000", "EA", L)).toBe("17 EA");
-    expect(formatQuantity(null, "EA", L)).toBe("—");
+    expect(formatQuantity(null, "EA", L)).toBe("–");
   });
 
   it("formats counts without decimals", () => {
@@ -50,7 +50,7 @@ describe("quantities and counts", () => {
 describe("helpers", () => {
   it("humanizes codes", () => {
     expect(humanize("MECH_SPARES")).toBe("Mech Spares");
-    expect(humanize(null)).toBe("—");
+    expect(humanize(null)).toBe("–");
   });
 
   it("chart numbers are only used for geometry", () => {

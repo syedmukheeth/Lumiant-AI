@@ -158,7 +158,7 @@ export function InsightsFeed() {
             {feed.data?.gaps.map((g) => (
               <li key={g.id} className="rounded-control border border-dashed border-line-strong px-3 py-2">
                 <span className="font-medium text-ink-2">{humanize(g.id)}</span>
-                <span className="text-ink-3"> — needs {g.needs || "more source data"}</span>
+                <span className="text-ink-3">: needs {g.needs || "more source data"}</span>
               </li>
             ))}
           </ul>

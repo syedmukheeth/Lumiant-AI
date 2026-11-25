@@ -270,7 +270,7 @@ export function AnalystDock({ canCost }: { canCost: boolean }) {
                 <div className="rounded-panel border border-dashed border-line-strong p-4">
                   <p className="text-sm font-medium text-ink">{selections.length ? "What would you like to know?" : "Point at anything"}</p>
                   <p className="mt-1 text-xs leading-relaxed text-ink-3">
-                    Right-click a KPI, chart, row or insight — or press <kbd>L</kbd> for Lens and click it. Shift-click several to compare them.
+                    Right-click a KPI, chart, row or insight, or press <kbd>L</kbd> for Lens and click it. Shift-click several to compare them.
                   </p>
                 </div>
                 {starters.length > 0 && (

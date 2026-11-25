@@ -31,7 +31,7 @@ export function StackedBars({ rows, series, label, height = 260 }: { rows: Stack
                 <TooltipCard
                   title={r.label}
                   lines={[
-                    ...series.map((s, i) => ({ label: s.label, value: r.exact[s.key] ?? "—", color: color(i, s) })),
+                    ...series.map((s, i) => ({ label: s.label, value: r.exact[s.key] ?? "–", color: color(i, s) })),
                     ...(r.total ? [{ label: "Total", value: r.total }] : []),
                   ]}
                 />
