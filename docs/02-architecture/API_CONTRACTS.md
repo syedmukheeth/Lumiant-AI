@@ -52,3 +52,12 @@ Status: **Implemented and tested (M1)** in `services/api/src/lumiant/api/`. Base
 | POST | `/api/query` | `query:run` | body = QueryPlan → envelope |
 
 Exact request/response models: FastAPI OpenAPI at `/api/docs` (enabled only when `APP_ENV != production`).
+
+## Public: demo requests (Product v2, S10)
+- `POST /api/public/demo-requests`: no session; needs the CSRF header; per-IP rate limit (login bucket). Body: `name` (1–120), `email` (work email), `company` (1–160), optional `role`, `systems`, `message` (≤ 1000), `consent: true`, hidden `website` (honeypot: accepted, not stored). `202 {"status": "received"}`; `422` for invalid input or no consent. Stored in the application database (`demo_request`, Alembic `0002`); personal details are never logged.
+- `GET /api/admin/demo-requests`: `super_admin` only (platform data, not tenant data); latest 100.
+
+## Agent tools added in S10 (ADR-0012)
+- `query_inventory`: typed plan over the canonical catalog (dataset, group_by, measures, filters, order_by, descending, limit ≤ 100); same validation, scope and audit as `/api/query`.
+- `search_knowledge`: cited passages from Lumiant's definitions; answer blocks gain `{"type": "sources", "title", "items": [{id, source, heading, text}]}`.
+- Stream steps `think:N` ("Reviewing the results") appear between tool rounds when an external model plans several rounds.

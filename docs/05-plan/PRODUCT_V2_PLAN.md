@@ -39,9 +39,9 @@ Keep the official palette from the logos (DEC in `BRAND_IMPLEMENTATION.md`); ele
 
 | Token group | Change |
 |---|---|
-| Surfaces | Navy planes gain a subtle vertical gradient on the page plane and a 1-px top highlight on raised cards (depth without glow) |
-| Accent | Teal stays the working accent in dark, navy in light. **Gold** becomes the signature for AI: Analyst button, AI-written text marker, landing hero line |
-| Data colours | Existing validated `--viz-*` set; add a sequential teal ramp (heatmaps, treemap) and a diverging teal↔amber ramp (variance, over/under) — validated with the dataviz checker for both themes |
+| Surfaces | Flat navy planes with a 1-px top highlight on raised cards; no page wash or radial glow |
+| Accent | Teal stays the working accent in dark, navy in light. No separate "AI" colour, glow or gradient: AI work uses the same neutral surfaces and accent as the rest of the product (owner, 25 Nov 2026) |
+| Data colours | Existing validated `--viz-*` set; add a sequential teal ramp (heatmaps, treemap) and a diverging teal↔amber ramp (variance, over/under): validated with the dataviz checker for both themes |
 | Type | Inter for UI and numbers (tabular), Geist Mono for codes; add a display size (40/48 px, tight tracking) for landing and KPI heroes |
 | Motion | Number count-up on KPI load (respecting reduced motion), chart enter morphs, drawer and dock spring; existing `lib/motion.ts` constants extended, not replaced |
 | Illustration | Line-art empty states and onboarding visuals in brand colours (SVG, < 4 KB each) |
@@ -75,18 +75,18 @@ Built on Recharts (already installed) plus small hand-written SVG where Recharts
 
 ## 5. Screens
 
-### 5.1 Public landing page (`/`) — new
+### 5.1 Public landing page (`/`): new
 Same Next.js app, statically rendered, no API calls, < 100 KB JS. Signed-in users go straight to the app.
 
-1. **Hero:** one-line promise ("Know every unit, every cost, every risk — and ask why."), sub-line, primary CTA *Request a demo*, secondary *Sign in*. Visual: an animated, synthetic product frame (overview + an Analyst answer typing out), labelled "Synthetic demo data".
+1. **Hero:** one-line promise ("Know every unit, every cost, every risk: and ask why."), sub-line, primary CTA *Request a demo*, secondary *Sign in*. Visual: an animated, synthetic product frame (overview + an Analyst answer typing out), labelled "Synthetic demo data".
 2. **Proof strip:** "Read-only by design · Every number traceable · Works with SAP, Odoo and SQL warehouses" (text, no third-party logos).
 3. **Problem → outcome:** three cards (dead stock and cash tied up; stock-outs and late customer orders; nobody trusts the numbers).
-4. **Feature tour:** sticky scroll sections — Command centre, AI Analyst, Planning & commitment protection, Suppliers, Reports. Each with a real component rendered on synthetic data.
+4. **Feature tour:** sticky scroll sections: Command centre, AI Analyst, Planning & commitment protection, Suppliers, Reports. Each with a real component rendered on synthetic data.
 5. **How it works:** Connect (read-only) → Model (canonical inventory) → Ask (AI + dashboards), with a small animated diagram.
 6. **Trust & security:** read-only connectors, role and warehouse scope, provenance, audit trail, AI never writes SQL, data stays in your region.
 7. **FAQ** and **final CTA**; footer.
 
-### 5.2 Sign-in — redesign
+### 5.2 Sign-in: redesign
 Split screen: form left, rotating product visual + one customer-value line right. Clear "Development sign-in" label while auth is dev-only.
 
 ### 5.3 App shell
@@ -207,7 +207,7 @@ Techniques: server components for static shells, route prefetch, React Query per
 
 | Phase | Scope | Depends on |
 |---|---|---|
-| **P1 · Foundations** | Design system v2 tokens, chart kit, `/design` showcase, number formatter, perf baseline measurements | — |
+| **P1 · Foundations** | Design system v2 tokens, chart kit, `/design` showcase, number formatter, perf baseline measurements |: |
 | **P2 · Analyst v2** | §6 steps 1–10 | Owner's Gemini key in `.env` (step 1 only; steps 2–6 can be built and tested with fake clients first) |
 | **P3 · Landing + sign-in** | §5.1, §5.2 | P1 |
 | **P4 · Command centre** | §5.4 + time-bucket metric + synthetic history | P1 |

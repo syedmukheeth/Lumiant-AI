@@ -1,4 +1,4 @@
-# ADR-0012: Analyst v2 — multi-step tool loop, `query_inventory`, knowledge retrieval
+# ADR-0012: Analyst v2: multi-step tool loop, `query_inventory`, knowledge retrieval
 
 - **Status:** Accepted
 - **Date:** 2026-11-25

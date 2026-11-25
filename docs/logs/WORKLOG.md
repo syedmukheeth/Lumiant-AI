@@ -294,10 +294,10 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 - **Not done:** topic docs, CURRENT_STATE and IMPLEMENTATION_PLAN not yet updated for the planning module; log changes not committed.
 
 ## 2026-11-25 · S10 · Product v2 plan (UI/UX, landing page, Analyst v2 on Gemini)
-- **Goal:** owner: make Lumiant "next level" — premium custom colours, far more visuals, easy and fast UX, a proper landing page, a fully working Gemini assistant with RAG over the data; "a product, not a prototype". Plan first.
+- **Goal:** owner: make Lumiant "next level": premium custom colours, far more visuals, easy and fast UX, a proper landing page, a fully working Gemini assistant with RAG over the data; "a product, not a prototype". Plan first.
 - **Done:** read the worklog, `UI_UX_AUDIT.md`, `UI_UX_IMPLEMENTATION_STATUS.md`, web source and `agent/` source. Wrote `05-plan/PRODUCT_V2_PLAN.md`: honest gap table, design principles, visual identity v2 on the official palette, a chart kit (12 components), screen-by-screen plan incl. a public landing page, Analyst v2 (Gemini multi-step tool loop, `query_inventory(QueryPlan)` tool within ADR-0002, tenant-scoped knowledge index for definitions/policies/item text, chart blocks, streaming, threads, live eval gate), speed/accessibility budgets, productisation items, phases P1–P7 and decisions D1–D7. M12 added to `IMPLEMENTATION_PLAN.md` as proposed; docs map updated.
 - **Findings:** Recharts is used in one component only; `/` redirects to `/overview` (no landing page); the model picks tools once per question (no chaining); `query_inventory` is allowed by ADR-0002 but not exposed to the model; `QueryPlan` has no time bucket, so trend charts need a new tested op.
-- **Not done:** live look at the app this session — `api` and `web` dev servers stayed at "starting" for several minutes on this machine and were stopped (same class as ISSUES #33); the plan relies on earlier live reviews. No code changed. Nothing committed.
+- **Not done:** live look at the app this session: `api` and `web` dev servers stayed at "starting" for several minutes on this machine and were stopped (same class as ISSUES #33); the plan relies on earlier live reviews. No code changed. Nothing committed.
 - **Next:** owner approves the plan and decisions D1–D7; owner puts the Gemini key in `services/api/.env` (never in chat); start P1 + P2.
 
 ## 2026-11-25 · S10 · P1 + P2 (owner: "Approve, start P1+P2"; then "loop until the session limit, find bugs, upgrade UI/UX, test and push")
@@ -306,3 +306,14 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 - **Bugs found and fixed:** circular import when `data_tools` loaded first (tools now self-register); hydration mismatch from locale month names; treemap labels unreadable on bright cells; waterfall changes invisible from a zero baseline; clipped timeline labels.
 - **Commands + results:** TEST_RUNS S10-1…S10-5. API 804 passed + 6 skips; web unit 89; lint/types clean.
 - **Not done:** live Gemini (ISSUES #56/#13); e2e not re-run for this chunk; light theme of `/design` not looked at yet.
+
+## 2026-11-25 · S10 · P3 landing page + demo requests (loop chunk 2)
+- **Done:** public landing page at `/` (server-rendered; signed-in users go to the app; hero with a self-typing sample Analyst exchange, principles strip, problems, feature tour with sample visuals, how it works, trust and security, FAQ, demo form, footer; skip link; every visual labelled "Sample data"). Proxy: `/` and `/login` are the only public pages. Demo requests (decision D3): `lumiant.leads` store, Alembic `0002_demo_request`, `POST /api/public/demo-requests` (CSRF, IP rate limit, consent, honeypot, control-character stripping, no personal details in logs), `GET /api/admin/demo-requests` for `super_admin` only.
+- **Bugs fixed:** hidden chart tables widened pages (sr-only on `<table>`); duplicated "could not be reached" sentence in the app shell; landing grid columns now shrink (`min-w-0`).
+- **Commands + results:** TEST_RUNS S10-6…S10-8.
+- **Not done:** admin screen listing demo requests (API only); sign-in page redesign; no email notification for new requests.
+
+## 2026-11-25 · S10 · Owner feedback pass + agent bug hunt (loop chunk 3)
+- **Owner:** "no em dash and no AI-ish colours". Removed every em dash from visible text: web UI copy (commas, colons, "·"), empty-value placeholder now "–", Analyst answer text and choice labels, synthetic warehouse names ("North Plant: Raw Materials Store"), dev-login notice, planning notes; S10 docs too. Removed the gold `--ai` tint and its classes, the page wash, the hero radial glow, sparkle badges in new pages and the purple series from the chart kit; AI work now uses neutral surfaces and the brand teal/navy. DEC-028.
+- **Agent bug hunt:** a 16-question offline batch found three routing/wording bugs (TEST_RUNS S10-9), fixed with tests: "how many items" now gives the inventory summary; the definition fallback only fires on "what is / mean / explain / define" questions without codes or numbers; grouped answers read "X holds the most stock: N".
+- **Commands + results:** TEST_RUNS S10-9…S10-12.
