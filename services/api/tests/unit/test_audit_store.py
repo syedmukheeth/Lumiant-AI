@@ -22,7 +22,8 @@ def test_first_run_creates_missing_directory_and_schema(tmp_path: Path) -> None:
     store.record(AuditRecord(tenant_id="t", user_id="u", action="a", decision="allow", status="ok"))
     assert [e.action for e in store.recent("t")] == ["a"]
     with store.engine.connect() as conn:
-        assert conn.execute(sa.text("SELECT version_num FROM alembic_version")).scalar() == "0001"
+        assert conn.execute(sa.text("SELECT version_num FROM alembic_version")).scalar() == "0002"
+        assert conn.execute(sa.text("SELECT COUNT(*) FROM demo_request")).scalar() == 0  # table from 0002
     store.dispose()
 
 
@@ -45,7 +46,7 @@ def test_postgresql_migration_roundtrip_and_audit_search(tmp_path: Path) -> None
     assert all(e.occurred_at.tzinfo is not None for e in found)
     assert store.search("t", limit=1, offset=1, decision=None, action_prefix="100%_") == []  # LIKE wildcards escaped
     with store.engine.connect() as conn:
-        assert conn.execute(sa.text("SELECT version_num FROM alembic_version")).scalar() == "0001"
+        assert conn.execute(sa.text("SELECT version_num FROM alembic_version")).scalar() == "0002"
     store.dispose()
     command.downgrade(_alembic_config(url), "base")
     store2 = AuditStore(url)

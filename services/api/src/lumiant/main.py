@@ -21,6 +21,7 @@ from lumiant.api import (
     meta,
     metrics,
     planning,
+    public,
     query,
     reports,
 )
@@ -92,6 +93,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.container = container
     app.add_middleware(RequestContextMiddleware)
     install_error_handlers(app)
-    for module in (health, auth, meta, metrics, inventory, analyses, agent, insights, reports, admin, query, planning):
+    for module in (
+        health,
+        auth,
+        meta,
+        metrics,
+        inventory,
+        analyses,
+        agent,
+        insights,
+        reports,
+        admin,
+        query,
+        planning,
+        public,
+    ):
         app.include_router(module.router)
     return app
