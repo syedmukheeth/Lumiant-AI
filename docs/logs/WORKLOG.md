@@ -285,3 +285,10 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 - **CI on the PR head:** api, api-postgres-redis, docker green; web lint/typecheck/unit green but `pnpm audit` red (7 moderate advisories in `next` 16.4.0–16.4.4, fixed in 16.4.5; not caused by the PR); e2e skipped.
 - **Follow-up (owner: "Yes, bump next"):** `next` and `eslint-config-next` 16.4.3 → 16.4.5; audit clean, lint/typecheck/unit 78/build green (TEST_RUNS S08-1, S08-2).
 - **Not done:** e2e and API tests not re-run locally; changes not committed.
+
+## 2026-11-24 · S09 · Merge PR #7
+- **Goal:** owner: "accept the pr and fetch code locally".
+- **Done:** PR #7 (Saadahmed05, "Planning workspaces, official branding and customer commitment protection", 5 commits) merged on GitHub with a merge commit (`1ea5c0a`), same style as PRs #1–#5; local `main` fast-forwarded `4e4ca53..1ea5c0a`. 104 files, +10,828 / −109: new `lumiant.planning` package (BOM, MRP, suppliers, commitments, duplicates, obsolescence), `api/planning.py`, agent planning tools and small talk, synthetic `demo-delta` tenant, scenario evals, four web workspaces (Planning, Commitments, Suppliers, Master data), brand logo, ~35 new docs. No AI attribution in its commits; no `pyproject`/`package.json`/lockfile change, so no install needed.
+- **Local verification (owner: "Run tests"):** API 787 passed + 6 env-gated skips, ruff/format/mypy clean; web lint/typecheck clean, unit 80; e2e 36/36 (29 existing + 7 planning) on a clean build cache. First e2e attempt was cut off mid-build by a session restart and rerun. Four "socket hang up" proxy lines during e2e (requests aborted by navigation); no test affected.
+- **Commands + results:** TEST_RUNS S09-1…S09-5.
+- **Not done:** topic docs, CURRENT_STATE and IMPLEMENTATION_PLAN not yet updated for the planning module; log changes not committed.
