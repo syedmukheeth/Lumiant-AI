@@ -134,7 +134,7 @@ export default function LoginPage() {
     </div>
     <aside className="hidden border-l border-line bg-surface lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:justify-center lg:px-14 xl:px-20" aria-label="About Lumiant">
       <p className="eyebrow text-accent">Inventory intelligence</p>
-      <h2 className="mt-3 max-w-md text-[2rem] leading-tight font-semibold tracking-tight text-ink">Every number, with its source.</h2>
+      <h2 className="font-display mt-3 max-w-md text-[2.5rem] leading-[1.08] font-medium tracking-[-0.015em] text-ink">Every number, with its source.</h2>
       <p className="mt-4 max-w-md text-sm leading-relaxed text-ink-2">
         Dashboards, planning and an analyst that answers in plain language, all on one secured query engine.
       </p>

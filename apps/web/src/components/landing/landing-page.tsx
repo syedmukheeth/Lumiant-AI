@@ -84,7 +84,7 @@ function Section({ id, eyebrow, title, intro, children }: { id?: string; eyebrow
   return (
     <section id={id} className="mx-auto max-w-6xl scroll-mt-24 px-5 py-20 sm:py-24">
       <p className="eyebrow text-accent">{eyebrow}</p>
-      <h2 className="mt-3 max-w-3xl text-[2rem] leading-tight font-semibold tracking-tight text-ink sm:text-display">{title}</h2>
+      <h2 className="font-display mt-3 max-w-3xl text-[2.25rem] leading-[1.1] font-medium tracking-[-0.015em] text-ink sm:text-[3rem]">{title}</h2>
       {intro && <p className="mt-4 max-w-2xl text-base leading-relaxed text-ink-2">{intro}</p>}
       <div className="mt-12">{children}</div>
     </section>
@@ -98,7 +98,7 @@ function Feature({ icon: Icon, title, body, bullets, visual, flip }: { icon: typ
         <span className="grid size-10 place-items-center rounded-control border border-line-strong bg-surface-2 text-accent">
           <Icon className="size-5" aria-hidden />
         </span>
-        <h3 className="mt-4 text-section font-semibold text-ink">{title}</h3>
+        <h3 className="font-display mt-4 text-[1.5rem] leading-snug font-medium text-ink">{title}</h3>
         <p className="mt-2 leading-relaxed text-ink-2">{body}</p>
         <ul className="mt-4 space-y-2">
           {bullets.map((b) => (
@@ -129,7 +129,7 @@ export function LandingPage({ signInHref }: { signInHref: string }) {
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[70] focus:rounded-control focus:bg-surface-3 focus:px-3 focus:py-2 focus:text-sm">
         Skip to content
       </a>
-      <header className="glass sticky top-0 z-[40] border-b border-glass-line">
+      <header className="sticky top-0 z-[40] border-b border-glass-line bg-glass-strong backdrop-blur">
         <nav aria-label="Site" className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-5">
           <Link href="/" aria-label="Lumiant home">
             <BrandLogo height={34} />
@@ -174,7 +174,7 @@ export function LandingPage({ signInHref }: { signInHref: string }) {
             <div className="rise min-w-0">
               <p className="inline-flex items-center rounded-full border border-line-strong bg-surface px-3 py-1 text-caption font-medium text-ink-2">Inventory intelligence with an analyst you can check
               </p>
-              <h1 className="mt-6 text-[2.5rem] leading-[1.05] font-semibold tracking-tight text-ink sm:text-hero">
+              <h1 className="font-display mt-6 text-[2.75rem] leading-[1.04] font-medium tracking-[-0.02em] text-ink sm:text-[4rem]">
                 Know every unit, every cost, every risk, <span className="text-accent">and ask why.</span>
               </h1>
               <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-2">
@@ -309,7 +309,7 @@ export function LandingPage({ signInHref }: { signInHref: string }) {
           <div className="mx-auto grid max-w-6xl gap-10 rounded-[1.25rem] border border-line-strong bg-surface p-8 shadow-e2 sm:p-12 lg:grid-cols-2">
             <div>
               <p className="eyebrow text-accent">Request a demo</p>
-              <h2 className="mt-3 text-[2rem] leading-tight font-semibold tracking-tight text-ink">See Lumiant on data like yours.</h2>
+              <h2 className="font-display mt-3 text-[2.25rem] leading-tight font-medium tracking-[-0.015em] text-ink">See Lumiant on data like yours.</h2>
               <p className="mt-4 leading-relaxed text-ink-2">
                 Tell us a little about your inventory and systems. We use these details only to arrange the demo.
               </p>

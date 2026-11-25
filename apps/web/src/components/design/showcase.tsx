@@ -113,11 +113,11 @@ export function DesignShowcase() {
       </Panel>
 
       <div className="grid gap-4 @5xl:grid-cols-2">
-        <Panel title="Type" subtitle="Inter for text and numbers; Geist Mono for identifiers only.">
+        <Panel title="Type" subtitle="Newsreader for titles and headlines; Inter for interface text and numbers; Geist Mono for identifiers.">
           <div className="space-y-3">
-            <p className="text-hero font-semibold text-ink">Hero 60</p>
-            <p className="text-display font-semibold text-ink">Display 44</p>
-            <p className="text-page font-semibold text-ink">Page title 26</p>
+            <p className="font-display text-[4rem] leading-none font-medium tracking-[-0.02em] text-ink">Display serif 64</p>
+            <p className="font-display text-[3rem] leading-none font-medium tracking-[-0.015em] text-ink">Section serif 48</p>
+            <p className="font-display text-[1.875rem] font-medium text-ink">Page title serif 30</p>
             <p className="text-section font-semibold text-ink">Section 18</p>
             <p className="text-title font-semibold text-ink">Panel title 15</p>
             <p className="text-sm text-ink-2">Body 14: the quick review of stock that matters.</p>

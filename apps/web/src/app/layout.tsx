@@ -19,6 +19,14 @@ const inter = localFont({
   display: "swap",
 });
 
+// Newsreader (SIL OFL) for page titles and marketing headlines: an editorial serif beside Inter's UI text.
+const newsreader = localFont({
+  src: "../../node_modules/@fontsource-variable/newsreader/files/newsreader-latin-standard-normal.woff2",
+  variable: "--font-newsreader",
+  weight: "200 800",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: { default: "Lumiant Inventory Intelligence", template: "%s · Lumiant" },
   description: "Inventory intelligence on top of your existing data warehouse.",
@@ -33,7 +41,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   // hydration does not report a nonce mismatch.
   const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
-    <html lang="en" className={`${inter.variable} ${GeistMono.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${inter.variable} ${newsreader.variable} ${GeistMono.variable}`} suppressHydrationWarning>
       <body className="min-h-dvh antialiased">
         <Script src="/theme-init.js" strategy="beforeInteractive" nonce={nonce} />
         <Providers>{children}</Providers>
