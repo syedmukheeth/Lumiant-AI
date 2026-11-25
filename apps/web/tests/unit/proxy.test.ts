@@ -10,6 +10,12 @@ describe("needsDevLogin (routing only; the API authorizes every request)", () =>
     expect(needsDevLogin("/login", false, "dev")).toBe(false);
   });
 
+  it("lets anyone open the public landing page, and nothing else without a session", () => {
+    expect(needsDevLogin("/", false, "dev")).toBe(false);
+    expect(needsDevLogin("/design", false, "dev")).toBe(true);
+    expect(needsDevLogin("/landing", false, "dev")).toBe(true);
+  });
+
   it("never redirects in OIDC mode: the identity-aware gateway signs users in (LA-01)", () => {
     expect(needsDevLogin("/overview", false, "oidc")).toBe(false);
     expect(needsDevLogin("/planning", false, "OIDC")).toBe(false);

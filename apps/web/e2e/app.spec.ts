@@ -3,7 +3,7 @@ import { expect, type Page, test } from "@playwright/test";
 async function signIn(page: Page, username: string) {
   await page.context().clearCookies();
   await page.goto("/login");
-  await expect(page.getByText("Development authentication — not for production")).toBeVisible();
+  await expect(page.getByText("Development authentication, not for production")).toBeVisible();
   await page.getByTestId(`login-${username}`).click();
   await page.waitForURL("**/overview");
   // Wait until the overview has data so the router is settled before the next interaction.
@@ -19,6 +19,17 @@ async function openInventory(page: Page) {
 test("unauthenticated visitors are sent to the login page", async ({ page }) => {
   await page.context().clearCookies();
   await page.goto("/overview");
+  await expect(page).toHaveURL(/\/login$/);
+});
+
+test("visitors see the public landing page and can reach sign-in", async ({ page }) => {
+  await page.context().clearCookies();
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1, name: /Know every unit/ })).toBeVisible();
+  await expect(page.getByText("Sample data").first()).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+  await page.getByTestId("landing-sign-in").click();
   await expect(page).toHaveURL(/\/login$/);
 });
 
