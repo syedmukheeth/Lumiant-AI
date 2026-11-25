@@ -1,7 +1,8 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, ShieldAlert } from "lucide-react";
+import { ArrowRight, Eye, FileSearch, Lock, ShieldAlert } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { DataBadge } from "@/components/shell/synthetic-tape";
@@ -11,6 +12,8 @@ import { api, ApiError, type DevUser } from "@/lib/api";
 import { humanize } from "@/lib/format";
 import { useDevUsers } from "@/lib/hooks";
 import { enterDelay } from "@/lib/motion";
+import { KpiCard } from "@/components/viz/kpi-card";
+import { SAMPLE_SPARK } from "@/components/viz/samples";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -32,7 +35,8 @@ export default function LoginPage() {
   const hasExtract = (users.data?.users ?? []).some((u) => u.data_classification === "customer_extract");
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-2xl flex-col px-4 py-10 sm:py-16">
+    <div className="grid min-h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
+    <div className="mx-auto flex w-full max-w-2xl min-w-0 flex-col px-4 py-10 sm:py-16">
       <div className="flex items-center justify-between">
         <div className="rise flex flex-col items-start gap-2">
           <h1 className="sr-only">Sign in to Lumiant</h1>
@@ -121,6 +125,28 @@ export default function LoginPage() {
           {login.error instanceof ApiError ? login.error.message : "Sign-in failed."}
         </p>
       )}
+      <p className="mt-10 text-xs text-ink-3">
+        New to Lumiant?{" "}
+        <Link href="/" className="font-medium text-accent hover:underline">
+          See what it does
+        </Link>
+      </p>
+    </div>
+    <aside className="hidden border-l border-line bg-surface lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:justify-center lg:px-14 xl:px-20" aria-label="About Lumiant">
+      <p className="eyebrow text-accent">Inventory intelligence</p>
+      <h2 className="mt-3 max-w-md text-[2rem] leading-tight font-semibold tracking-tight text-ink">Every number, with its source.</h2>
+      <p className="mt-4 max-w-md text-sm leading-relaxed text-ink-2">
+        Dashboards, planning and an analyst that answers in plain language, all on one secured query engine.
+      </p>
+      <div className="mt-8 grid max-w-md gap-3">
+        <KpiCard label="Inventory value (sample)" value="USD 2.77M" trend={SAMPLE_SPARK} delta={{ direction: "up", text: "1.5%", goodWhen: "down", period: "vs Oct" }} />
+      </div>
+      <ul className="mt-8 max-w-md space-y-2.5 text-sm text-ink-2">
+        <li className="flex items-center gap-2.5"><Eye className="size-4 text-accent" aria-hidden /> Read-only connection to your data</li>
+        <li className="flex items-center gap-2.5"><FileSearch className="size-4 text-accent" aria-hidden /> Provenance on every figure</li>
+        <li className="flex items-center gap-2.5"><Lock className="size-4 text-accent" aria-hidden /> The AI never writes SQL</li>
+      </ul>
+    </aside>
     </div>
   );
 }

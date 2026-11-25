@@ -40,6 +40,7 @@ const TABS = [
   { id: "capabilities", label: "Capabilities" },
   { id: "reconciliation", label: "Reconciliation" },
   { id: "audit", label: "Audit log" },
+  { id: "demo", label: "Demo requests" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
 
@@ -212,6 +213,40 @@ function AuditPanel({ me }: { me?: Me }) {
   );
 }
 
+type DemoRequestRow = { id: number; received_at: string; name: string; email: string; company: string; role: string | null; systems: string | null; message: string | null };
+
+/** Demo requests from the public landing page. Platform data: shown to platform administrators only. */
+function DemoRequestsPanel({ me }: { me?: Me }) {
+  const allowed = !!me?.roles.includes("super_admin");
+  const q = useQuery({
+    queryKey: ["admin-demo-requests"],
+    queryFn: () => api.get<{ requests: DemoRequestRow[] }>("/api/admin/demo-requests"),
+    enabled: allowed,
+    retry: false,
+  });
+  const cols: SimpleColumn[] = [
+    { key: "t", label: "Received", render: (r) => <span className="figure text-xs">{formatTimestamp(String(r.received_at))}</span> },
+    { key: "n", label: "Name", render: (r) => String(r.name) },
+    { key: "c", label: "Company", render: (r) => String(r.company) },
+    { key: "e", label: "Email", render: (r) => <span className="code text-xs">{String(r.email)}</span> },
+    { key: "s", label: "Systems", render: (r) => (r.systems ? String(r.systems) : <span className="text-ink-3">–</span>) },
+    { key: "m", label: "Message", render: (r) => (r.message ? <span className="block max-w-80 truncate" title={String(r.message)}>{String(r.message)}</span> : <span className="text-ink-3">–</span>) },
+  ];
+  return (
+    <Panel title="Demo requests" subtitle="Sent from the public landing page. Personal details: use them only to arrange the demo.">
+      {!allowed ? (
+        <p className="text-sm text-ink-3">Only platform administrators can view demo requests.</p>
+      ) : q.isPending ? (
+        <Skeleton className="h-32 w-full" />
+      ) : q.error ? (
+        <ErrorState error={q.error} />
+      ) : (
+        <SimpleTable columns={cols} rows={q.data.requests as unknown as Row[]} empty="No demo requests yet." rowKey={(r) => String(r.id)} minWidth="48rem" />
+      )}
+    </Panel>
+  );
+}
+
 export function AdminPage() {
   const me = useMe();
   const [tab, setTab] = useState<Tab>("schema");
@@ -226,6 +261,7 @@ export function AdminPage() {
       {tab === "capabilities" && <CapabilitiesPanel />}
       {tab === "reconciliation" && <ReconciliationPanel />}
       {tab === "audit" && <AuditPanel me={me.data} />}
+      {tab === "demo" && <DemoRequestsPanel me={me.data} />}
     </div>
   );
 }
