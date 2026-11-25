@@ -367,7 +367,7 @@ class RuleBasedProvider:
                     "clarify",
                     message=f"I found several items matching “{term}”. Which one do you mean?",
                     choices=[
-                        {"label": f"{r['item_code']} — {r['description']}", "item_id": str(r["item_id"])} for r in found
+                        {"label": f"{r['item_code']} · {r['description']}", "item_id": str(r["item_id"])} for r in found
                     ],
                 )
         # Last resort: one plain word that names exactly one item ("the impeller" -> RM-IMPELLER).
@@ -561,7 +561,7 @@ class RuleBasedProvider:
                 message=(
                     "I can't predict obsolescence: that needs product-lifecycle or equipment-status data, which isn't in the "
                     "mapped inventory data, and stock quantity alone doesn't show it. I can list dormant stock or slow-moving "
-                    "items instead — try “Which items have not moved in six months?”"
+                    "items instead. Try “Which items have not moved in six months?”"
                 ),
             )
         contextual = self._contextual(q, ctx)
@@ -634,6 +634,11 @@ class RuleBasedProvider:
             return Decision("tools", [ToolCall("top_value_items", {"limit": 10})])
         if dim is None and _has(q, _TOTAL) and not _has(q, _NAMES_SOMETHING):
             return Decision("tools", [ToolCall("inventory_summary", {})])
+        # "How many items do we have?" counts the catalogue in stock; it does not name one item.
+        if dim is None and _has(
+            q, r"how many (different |distinct |unique )?(items|products|materials|skus|parts|stock lines)\b(?! of\b)"
+        ):
+            return Decision("tools", [ToolCall("inventory_summary", {})])
         if _has(q, _CLASSIFICATIONS):
             measure = "value" if can_cost else "quantity"
             return Decision(
@@ -672,7 +677,7 @@ class RuleBasedProvider:
                         message=f"Item {item['item_code']} is held in {len(holders)} warehouses. Which one?",
                         choices=[
                             {
-                                "label": f"{h['warehouse_id']} — {h['warehouse.name']}"
+                                "label": f"{h['warehouse_id']} · {h['warehouse.name']}"
                                 if h.get("warehouse.name")
                                 else str(h["warehouse_id"]),
                                 "item_id": str(item["item_id"]),
@@ -707,8 +712,11 @@ class RuleBasedProvider:
         follow = self._follow_up(q, ctx)
         if follow:
             return follow
-        # Last resort: a question about meaning or method that the definitions cover well.
-        if _has(q, r"\b(what|how|why|explain|mean|means|meaning)\b"):
+        # Last resort: a question about meaning or method that the definitions cover well. Never for a question that
+        # names a code or number ("why is warehouse 3100 so high?" is about data, not a definition).
+        if _has(q, r"\b(what (is|are|does)|explain|mean|means|meaning|define|definition)\b") and not re.search(
+            r"\d", question
+        ):
             from lumiant.knowledge import product_index
 
             hit = product_index().best_keyword(question)

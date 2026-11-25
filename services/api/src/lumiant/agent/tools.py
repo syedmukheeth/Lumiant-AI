@@ -309,12 +309,11 @@ def stock_by(ctx: ToolContext, a: StockByArgs) -> ToolOutput:
     else:
         top = rows[0]
         units = sorted({str(r[unit_key]) for r in rows})
-        lead = (
-            f"Of the selected {label.lower()}s{where}, the highest" if a.only else f"The highest {label.lower()}{where}"
-        )
         shown = _money(top[unit_key], top["total"]) if valued else f"{_quantity(top['total'])} {top[unit_key]}"
         name = top.get(label_key) or (top.get("warehouse_id") if a.dimension == "warehouse" else None)
-        answer = f"{lead} is {name or 'not set'} with {shown}."
+        subject = name or f"Stock with no {label.lower()} set"
+        holds = f"holds the most {'value' if valued else 'stock'}{where}: {shown}"
+        answer = f"Of the selected {label.lower()}s, {subject} {holds}." if a.only else f"{subject} {holds}."
         if len(units) > 1:
             answer += f" Results are shown separately per {'currency' if valued else 'unit'} ({', '.join(units)}) and never added together."
     blocks = [

@@ -112,7 +112,7 @@ PROFILES: dict[str, TenantProfile] = {
         warehouses=(
             WarehouseSpec(
                 "1100",
-                "North Plant — Raw Materials Store",
+                "North Plant: Raw Materials Store",
                 "NORTH",
                 "Northfield",
                 "USD",
@@ -123,7 +123,7 @@ PROFILES: dict[str, TenantProfile] = {
             ),
             WarehouseSpec(
                 "1110",
-                "North Plant — Finished Goods",
+                "North Plant: Finished Goods",
                 "NORTH",
                 "Northfield",
                 "USD",
@@ -134,7 +134,7 @@ PROFILES: dict[str, TenantProfile] = {
             ),
             WarehouseSpec(
                 "1120",
-                "North Plant — Maintenance Spares",
+                "North Plant: Maintenance Spares",
                 "NORTH",
                 "Northfield",
                 "USD",
@@ -145,7 +145,7 @@ PROFILES: dict[str, TenantProfile] = {
             ),
             WarehouseSpec(
                 "2100",
-                "South Plant — Raw Materials Store",
+                "South Plant: Raw Materials Store",
                 "SOUTH",
                 "Southport",
                 "USD",
@@ -156,7 +156,7 @@ PROFILES: dict[str, TenantProfile] = {
             ),
             WarehouseSpec(
                 "2110",
-                "South Plant — Finished Goods",
+                "South Plant: Finished Goods",
                 "SOUTH",
                 "Southport",
                 "USD",

@@ -76,7 +76,7 @@ def write_duckdb(dataset: SyntheticDataset, tenant: TenantConfig, target: Path) 
         os.replace(tmp_db, target)
     except PermissionError as exc:
         tmp_db.unlink(missing_ok=True)
-        raise WriterError(f"{target} is in use — stop the API before regenerating synthetic data") from exc
+        raise WriterError(f"{target} is in use; stop the API before regenerating synthetic data") from exc
     return target
 
 

@@ -296,3 +296,24 @@ def test_model_view_marks_failed_results(query_service: QueryService, principals
 def test_new_tools_are_offered_to_every_reader(principals: dict[str, Principal]) -> None:
     names = {t.name for t in tools_for(principals["alpha.analyst"])}
     assert {"query_inventory", "search_knowledge"} <= names
+
+
+# ------------------------------------------------------------------------------------------- S10 bug hunt
+def test_how_many_items_counts_the_catalogue(agent: AgentService, principals: dict[str, Principal]) -> None:
+    out = agent.chat(principals["alpha.admin"], "How many items do we have?")
+    assert [c["name"] for c in out["tool_calls"]] == ["inventory_summary"]
+
+
+def test_data_questions_with_codes_never_fall_back_to_definitions(
+    agent: AgentService, principals: dict[str, Principal]
+) -> None:
+    out = agent.chat(principals["alpha.admin"], "Why is warehouse 3100 so high?")
+    assert "search_knowledge" not in [c["name"] for c in out["tool_calls"]]
+
+
+def test_grouped_answers_name_the_leader_plainly(agent: AgentService, principals: dict[str, Principal]) -> None:
+    out = agent.chat(principals["alpha.admin"], "Which warehouse has the most stock?")
+    assert "holds the most stock" in out["answer"]
+    assert "The highest" not in out["answer"]
+    assert "\u2014" not in out["answer"]  # no em dash in answer text
+    assert out["grounding"]["passed"]

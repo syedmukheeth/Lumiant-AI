@@ -854,7 +854,7 @@ def run_cost_comparison(
         "reconciliation": reconciliation,
         "lots": lots,
         "rules": COST_RULES,
-        "status": "draft — definitions await customer approval",
+        "status": "draft: definitions await customer approval",
         "warnings": warnings,
         "provenance": mv.provenance,
     }
