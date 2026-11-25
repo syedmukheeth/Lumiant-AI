@@ -139,3 +139,15 @@ Visual layer only: same routes, navigation labels, behaviour, wording, permissio
 - [x] Formatted ABC values and reconciliation amounts (ISSUES #52)
 - [x] CI green again: no-mapping tests no longer need the developer's local data (ISSUES #54)
 - [ ] axe accessibility run (still open from M10 D5)
+
+## M12 — Product v2: premium UI, landing page, Analyst v2 on Gemini (owner request 2026-11-25; **proposed**, `PRODUCT_V2_PLAN.md`)
+Approved 2026-11-25 with the default decisions D1–D7. Started S10.
+- [x] P1a Design tokens v2 (`--ai`, `--seq-*`, `--div-*`, display sizes, page wash), chart kit `components/viz/` (12 components, `viz.test.tsx`), `/design` showcase (S10-4, S10-5)
+- [ ] P1b Performance baseline measurements; contrast gate re-run for the new tokens
+- [x] P2a Multi-step tool loop, `query_inventory` tool, knowledge index + `search_knowledge` with cited sources in the UI, bar blocks from queries (ADR-0012; S10-1…S10-3)
+- [ ] P2b Live Gemini on a synthetic tenant (owner's key), semantic item resolution, token streaming, threads, 150-question live eval
+- [ ] P3 Public landing page at `/` and sign-in redesign
+- [ ] P4 Executive command centre (Overview) + time-bucket metric + synthetic movement history
+- [ ] P5 Inventory grid (virtualised, chips, column chooser, saved views) + Material 360
+- [ ] P6 Risks, Costs, Planning, Commitments, Suppliers, Master data, Reports, Admin › Data sources visual upgrade
+- [ ] P7 Shell (alerts centre, settings), first-run tour, budgets in §7, axe run, demo-request capture
