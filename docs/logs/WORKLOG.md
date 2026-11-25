@@ -317,3 +317,7 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 - **Owner:** "no em dash and no AI-ish colours". Removed every em dash from visible text: web UI copy (commas, colons, "·"), empty-value placeholder now "–", Analyst answer text and choice labels, synthetic warehouse names ("North Plant: Raw Materials Store"), dev-login notice, planning notes; S10 docs too. Removed the gold `--ai` tint and its classes, the page wash, the hero radial glow, sparkle badges in new pages and the purple series from the chart kit; AI work now uses neutral surfaces and the brand teal/navy. DEC-028.
 - **Agent bug hunt:** a 16-question offline batch found three routing/wording bugs (TEST_RUNS S10-9), fixed with tests: "how many items" now gives the inventory summary; the definition fallback only fires on "what is / mean / explain / define" questions without codes or numbers; grouped answers read "X holds the most stock: N".
 - **Commands + results:** TEST_RUNS S10-9…S10-12.
+
+## 2026-11-25 · S10 · Overview treemap, sign-in, admin list (loop chunk 4)
+- **Done:** `ValueBars` gains `variant="treemap"`; Overview shows value by item group as a treemap on real data (click → Analyst). Sign-in page is a split view: user list left, sticky product panel right (sample KPI labelled), link back to the landing page. Admin gains a "Demo requests" tab (platform administrators only). Definition answers no longer repeat their heading.
+- **Commands + results:** TEST_RUNS S10-14, S10-15; e2e rerun pending at the time of writing (S10-16).
