@@ -143,7 +143,8 @@ Single-key shortcuts never fire while typing in an input, textarea, select or ed
 - `/` is the public landing page (`components/landing/`), server-rendered with sample visuals labelled "Sample data"; a visitor with the development session cookie is sent to `/overview`. `src/proxy.ts` treats only `/` and `/login` as public. The demo form posts to `POST /api/public/demo-requests`.
 - `/design` (signed in) shows every token, type size, control and chart in the current theme.
 - `components/viz/` is the chart kit: `ChartFrame` (accessible label + hidden data table; `sr-only` sits on a wrapper div because a `<table>` ignores the 1 px width), `Sparkline`, `KpiCard`/`DeltaChip`, `TrendArea`, `ParetoChart`, `Treemap`, `StackedBars`, `RiskMatrix`, `Waterfall`, `HeatCalendar`, `Gauge`, `RadarChart`, `Timeline`. Numbers drive geometry only; printed values are the API's exact strings. Recharts animation stays off (ISSUES #10). Dates use fixed month names (`MONTHS`, `shortDate`) so server and browser render the same text.
-- Tokens added: `--ai` (gold, AI marks), `--seq-1…5` with `--seq-ink-1…5`, `--div-neg/mid/pos`, `--page-wash`, `text-display`, `text-hero`.
+- Tokens added: `--seq-1…5` with `--seq-ink-1…5`, `--div-neg/mid/pos`, `--font-display` (Newsreader). The `--ai` tint and page wash were removed at the owner's request (DEC-028).
+- Palette "Navy & Brass" and type pairing (DEC-029): champagne actions on ink-navy (dark), navy on ivory (light); Newsreader for `PageHeader` titles and landing headlines (`font-display`), Inter for everything else.
 
 ## Testing
 

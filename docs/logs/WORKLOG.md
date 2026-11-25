@@ -321,3 +321,9 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 ## 2026-11-25 · S10 · Overview treemap, sign-in, admin list (loop chunk 4)
 - **Done:** `ValueBars` gains `variant="treemap"`; Overview shows value by item group as a treemap on real data (click → Analyst). Sign-in page is a split view: user list left, sticky product panel right (sample KPI labelled), link back to the landing page. Admin gains a "Demo requests" tab (platform administrators only). Definition answers no longer repeat their heading.
 - **Commands + results:** TEST_RUNS S10-14, S10-15; e2e rerun pending at the time of writing (S10-16).
+
+## 2026-11-25 · S10 · Premium palette and type pairing (loop chunk 5)
+- **Owner:** "use premium UI/UX colour and font combination". Built "Navy & Brass" from the logo colours (DEC-029): ink-navy and warm ivory in dark with champagne actions; ivory paper with navy ink and actions in light; brass only for brand marks; chart grid lines warmed to match. Added Newsreader (variable serif, self-hosted from npm, SIL OFL) as `font-display` for page titles, landing headlines and the sign-in panel; Inter stays for UI and numbers.
+- **Also fixed:** logo box on the landing header; regenerated local demo data so warehouse names carry no em dash.
+- **Commands + results:** TEST_RUNS S10-17, S10-18; e2e S10-19 pending at the time of writing.
+- **Known:** a visitor whose session cookie expired lands on sign-in rather than the landing page (the app clears the cookie on the 401); sign-in links back to the landing page.
