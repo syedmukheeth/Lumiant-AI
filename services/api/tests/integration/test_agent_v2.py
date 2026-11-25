@@ -317,3 +317,8 @@ def test_grouped_answers_name_the_leader_plainly(agent: AgentService, principals
     assert "The highest" not in out["answer"]
     assert "\u2014" not in out["answer"]  # no em dash in answer text
     assert out["grounding"]["passed"]
+
+
+def test_definition_answers_do_not_repeat_the_heading(agent: AgentService, principals: dict[str, Principal]) -> None:
+    out = agent.chat(principals["alpha.admin"], "How is inventory value calculated?")
+    assert out["answer"].startswith("Inventory value is the sum")

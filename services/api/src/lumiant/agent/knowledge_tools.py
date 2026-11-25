@@ -45,7 +45,10 @@ def search_knowledge(ctx: ToolContext, a: KnowledgeArgs) -> ToolOutput:
         for h in hits
     ]
     best = hits[0].chunk
-    answer = f"{best.heading}: {_first_sentences(best.text)}"
+    lead = _first_sentences(best.text)
+    # "Inventory value: Inventory value is …" reads twice; only name the section when the text does not.
+    first_word = best.heading.split()[0].lower()
+    answer = lead if lead.lower().startswith(first_word) else f"{best.heading}: {lead}"
     block = {"type": "sources", "title": "From Lumiant's definitions", "items": sources}
     return ToolOutput(
         "search_knowledge",
