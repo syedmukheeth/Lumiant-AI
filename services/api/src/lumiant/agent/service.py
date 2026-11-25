@@ -16,7 +16,15 @@ from pydantic import ValidationError
 from lumiant.agent import smalltalk
 from lumiant.agent.context import MAX_HISTORY, ChatContext, HistoryTurn
 from lumiant.agent.grounding import collect_numbers, ungrounded_numbers
-from lumiant.agent.providers import SUGGESTIONS, Decision, Provider, RuleBasedProvider, ToolCall, build_provider
+from lumiant.agent.providers import (
+    MAX_ROUNDS,
+    SUGGESTIONS,
+    Decision,
+    Provider,
+    RuleBasedProvider,
+    ToolCall,
+    build_provider,
+)
 from lumiant.agent.tools import TOOLS, NarrowArgs, ToolContext, ToolOutput, visible_warehouses
 from lumiant.auth.principal import Principal
 from lumiant.core.config import Settings
@@ -26,7 +34,8 @@ from lumiant.query.plan import QueryPlan
 from lumiant.query.service import QueryService
 
 log = logging.getLogger("lumiant.agent")
-MAX_TOOL_CALLS = 4
+MAX_TOOL_CALLS = 4  # per round
+MAX_TOTAL_CALLS = 10  # per question, across rounds
 MAX_QUESTION_CHARS = 500
 WITHHELD_ANSWER = (
     "I couldn't verify the figures in that answer against your data, so I have not shown it. "
@@ -48,6 +57,8 @@ TOOL_LABELS = {
     "special_storage": "Reading storage requirements",
     "concentration": "Computing value concentration",
     "insights": "Running every insight check",
+    "query_inventory": "Querying the inventory data",
+    "search_knowledge": "Looking up definitions",
 }
 # A page filter narrows a tool unless the tool groups by that same field (then the comparison is the point).
 _FILTER_DIMENSION = {
@@ -215,18 +226,57 @@ class AgentService:
         )
         yield done(_step("understand", "Understanding the question", "done", detail=plan_detail, mode=provider.name))
 
+        embed = getattr(provider, "embed", None) if provider.external else None
+        if embed is not None:
+            ctx.embedder, ctx.embed_key = embed, getattr(provider, "embed_key", provider.name)
+
+        # Tool rounds. Rule-based providers decide once; a multi-step provider (`advance`) sees each round's results
+        # and may ask for more, within MAX_ROUNDS rounds and MAX_TOTAL_CALLS calls; its last text is the answer.
+        advance = getattr(provider, "advance", None) if provider.external else None
         outputs: list[ToolOutput] = []
-        for i, call in enumerate(calls):
-            step_id, label = f"tool:{i}", _label(call)
-            yield _step(step_id, label, "running", tool=call.name)
-            t0 = time.perf_counter()
-            out = self._run_tool(ctx, call)
-            outputs.append(out)
-            rows = sum(len(b.get("rows", [])) for b in out.blocks)
-            ms = round((time.perf_counter() - t0) * 1000)
-            yield done(_step(step_id, label, "done" if out.ok else "failed", tool=call.name, rows=rows, ms=ms))
-            for block in out.blocks:
-                yield {"type": "block", "step": step_id, "block": block}
+        all_calls: list[ToolCall] = []
+        prose: str | None = None
+        last_round_ok = True
+        stepped = False  # whether the model was consulted after tools ran (compose or advance)
+        rounds = 0
+        while calls:
+            round_outputs: list[ToolOutput] = []
+            for call in calls:
+                step_id, label = f"tool:{len(all_calls)}", _label(call)
+                all_calls.append(call)
+                yield _step(step_id, label, "running", tool=call.name)
+                t0 = time.perf_counter()
+                out = self._run_tool(ctx, call)
+                round_outputs.append(out)
+                rows = sum(len(b.get("rows", [])) for b in out.blocks)
+                ms = round((time.perf_counter() - t0) * 1000)
+                yield done(_step(step_id, label, "done" if out.ok else "failed", tool=call.name, rows=rows, ms=ms))
+                for block in out.blocks:
+                    yield {"type": "block", "step": step_id, "block": block}
+            outputs += round_outputs
+            last_round_ok = all(o.ok for o in round_outputs)
+            rounds += 1
+            if advance is None:
+                break
+            final = rounds >= MAX_ROUNDS or len(all_calls) >= MAX_TOTAL_CALLS
+            step_id = f"think:{rounds}"
+            yield _step(step_id, "Reviewing the results", "running")
+            stepped = True
+            try:
+                nxt = advance(round_outputs, ctx, final=final)
+            except Exception as exc:
+                log.warning("external_advance_failed", extra={"error_type": type(exc).__name__})
+                yield done(_step(step_id, "Reviewing the results", "failed"))
+                break
+            if nxt.kind == "tools" and nxt.calls and not final:
+                calls = self._narrow(nxt.calls[: min(MAX_TOOL_CALLS, MAX_TOTAL_CALLS - len(all_calls))], ctx)
+                detail = ", ".join(_label(c).lower() for c in calls)
+                yield done(_step(step_id, "Reviewing the results", "done", detail=f"next: {detail}"))
+                continue
+            prose = nxt.message.strip() or None
+            yield done(_step(step_id, "Reviewing the results", "done", detail="ready to answer"))
+            break
+        calls = all_calls
 
         evidence = collect_numbers(question)
         for out in outputs:
@@ -235,25 +285,26 @@ class AgentService:
                 evidence.add(str(len(block.get("rows", []))))
         template = "\n\n".join(o.answer for o in outputs) if outputs else decision.message
         answer, grounding = template, {"passed": True, "ungrounded": [], "source": "template"}
-        if outputs and provider.external and all(o.ok for o in outputs):
+        if outputs and provider.external and advance is None and all(o.ok for o in outputs):
             yield _step("compose", "Writing the answer", "running")
+            stepped = True
             try:
                 prose = provider.compose(question, outputs, ctx)
             except Exception as exc:
                 log.warning("external_compose_failed", extra={"error_type": type(exc).__name__})
                 prose = None
-            if prose:
-                bad = ungrounded_numbers(prose, evidence)
-                if bad:
-                    grounding = {
-                        "passed": True,
-                        "ungrounded": bad,
-                        "source": "template",
-                        "note": "AI wording rejected: it contained numbers not in the results.",
-                    }
-                else:
-                    answer, grounding = prose, {"passed": True, "ungrounded": [], "source": "model"}
             yield done(_step("compose", "Writing the answer", "done"))
+        if stepped and prose and outputs and any(o.ok for o in outputs) and last_round_ok:
+            bad = ungrounded_numbers(prose, evidence)
+            if bad:
+                grounding = {
+                    "passed": True,
+                    "ungrounded": bad,
+                    "source": "template",
+                    "note": "AI wording rejected: it contained numbers not in the results.",
+                }
+            else:
+                answer, grounding = prose, {"passed": True, "ungrounded": [], "source": "model"}
         blocked = False
         if outputs:
             bad_template = ungrounded_numbers(answer, evidence)

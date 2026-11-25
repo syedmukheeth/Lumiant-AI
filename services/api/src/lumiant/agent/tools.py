@@ -32,6 +32,9 @@ class ToolContext:
     principal: Principal
     context: ChatContext | None = None  # validated screen context (agent/context.py); narrows, never widens
     history: list[HistoryTurn] = field(default_factory=list)
+    # Set only when an approved external provider can embed text (knowledge search); keyword search otherwise.
+    embedder: Callable[[list[str], str], list[list[float]]] | None = None
+    embed_key: str = "default"
 
 
 @dataclass
@@ -832,3 +835,8 @@ def decimal_sum(rows: list[dict[str, Any]], key: str) -> Decimal:
 from lumiant.agent.planning_tools import PLANNING_TOOLS  # noqa: E402
 
 TOOLS.update({t.name: t for t in PLANNING_TOOLS})  # type: ignore[has-type]
+
+# Data and knowledge tools register themselves into TOOLS when their module finishes loading, whichever of the
+# two modules is imported first; importing them here guarantees they are loaded with the catalog.
+import lumiant.agent.data_tools  # noqa: E402
+import lumiant.agent.knowledge_tools  # noqa: E402, F401
