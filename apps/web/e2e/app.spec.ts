@@ -553,3 +553,19 @@ test("getting started: shown on a first visit and gone for good once dismissed",
   await expect(page.getByTestId("kpi-items")).toContainText(/\d/);
   await expect(page.getByTestId("welcome")).toBeHidden();
 });
+
+test("saved views: name the current filters and reopen them later", async ({ page }) => {
+  await signIn(page, "alpha.admin");
+  await openInventory(page);
+  await page.getByLabel("Warehouse").selectOption("1100");
+  await page.waitForURL(/warehouse=1100/);
+  await page.getByRole("button", { name: "Save view" }).click();
+  await page.getByLabel("View name").fill("North plant 1100");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.goto("/inventory");
+  await expect(page).not.toHaveURL(/warehouse=/);
+  await page.getByLabel("Saved views").selectOption({ label: "North plant 1100" });
+  await page.waitForURL(/warehouse=1100/);
+  await page.getByRole("button", { name: "Delete this saved view" }).click();
+  await expect(page.getByLabel("Saved views")).toHaveCount(0);
+});

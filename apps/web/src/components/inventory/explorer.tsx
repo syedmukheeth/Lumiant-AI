@@ -17,6 +17,7 @@ import { type BalanceQuery, useBalances, useInventoryFilters, usePageMe } from "
 import { enterDelay } from "@/lib/motion";
 
 import { ItemSheet } from "./item-sheet";
+import { SavedViews } from "./saved-views";
 
 const LIMIT = 50;
 
@@ -202,6 +203,18 @@ export function InventoryExplorer() {
             Every stock line in your scope, item × warehouse × location × lot.
             {!canSeeCost && " Cost columns are hidden for your role."}
           </>
+        }
+        actions={
+          <SavedViews
+            page="inventory"
+            current={params.toString()}
+            onOpen={(qs) => {
+              const next = new URLSearchParams(qs);
+              setTerm(next.get("q") ?? "");
+              pendingQs.current = next.toString();
+              router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+            }}
+          />
         }
       />
 
