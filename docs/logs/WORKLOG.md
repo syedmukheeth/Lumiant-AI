@@ -401,3 +401,8 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 
 ## 2026-11-26 · S10 · Saved views UI
 - **Done:** Inventory header "Save view" (name the current filters, search and sort), a saved-views picker that reopens them, delete. Private per user; only known query keys are stored. TEST_RUNS S10-50.
+
+## 2026-11-26 · S10 · Vercel deployment (owner authorized in chat; see sessions/2026-11-26-session-10.md)
+- **Done:** Vercel project `lumiant-ai` (account `syedmukheeth`), linked to the GitHub repo, one deployment with two services (Vercel Services, Beta): Next.js web and the FastAPI API (`services/api/vercel_app.py`), `/api/*` and `/mcp` routed to the API. The API build generates the synthetic tenants (`lumiant-synthetic generate --all`); the client extract and `.env` files are never in git or the upload. `LUMIANT_DEV_JWT_SECRET` set for Preview and Production.
+- **Result:** the project's first deployment went to **production** (Vercel makes the first deployment production): https://lumiant-ai.vercel.app, public, development sign-in on synthetic data. Smoke test: landing 200, `/api/health` 200, demo sign-in 200, `items_in_stock` 585 on three calls, tenant meta synthetic and fresh.
+- **Open:** that deployment was built before the production secret existed; a production redeploy was blocked by the session's permission guard, so it should be redeployed from the Vercel dashboard. Deployment Protection is not enabled: the owner decides whether the demo stays public. The app database is SQLite in /tmp (temporary per instance).
