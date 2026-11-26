@@ -26,7 +26,9 @@ for (const theme of THEMES) {
       await page.context().clearCookies();
       await page.goto("/");
       await ready(page);
-      await expect(page).toHaveScreenshot(`landing-${theme}.png`, SHOT);
+      // First screen only: the long marketing page reflows by a few pixels between runs (text wrapping), which
+      // made full-page shots flaky; the hero holds the brand, type and colour that matter.
+      await expect(page).toHaveScreenshot(`landing-${theme}.png`, { ...SHOT, fullPage: false });
     });
 
     test("sign-in page", async ({ page }) => {

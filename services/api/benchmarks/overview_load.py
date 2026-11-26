@@ -50,6 +50,7 @@ OVERVIEW = [
     "/api/analyses/dormant?limit=1&days=180",
     "/api/analyses/expiring-lots?limit=1&days=60",
     "/api/analyses/data-quality",
+    "/api/analyses/value-trend?months=12",  # command centre trend (V4)
     "/api/insights",
 ]
 

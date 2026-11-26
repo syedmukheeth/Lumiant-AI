@@ -10,13 +10,17 @@ const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 async function settle(page: Page) {
   await page.waitForLoadState("networkidle");
   await expect(page.locator("[aria-busy='true']")).toHaveCount(0);
-  // Finish entrance animations so colour contrast is measured on the final colours, not mid-fade.
-  await page.evaluate(() =>
-    document.getAnimations().forEach((a) => {
-      const end = a.effect?.getComputedTiming().endTime;
-      if (end !== Infinity && a.playState !== "finished") a.finish();
-    }),
-  );
+  // Finish entrance animations so colour contrast is measured on the final colours, not mid-fade. Twice, because
+  // cards that render when late data arrives (the insight feed) start their own entrance after the first pass.
+  for (let pass = 0; pass < 2; pass++) {
+    await page.evaluate(() =>
+      document.getAnimations().forEach((a) => {
+        const end = a.effect?.getComputedTiming().endTime;
+        if (end !== Infinity && a.playState !== "finished") a.finish();
+      }),
+    );
+    await page.waitForTimeout(400);
+  }
 }
 
 async function scan(page: Page, where: string) {

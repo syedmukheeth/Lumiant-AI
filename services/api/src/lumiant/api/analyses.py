@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query
 
 from lumiant.analyses.below_reorder import BelowReorderFilters, run_below_reorder
 from lumiant.analyses.risks import run_abc, run_cost_comparison, run_data_quality, run_dormant, run_expiring
+from lumiant.analyses.trends import run_value_trend
 from lumiant.auth.deps import get_container, require
 from lumiant.auth.permissions import Permission
 from lumiant.auth.principal import Principal
@@ -55,6 +56,15 @@ def expiring_lots(
 @router.get("/data-quality")
 def data_quality(principal: Reader, container: Container = Depends(get_container)) -> dict[str, Any]:  # noqa: B008
     return run_data_quality(container.query, principal)
+
+
+@router.get("/value-trend")
+def value_trend(
+    principal: CostReader,
+    months: Annotated[int, Query(ge=1, le=24)] = 12,
+    container: Container = Depends(get_container),  # noqa: B008
+) -> dict[str, Any]:
+    return run_value_trend(container.query, principal, months=months)
 
 
 @router.get("/abc")

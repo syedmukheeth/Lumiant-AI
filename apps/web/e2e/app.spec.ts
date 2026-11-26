@@ -39,6 +39,9 @@ test("admin sees labelled synthetic data, values and provenance", async ({ page 
   await expect(page.getByTestId("data-as-of")).not.toContainText("unknown");
   await expect(page.getByTestId("kpi-value")).toContainText("USD");
   await expect(page.getByTestId("kpi-below")).toContainText(/\d/);
+  // Command centre trend: the "Now" point is today's value, printed exactly as the KPI.
+  const kpiValue = (await page.getByTestId("kpi-value").locator(".figure").first().textContent())?.trim() ?? "";
+  await expect(page.getByTestId("value-trend")).toContainText(kpiValue);
 
   const chart = page.getByRole("region", { name: "Value by warehouse" });
   await expect(chart.locator(".recharts-bar-rectangle").first()).toBeVisible();
@@ -216,6 +219,10 @@ test("admin: schema check, capability matrix, reconciliation gate and audit log"
   await expect(page.getByTestId("source-result")).not.toContainText("secret");
   await page.getByRole("tab", { name: "Connection and schema" }).click();
   await expect(page.getByTestId("schema-result")).toContainText("Mapping matches the source");
+  await page.getByRole("tab", { name: "Mapping" }).click();
+  await expect(page.getByText(/10 of 10 mapped datasets agree/)).toBeVisible();
+  await page.getByRole("tab", { name: "Validation" }).click();
+  await expect(page.getByTestId("validation-result")).toContainText("All structural checks passed");
   await page.getByRole("tab", { name: "Capabilities" }).click();
   await expect(page.getByTestId("capabilities")).toContainText("Below-reorder analysis");
 

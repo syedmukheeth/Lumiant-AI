@@ -7,6 +7,7 @@ import { AreaBoard } from "@/components/overview/area-board";
 import { BelowReorderPanel } from "@/components/overview/below-reorder";
 import { InsightsFeed } from "@/components/overview/insights-feed";
 import { KpiStrip } from "@/components/overview/kpi-strip";
+import { ValueTrend } from "@/components/overview/value-trend";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { useMetricList, usePageMe } from "@/lib/hooks";
@@ -33,6 +34,8 @@ export default function OverviewPage() {
       {metrics.isSuccess && <KpiStrip canSeeValue={canSeeValue} />}
 
       {metrics.isSuccess && me && <AreaBoard me={me} canSeeValue={canSeeValue} />}
+
+      {metrics.isSuccess && canSeeValue && <ValueTrend />}
 
       <InsightsFeed />
 
