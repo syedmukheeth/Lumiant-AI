@@ -86,6 +86,7 @@ def test_listing_cost_field_brings_currency(validator: PlanValidator, principals
         ),
         ({"dimensions": ["item_id"], "order_by": [{"field": "uom"}]}, "invalid_order"),
         ({"dimensions": ["item_id"], "limit": 5000}, "limit_exceeded"),
+        ({"measures": [{"field": "item_id", "agg": "count"}], "offset": 10}, "invalid_offset"),
         (
             {
                 "dimensions": ["warehouse_id"],

@@ -24,6 +24,7 @@ ALLOWED_FUNCTIONS: tuple[type[exp.Expression], ...] = (
     exp.Coalesce,
     exp.Cast,
     exp.Nullif,
+    exp.Lower,  # `contains` on dialects without ILIKE (SQL Server, Oracle) compiles to lower(x) LIKE lower(?)
     exp.Case,  # value maps (mapping/resolver.py); sqlglot models each WHEN branch as If
     exp.If,
 )

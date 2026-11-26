@@ -116,8 +116,24 @@ def _filter_expr(f: AppliedFilter | FilterGroup, src: _Sources) -> ColumnElement
     return condition(src.expr(f.field), f.op, f.value)
 
 
-def compile_plan(vp: ValidatedPlan, mapping: TenantMapping, *, count_only: bool = False) -> sa.Select[Any]:
-    """Build the SELECT. `count_only` returns the total row count of the same filtered result."""
+_TSQL = frozenset({"mssql", "tsql"})  # SQLAlchemy and sqlglot names for SQL Server
+
+
+def _ordering(target: ColumnElement[Any], descending: bool, dialect: str) -> list[ColumnElement[Any]]:
+    """Sort with nulls last on every dialect. T-SQL has no NULLS LAST, so a null flag sorts first."""
+    if dialect in _TSQL:
+        nulls = sa.case((target.is_(None), sa.literal_column("1")), else_=sa.literal_column("0"))
+        return [nulls.asc(), target.desc() if descending else target.asc()]
+    return [target.desc().nulls_last() if descending else target.asc().nulls_last()]
+
+
+def compile_plan(
+    vp: ValidatedPlan, mapping: TenantMapping, *, count_only: bool = False, dialect: str = "default"
+) -> sa.Select[Any]:
+    """Build the SELECT. `count_only` returns the total row count of the same filtered result.
+
+    `dialect` is the target's SQLAlchemy dialect name; it only changes constructs a dialect lacks (null ordering).
+    """
     src = _Sources(vp, mapping)
     measure_exprs = {m.alias: _aggregate(m, src) for m in vp.measures}
     out_types = {m.alias: m.out_type for m in vp.measures}
@@ -137,5 +153,8 @@ def compile_plan(vp: ValidatedPlan, mapping: TenantMapping, *, count_only: bool 
 
     for o in vp.order_by:
         target = measure_exprs[o.name] if isinstance(o.target, MeasureSpec) else src.expr(o.target)
-        stmt = stmt.order_by(target.desc().nulls_last() if o.descending else target.asc().nulls_last())
-    return stmt.limit(vp.limit + 1).offset(vp.offset)
+        stmt = stmt.order_by(*_ordering(target, o.descending, dialect))
+    stmt = stmt.limit(vp.limit + 1)
+    # OFFSET only when paging: SQL Server pages with OFFSET/FETCH, which needs ORDER BY (the validator enforces
+    # an ordering for offset > 0); without OFFSET it uses TOP, so single-number plans need no ordering.
+    return stmt.offset(vp.offset) if vp.offset > 0 else stmt

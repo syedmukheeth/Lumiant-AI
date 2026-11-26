@@ -186,6 +186,9 @@ class PlanValidator:
         scope_filters = self._scope(dataset, principal)
         having = [self._having(h.measure, h.op, h.value, measures) for h in plan.having]
         order = self._order(plan, dims, measures)
+        if plan.offset > 0 and not order:
+            # Without an ordering, "skip N rows" is undefined, and SQL Server cannot compile it (OFFSET needs ORDER BY).
+            raise reject("invalid_offset", "Paging needs a sort order; add a grouping or an order_by.")
         limit = plan.limit if plan.limit is not None else self.policies.default_rows
         if limit > self.policies.max_rows:
             raise reject("limit_exceeded", f"At most {self.policies.max_rows} rows can be requested at once.")
