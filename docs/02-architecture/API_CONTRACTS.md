@@ -45,6 +45,8 @@ Status: **Implemented and tested (M1)** in `services/api/src/lumiant/api/`. Base
 | GET | `/api/admin/schema` | `admin:tenant` | mapping vs source: drift, unmapped columns, health; `unconfigured_warehouses`: warehouses in the stock data but not in the tenant configuration (verdict becomes drift, ISSUES #46) |
 | GET | `/api/admin/source` | `admin:tenant` | current source: kind, engine, health, `data_as_of`, `stale`, rows per mapped dataset (V1) |
 | POST | `/api/admin/source/test` | `admin:tenant` + CSRF | body `{url}`: connect read-only, privilege check (`read_only.status` proved / writable / not_checked), tables and views (first 300). The URL is used once: never stored, logged or returned. SQLite only outside production (V1) |
+| POST | `/api/admin/source/save` | `admin:tenant` + CSRF | body `{url}`: probe, refuse a writable account (409 `writable_account`), store encrypted (409 `secret_store_unavailable` without `LUMIANT_SECRET_KEY`); returns status, never the URL (V1) |
+| GET | `/api/admin/source/saved` | `admin:tenant` | `{saved, store_available, in_use, backend?, saved_by?, saved_at?}` (V1) |
 | POST | `/api/admin/source/suggest` | `admin:tenant` + CSRF | body `{url}`: mapping suggestions for an unconfigured source (names only) (V2) |
 | GET | `/api/admin/mapping/suggest` | `admin:tenant` | suggestions for the current source with `current_source` / `agrees` per dataset, and a YAML draft (V2) |
 | GET | `/api/admin/validation` | `admin:tenant` | `{passed, checks[]}`: key uniqueness, orphans, missing required values; counts only (V2) |

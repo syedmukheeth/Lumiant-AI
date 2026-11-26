@@ -379,3 +379,7 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 ## 2026-11-26 · S10 · V5 Settings
 - **Done:** `/settings` for every user (linked from the user card): theme Light / Dark / System, navigation Expanded / Compact, account (name, workspace, roles, warehouses), keyboard shortcuts. Browser-local preferences; nothing new on the server.
 - **Commands + results:** TEST_RUNS S10-44.
+
+## 2026-11-26 · S10 · V1 encrypted connection store
+- **Done:** `connectors/secret_store.py` (Fernet under `LUMIANT_SECRET_KEY`, Alembic 0004), `secret_ref: store` for tenants, `POST /api/admin/source/save` (probe first, refuse writable accounts, connector cache and result cache reset), `GET /api/admin/source/saved`; Data source tab gains "Save this connection" and the saved status. `cryptography` is now a direct dependency (was already present through PyJWT). `.env.example` documents the key.
+- **Commands + results:** TEST_RUNS S10-45.

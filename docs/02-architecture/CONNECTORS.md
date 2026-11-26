@@ -39,6 +39,10 @@ class Connector(Protocol):
   environment variable. A missing variable makes the source `source_unavailable` (503), never a crash.
 - `connectors/probe.py` + `POST /api/admin/source/test`: tests a URL once (connect, privilege check, catalog list),
   never stores, logs or returns it. Admin › Data source shows the current source and runs this test.
+- Saving a tested connection (`POST /api/admin/source/save`): the URL is encrypted with Fernet under
+  `LUMIANT_SECRET_KEY` into the app database (`connectors/secret_store.py`, Alembic 0004) and used by a tenant whose
+  config says `connection: {type: sql, secret_ref: store}`. No key: saving is refused. Wrong key: the source is
+  unavailable (fails closed). Accounts that can write are refused. The URL is never returned, logged or audited.
 - `lumiant-synthetic copy --tenant demo-alpha --to <url>` loads a generated warehouse into any engine for demos and
   conformance tests (writes; never against a customer system).
 
