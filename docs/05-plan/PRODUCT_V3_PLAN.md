@@ -214,10 +214,10 @@ connecting to any real customer system still needs the owner's written authoriza
 | Phase | Scope | Size | Depends on |
 |---|---|---|---|
 | **V0 · Correctness and speed** ✅ done 26 Nov 2026 (DEC-032) | §6 P0 items; perf baseline; visual regression + axe in e2e | M | nothing |
-| **V1 · Connect** | Connector contract v2; Postgres, SQL Server, MySQL connectors with the conformance suite; tenant config in DB with YAML import/export; secret store; worker and sync jobs; Connect wizard; Data sources page | L | V0 |
-| **V2 · Map and trust** | Metadata snapshots, validation harness, mapping versions and approval, Mapping Studio, drift schedule; then pack and AI suggestions for what is unmapped | L | V1 |
-| **V3 · Use anywhere** | Public API v1 + service accounts; MCP server; webhooks + alert rules + Alerts centre; embeds with signed tokens; Integrations gallery | L | V0 (API), V1 (alerts on synced data) |
-| **V4 · Command centre and visuals** | v2 P4 (time-bucket metric, 12-month synthetic history, command centre), v2 P5 (grid + Material 360), §5.2 visuals, global filters, saved views, Analyst inline charts | L | V0 |
+| **V1 · Connect** (partly done 26 Nov: generic read-only SQL connector + conformance suite, Data source tab with connection test; open: encrypted secret store, tenant config in DB, worker and sync jobs) | Connector contract v2; Postgres, SQL Server, MySQL connectors with the conformance suite; tenant config in DB with YAML import/export; secret store; worker and sync jobs; Connect wizard; Data sources page | L | V0 |
+| **V2 · Map and trust** (partly done: name-based mapping suggestions matching all four demo mappings, validation harness, Mapping and Validation tabs; open: stored versions and approval in the app, drift schedule) | Metadata snapshots, validation harness, mapping versions and approval, Mapping Studio, drift schedule; then pack and AI suggestions for what is unmapped | L | V1 |
+| **V3 · Use anywhere** (partly done: API keys, public API through keys, MCP server, Integrations tab; open: webhooks, alert rules, embeds) | Public API v1 + service accounts; MCP server; webhooks + alert rules + Alerts centre; embeds with signed tokens; Integrations gallery | L | V0 (API), V1 (alerts on synced data) |
+| **V4 · Command centre and visuals** (partly done: 12-month value trend, Material 360; open: grid virtualisation, §5.2 visuals, global filters, saved views, Analyst inline charts) | v2 P4 (time-bucket metric, 12-month synthetic history, command centre), v2 P5 (grid + Material 360), §5.2 visuals, global filters, saved views, Analyst inline charts | L | V0 |
 | **V5 · Product foundations** | Real IdP, SSO/SCIM, settings, first-run tour, trial workspace, observability, Helm chart | M to L | owner decisions |
 | **V6 · Ecosystem** | Teams/Slack apps, Excel add-in, Snowflake/Databricks options, Odoo app, Gateway agent | L each | demand |
 
