@@ -541,3 +541,15 @@ test("integrations: an API key is shown once and listed; alerts explain a missin
   await page.getByRole("button", { name: "Add rule" }).click();
   await expect(page.getByText(/master key/)).toBeVisible(); // the e2e server has no LUMIANT_SECRET_KEY
 });
+
+test("getting started: shown on a first visit and gone for good once dismissed", async ({ page }) => {
+  await signIn(page, "alpha.admin");
+  await page.evaluate(() => localStorage.removeItem("lumiant-welcome-dismissed"));
+  await page.reload();
+  await expect(page.getByTestId("welcome")).toBeVisible();
+  await page.getByRole("button", { name: "Dismiss getting started" }).click();
+  await expect(page.getByTestId("welcome")).toBeHidden();
+  await page.reload();
+  await expect(page.getByTestId("kpi-items")).toContainText(/\d/);
+  await expect(page.getByTestId("welcome")).toBeHidden();
+});
