@@ -248,7 +248,7 @@ export function PlanningPage() {
   const [tab, setTab] = useState<Tab>("fulfilment");
   const current = TABS.find((t) => t.id === tab)!;
   return (
-    <div className="mx-auto max-w-[96rem] space-y-5">
+    <div className="mx-auto max-w-[96rem] space-y-8">
       <PageHeader
         title="Orders & materials"
         description="Deterministic planning from your customer orders, stock, open supply and bills of materials. Every number is calculated by the platform and traceable; nothing is executed."

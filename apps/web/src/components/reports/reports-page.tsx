@@ -74,7 +74,7 @@ export function ReportsPage() {
   const linkClass = buttonClass();
 
   return (
-    <div className="mx-auto max-w-[96rem] space-y-5">
+    <div className="mx-auto max-w-[96rem] space-y-8">
       <PageHeader
         className="no-print"
         title="Reports and exports"

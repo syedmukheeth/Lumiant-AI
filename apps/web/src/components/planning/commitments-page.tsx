@@ -215,7 +215,7 @@ export function CommitmentsPage() {
   const selected = params.get("order") ?? byValue[0]?.key ?? null;
   const detail = useCommitment(list.data ? selected : null);
   return (
-    <div className="mx-auto max-w-[96rem] space-y-5">
+    <div className="mx-auto max-w-[96rem] space-y-8">
       <PageHeader
         title="Commitment protection"
         description="Delivery-first procurement for late customer orders: which supplier or split still meets the customer date across supplier lead time, receiving, production and shipping: what it costs against the cheapest eligible offer, and the revenue, margin and penalties at stake."

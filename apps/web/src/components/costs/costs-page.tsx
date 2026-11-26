@@ -226,7 +226,7 @@ function AbcPanel() {
 
 export function CostsPage() {
   return (
-    <div className="mx-auto max-w-[96rem] space-y-5">
+    <div className="mx-auto max-w-[96rem] space-y-8">
       <PageHeader
         title="Cost analysis"
         description="Deterministic calculations on source movements. These definitions are drafts: they become your policy only when your organisation approves them."

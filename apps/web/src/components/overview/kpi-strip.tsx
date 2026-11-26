@@ -34,7 +34,7 @@ function Cell({ label, footnote, provenance, warnings, pending, error, tone = "d
   return (
     <div
       className={clsx(
-"rise panel relative flex min-w-0 flex-col gap-2.5 p-4 transition-colors hover:border-line-strong sm:p-5")}
+"rise panel relative flex min-w-0 flex-col gap-3 p-5 transition-colors hover:border-line-strong sm:p-6")}
       style={enterDelay(index)}
       data-testid={testId}
       {...(sel ? analyzableProps(sel) : {})}
@@ -49,7 +49,7 @@ function Cell({ label, footnote, provenance, warnings, pending, error, tone = "d
       }
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="text-dense font-medium text-ink-2">{label}</span>
+        <span className="eyebrow">{label}</span>
         <span className="flex items-center">
           {sel && <AnalyzeButton sel={sel} />}
           <ProvenanceButton provenance={provenance} label="" />
@@ -88,7 +88,7 @@ export function KpiStrip({ canSeeValue }: { canSeeValue: boolean }) {
   const below = useBelowReorder({ offset: 0, limit: 1 });
 
   return (
-    <div className="grid grid-cols-1 gap-3 @lg:grid-cols-2 @5xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 @lg:grid-cols-2 @5xl:grid-cols-4">
       <Cell
         label="Inventory value"
         provenance={value.data?.provenance}

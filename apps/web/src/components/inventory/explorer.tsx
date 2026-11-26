@@ -191,7 +191,7 @@ export function InventoryExplorer() {
 
   const f = filters.data;
   return (
-    <div className="mx-auto max-w-[96rem] space-y-5">
+    <div className="mx-auto max-w-[96rem] space-y-8">
       <PageHeader
         title="Stock on hand"
         description={

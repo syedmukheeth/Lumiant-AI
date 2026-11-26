@@ -251,7 +251,7 @@ export function AdminPage() {
   const me = useMe();
   const [tab, setTab] = useState<Tab>("schema");
   return (
-    <div className="mx-auto max-w-[96rem] space-y-5">
+    <div className="mx-auto max-w-[96rem] space-y-8">
       <PageHeader
         title="Onboarding and oversight"
         description="Check a data source against its mapping, see what is unlocked, prove numbers against the customer's own reports, and review access."

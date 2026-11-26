@@ -13,7 +13,7 @@ import { ArrowDown, ArrowUp } from "lucide-react";
  * the scroll container on both axes, so `position: sticky` on the header cells works against it; a wrapper that only
  * scrolled sideways would trap the header and let it scroll away with the page.
  */
-const CELL_X = "px-3 first:pl-4 last:pr-4 sm:first:pl-5 sm:last:pr-5";
+const CELL_X = "px-3 first:pl-5 last:pr-5 sm:first:pl-6 sm:last:pr-6";
 export function DataTable({
   minWidth,
   busy,
@@ -26,7 +26,7 @@ export function DataTable({
   children: React.ReactNode;
 }) {
   return (
-    <div className="-mx-4 max-h-[min(70vh,44rem)] overflow-auto overscroll-contain sm:-mx-5">
+    <div className="-mx-5 max-h-[min(70vh,44rem)] overflow-auto overscroll-contain sm:-mx-6">
       <table className="w-full text-dense text-ink-2" style={{ minWidth }} aria-busy={busy} data-testid={testId}>
         {children}
       </table>

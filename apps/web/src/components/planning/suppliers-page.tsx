@@ -86,7 +86,7 @@ export function SuppliersPage() {
   const { data, error, isFetching } = useSupplierComparison(query);
   const policy = POLICIES.find((p) => p.id === draft.policy)!;
   return (
-    <div className="mx-auto max-w-[96rem] space-y-5">
+    <div className="mx-auto max-w-[96rem] space-y-8">
       <PageHeader
         title="Supplier comparison"
         description="Before a purchase order: is this supplier offering the right item at a reasonable landed cost, with an acceptable quality and delivery record, in time? Ranked by your policy: there is no universal winner."

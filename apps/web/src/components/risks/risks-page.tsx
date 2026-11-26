@@ -163,7 +163,7 @@ export function RisksPage() {
   const [expiryDays, setExpiryDays] = useState(60);
   const current = TABS.find((t) => t.id === tab)!;
   return (
-    <div className="mx-auto max-w-[96rem] space-y-5">
+    <div className="mx-auto max-w-[96rem] space-y-8">
       <PageHeader
         title="Inventory risks"
         description="Every flag explains why it was raised and which data it used. Definitions are drafts until your organisation approves them."

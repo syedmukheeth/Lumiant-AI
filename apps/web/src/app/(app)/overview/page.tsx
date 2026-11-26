@@ -19,7 +19,7 @@ export default function OverviewPage() {
   const scope = me?.scope;
 
   return (
-    <div className="@container mx-auto max-w-[96rem] space-y-6">
+    <div className="@container mx-auto max-w-[96rem] space-y-8">
       <PageHeader
         title="Inventory position"
         actions={

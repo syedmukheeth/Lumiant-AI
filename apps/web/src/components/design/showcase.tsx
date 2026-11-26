@@ -36,12 +36,14 @@ const SWATCHES: { group: string; tokens: { name: string; note: string }[] }[] = 
       { name: "--brand-navy", note: "Logo navy" },
       { name: "--brand-teal", note: "Logo teal" },
       { name: "--brand-gold", note: "Logo gold" },
+      { name: "--logo-plate", note: "Behind the logo" },
     ],
   },
   {
     group: "Planes and ink",
     tokens: [
       { name: "--bg", note: "Page" },
+      { name: "--canvas", note: "App canvas" },
       { name: "--surface", note: "Panel" },
       { name: "--surface-2", note: "Raised" },
       { name: "--surface-3", note: "Floating" },
@@ -90,7 +92,7 @@ function Swatch({ name, note }: { name: string; note: string }) {
 /** Every token, type size, control and chart of the design system on one page, in the current theme. */
 export function DesignShowcase() {
   return (
-    <div className="@container mx-auto max-w-[96rem] space-y-6">
+    <div className="@container mx-auto max-w-[96rem] space-y-8">
       <PageHeader
         title="Design system"
         description="Lumiant's colours, type, controls and charts in the current theme. Switch the theme from the command palette (Ctrl K → Theme) to see the other one."

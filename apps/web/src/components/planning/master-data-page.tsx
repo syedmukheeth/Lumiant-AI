@@ -97,7 +97,7 @@ export function MasterDataPage() {
   const [tab, setTab] = useState<Tab>("duplicates");
   const current = TABS.find((t) => t.id === tab)!;
   return (
-    <div className="mx-auto max-w-[96rem] space-y-5">
+    <div className="mx-auto max-w-[96rem] space-y-8">
       <PageHeader title="Item master" description="Master-data governance: duplicate item codes and the lifecycle of stocked items, each with the evidence behind it." />
       <Tabs label="Item master views" tabs={TABS} value={tab} onChange={setTab} className="rise" style={enterDelay(1)} />
       <p className="text-sm text-ink-2">{current.blurb}</p>
