@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from lumiant.auth.deps import get_container, require, require_csrf
 from lumiant.auth.permissions import Permission
 from lumiant.auth.principal import Principal
-from lumiant.connectors.probe import probe
+from lumiant.connectors.probe import probe, suggest_for_url
 from lumiant.container import Container
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -55,6 +55,26 @@ def test_source(body: ProbeRequest, principal: Admin, container: Svc) -> dict[st
         principal, "admin:source_test", None, "allow", "ok" if result["ok"] else "error", reason=result.get("code")
     )
     return result
+
+
+@router.post("/source/suggest", dependencies=[Depends(require_csrf)])
+def suggest_for_source(body: ProbeRequest, principal: Admin, container: Svc) -> dict[str, Any]:
+    """Mapping suggestions for a source that is not configured yet: table and column names only, URL used once."""
+    result = suggest_for_url(body.url, allow_sqlite=not container.settings.is_production)
+    container.query.record(
+        principal, "admin:source_suggest", None, "allow", "ok" if result["ok"] else "error", reason=result.get("code")
+    )
+    return result
+
+
+@router.get("/mapping/suggest")
+def suggest_mapping(principal: Admin, container: Svc) -> dict[str, Any]:
+    return container.admin.suggest_mapping(principal)
+
+
+@router.get("/validation")
+def validation(principal: Admin, container: Svc) -> dict[str, Any]:
+    return container.admin.validation(principal)
 
 
 @router.get("/capabilities")

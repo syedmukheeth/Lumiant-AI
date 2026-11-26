@@ -16,6 +16,8 @@ import { api, ApiError, type Me, type Row } from "@/lib/api";
 import { formatNumber, formatTimestamp } from "@/lib/format";
 import { useMe } from "@/lib/hooks";
 
+import { IntegrationsPanel } from "./integrations-panel";
+import { MappingPanel, ValidationPanel } from "./mapping-panel";
 import { SourcePanel } from "./source-panel";
 
 type SchemaResult = {
@@ -48,6 +50,9 @@ type Recon = { passed: boolean; counts: Record<string, number>; lines: ReconLine
 const TABS = [
   { id: "source", label: "Data source" },
   { id: "schema", label: "Connection and schema" },
+  { id: "mapping", label: "Mapping" },
+  { id: "validation", label: "Validation" },
+  { id: "integrations", label: "Integrations" },
   { id: "capabilities", label: "Capabilities" },
   { id: "reconciliation", label: "Reconciliation" },
   { id: "audit", label: "Audit log" },
@@ -304,6 +309,9 @@ export function AdminPage() {
       <Tabs label="Administration" tabs={TABS} value={tab} onChange={setTab} />
       {tab === "source" && <SourcePanel />}
       {tab === "schema" && <SchemaPanel />}
+      {tab === "mapping" && <MappingPanel />}
+      {tab === "validation" && <ValidationPanel />}
+      {tab === "integrations" && <IntegrationsPanel />}
       {tab === "capabilities" && <CapabilitiesPanel />}
       {tab === "reconciliation" && <ReconciliationPanel />}
       {tab === "audit" && <AuditPanel me={me.data} />}

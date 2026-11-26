@@ -18,6 +18,8 @@ from lumiant.api import (
     health,
     insights,
     inventory,
+    keys,
+    mcp,
     meta,
     metrics,
     planning,
@@ -107,6 +109,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         query,
         planning,
         public,
+        keys,
+        mcp,
     ):
         app.include_router(module.router)
     return app

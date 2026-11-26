@@ -7,6 +7,8 @@ from typing import Any
 
 from fastapi import Depends, Request
 
+from lumiant.apikeys.store import PREFIX as API_KEY_PREFIX
+from lumiant.apikeys.store import ApiKeyStore
 from lumiant.auth.permissions import Permission
 from lumiant.auth.principal import Principal
 from lumiant.auth.provider import COOKIE_NAME
@@ -23,8 +25,17 @@ def get_container(request: Request) -> Container:
     return container
 
 
+def _api_key(request: Request) -> str | None:
+    scheme, _, token = request.headers.get("authorization", "").partition(" ")
+    token = token.strip()
+    return token if scheme.lower() == "bearer" and token.startswith(API_KEY_PREFIX) else None
+
+
 def current_principal(request: Request, container: Container = Depends(get_container)) -> Principal:  # noqa: B008
-    if container.oidc is not None:
+    key = _api_key(request)
+    if key is not None:  # service accounts (public API, MCP) sign in with a key in any auth mode
+        principal = ApiKeyStore(container.audit.engine).authenticate(key, container.tenants.has)
+    elif container.oidc is not None:
         header = request.headers.get("authorization", "")
         scheme, _, bearer = header.partition(" ")
         if scheme.lower() != "bearer" or not bearer.strip():
@@ -99,5 +110,6 @@ def rate_limit_by_ip(bucket: str) -> Callable[..., None]:
 
 
 def require_csrf(request: Request) -> None:
-    if request.headers.get(CSRF_HEADER) != CSRF_VALUE:
+    # CSRF guards cookie sessions; a request carrying an API key has no ambient credential to abuse.
+    if _api_key(request) is None and request.headers.get(CSRF_HEADER) != CSRF_VALUE:
         raise ForbiddenError("csrf_failed", "This request is missing a required header.")

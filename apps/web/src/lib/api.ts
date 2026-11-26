@@ -43,7 +43,7 @@ export function buildUrl(path: string, query?: Query): string {
   return qs ? `${path}?${qs}` : path;
 }
 
-async function request<T>(method: "GET" | "POST", path: string, opts: { query?: Query; body?: unknown } = {}) {
+async function request<T>(method: "GET" | "POST" | "DELETE", path: string, opts: { query?: Query; body?: unknown } = {}) {
   let res: Response;
   try {
     res = await fetch(buildUrl(path, opts.query), {
@@ -51,7 +51,8 @@ async function request<T>(method: "GET" | "POST", path: string, opts: { query?: 
       credentials: "same-origin",
       headers: {
         Accept: "application/json",
-        ...(method === "POST" ? { "Content-Type": "application/json", "X-Requested-With": "lumiant" } : {}),
+        ...(method === "POST" ? { "Content-Type": "application/json" } : {}),
+        ...(method !== "GET" ? { "X-Requested-With": "lumiant" } : {}),
       },
       body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
     });
@@ -65,6 +66,7 @@ async function request<T>(method: "GET" | "POST", path: string, opts: { query?: 
 export const api = {
   get: <T>(path: string, query?: Query) => request<T>("GET", path, { query }),
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, { body: body ?? {} }),
+  delete: <T>(path: string) => request<T>("DELETE", path),
 };
 
 // ---------------------------------------------------------------------------------------- API shapes
