@@ -398,3 +398,6 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 ## 2026-11-26 · S10 · Saved views API (session ended at the usage limit)
 - **Done:** `/api/views` (list, save, delete; per user, only the page's known query keys kept; Alembic 0007), `test_views.py` passes.
 - **Not done:** the Inventory "Save view" UI; full API and e2e suites were not re-run after this last step.
+
+## 2026-11-26 · S10 · Saved views UI
+- **Done:** Inventory header "Save view" (name the current filters, search and sort), a saved-views picker that reopens them, delete. Private per user; only known query keys are stored. TEST_RUNS S10-50.
