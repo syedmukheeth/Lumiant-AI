@@ -35,7 +35,8 @@ from cryptography.fernet import InvalidToken
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from lumiant.audit.store import Base
-from lumiant.auth.principal import Principal
+from lumiant.auth.permissions import Permission
+from lumiant.auth.principal import Principal, WarehouseScope
 from lumiant.connectors.secret_store import KEY_ENV, _fernet
 from lumiant.core.errors import AppError
 
@@ -57,6 +58,12 @@ class AlertRuleRow(Base):
     last_sent_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     last_status: Mapped[str | None] = mapped_column(sa.String(120))
     active: Mapped[bool] = mapped_column(sa.Boolean())
+    # Scheduled sending (0006): hours between deliveries, and the creator's rights at creation so a scheduled run
+    # never sees more than the person who set the rule up could.
+    every_hours: Mapped[int | None] = mapped_column(sa.Integer())
+    permissions: Mapped[str] = mapped_column(sa.String(400), default="")
+    scope_all: Mapped[bool] = mapped_column(sa.Boolean(), default=False)
+    warehouses: Mapped[str] = mapped_column(sa.String(2000), default="")
 
 
 def check_target(url: str, *, allow_local: bool) -> None:
@@ -89,6 +96,7 @@ def _public(row: AlertRuleRow) -> dict[str, Any]:
         "last_sent_at": row.last_sent_at.isoformat() if row.last_sent_at else None,
         "last_status": row.last_status,
         "active": row.active,
+        "every_hours": row.every_hours,
     }
 
 
@@ -101,7 +109,14 @@ class AlertService:
         self.engine = engine
 
     def create(
-        self, principal: Principal, name: str, url: str, min_severity: str, *, allow_local: bool
+        self,
+        principal: Principal,
+        name: str,
+        url: str,
+        min_severity: str,
+        *,
+        allow_local: bool,
+        every_hours: int | None = None,
     ) -> tuple[str, dict[str, Any]]:
         if min_severity not in SEVERITIES:
             raise AppError("invalid_request", "Severity must be info, warning or critical.", 422)
@@ -124,6 +139,10 @@ class AlertService:
             last_sent_at=None,
             last_status=None,
             active=True,
+            every_hours=every_hours,
+            permissions=",".join(sorted(p.value for p in principal.permissions)),
+            scope_all=principal.scope.all,
+            warehouses=",".join(sorted(principal.scope.ids)),
         )
         with Session(self.engine) as session, session.begin():
             session.add(row)
@@ -131,7 +150,7 @@ class AlertService:
             record = _public(row)
         return secret, record
 
-    def list(self, tenant_id: str) -> list[dict[str, Any]]:
+    def list_rules(self, tenant_id: str) -> list[dict[str, Any]]:
         with Session(self.engine) as session:
             rows = session.scalars(
                 sa.select(AlertRuleRow)
@@ -203,3 +222,28 @@ class AlertService:
                 row.last_sent_at = datetime.now(UTC)
                 row.last_status = status
         return {"ok": ok, "status": status, "findings": len(findings)}
+
+    def due(self, now: datetime | None = None) -> list[tuple[str, Principal]]:
+        """Scheduled rules whose interval has passed, each with the principal it runs as (its creator's snapshot)."""
+        now = now or datetime.now(UTC)
+        out: list[tuple[str, Principal]] = []
+        with Session(self.engine) as session:
+            rows = session.scalars(
+                sa.select(AlertRuleRow).where(AlertRuleRow.active.is_(True), AlertRuleRow.every_hours.is_not(None))
+            ).all()
+            for r in rows:
+                last = r.last_sent_at
+                if last is not None and last.tzinfo is None:
+                    last = last.replace(tzinfo=UTC)
+                if last is not None and (now - last).total_seconds() < (r.every_hours or 0) * 3600:
+                    continue
+                principal = Principal(
+                    user_id=f"alert:{r.id}",
+                    display_name=r.name,
+                    tenant_id=r.tenant_id,
+                    roles=("alert_rule",),
+                    permissions=frozenset(Permission(p) for p in r.permissions.split(",") if p),
+                    scope=WarehouseScope(r.scope_all, frozenset(w for w in r.warehouses.split(",") if w)),
+                )
+                out.append((r.id, principal))
+        return out

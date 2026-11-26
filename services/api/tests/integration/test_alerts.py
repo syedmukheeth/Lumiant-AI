@@ -115,3 +115,34 @@ def test_rules_are_admin_only(client: TestClient) -> None:
     client.cookies.clear()
     client.post("/api/auth/dev-login", json={"username": "alpha.analyst"}, headers=CSRF)
     assert client.get("/api/admin/alerts").status_code == 403
+
+
+def test_scheduled_rules_send_once_per_interval(
+    data_dir: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, receiver: Receiver
+) -> None:
+    from lumiant.alerts.cli import send_due
+
+    monkeypatch.setenv(KEY_ENV, new_key())
+    settings = Settings(
+        _env_file=None,  # type: ignore[call-arg]
+        app_env="test",
+        auth_mode="dev",
+        dev_jwt_secret="sched-secret-" + "x" * 40,
+        data_dir=data_dir,
+        app_db_url=app_db_url(tmp_path / "app.db"),
+        log_level="WARNING",
+    )
+    with TestClient(create_app(settings)) as c:
+        c.post("/api/auth/dev-login", json={"username": "alpha.admin"}, headers=CSRF)
+        made = c.post(
+            "/api/admin/alerts",
+            json={"name": "Daily", "url": receiver.url, "min_severity": "info", "every_hours": 24},
+            headers=CSRF,
+        ).json()
+        manual = c.post("/api/admin/alerts", json={"name": "Manual", "url": receiver.url}, headers=CSRF).json()
+    first = send_due(settings)
+    assert [r["rule"] for r in first] == [made["record"]["id"]]  # the unscheduled rule is never sent by the job
+    assert first[0]["ok"] is True
+    assert len(receiver.calls) == 1
+    assert send_due(settings) == []  # not due again for 24 hours
+    assert manual["record"]["every_hours"] is None

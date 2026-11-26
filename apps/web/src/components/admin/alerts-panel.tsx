@@ -20,6 +20,7 @@ type Rule = {
   created_at: string;
   last_sent_at: string | null;
   last_status: string | null;
+  every_hours: number | null;
 };
 
 /** Admin › Integrations: push findings to a webhook, signed so the receiver can verify them (V3). */
@@ -29,9 +30,10 @@ export function AlertsPanel() {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [severity, setSeverity] = useState("warning");
+  const [every, setEvery] = useState("");
   const refresh = () => void qc.invalidateQueries({ queryKey: ["alert-rules"] });
   const create = useMutation({
-    mutationFn: () => api.post<{ secret: string; record: Rule }>("/api/admin/alerts", { name, url, min_severity: severity }),
+    mutationFn: () => api.post<{ secret: string; record: Rule }>("/api/admin/alerts", { name, url, min_severity: severity, every_hours: every ? Number(every) : null }),
     onSuccess: () => {
       setName("");
       setUrl("");
@@ -47,7 +49,7 @@ export function AlertsPanel() {
       subtitle="Send findings at or above a severity to your ticketing, chat or workflow tool. Each delivery is signed (X-Lumiant-Signature, HMAC-SHA256) and computed with your warehouse scope."
     >
       <form
-        className="grid gap-4 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_10rem_auto] lg:items-end"
+        className="grid gap-4 lg:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_10rem_9rem_auto] lg:items-end"
         onSubmit={(e) => {
           e.preventDefault();
           if (name.trim() && url.trim()) create.mutate();
@@ -64,6 +66,14 @@ export function AlertsPanel() {
             <option value="critical">Critical only</option>
             <option value="warning">Watch and critical</option>
             <option value="info">Everything</option>
+          </Select>
+        </Field>
+        <Field label="Send">
+          <Select value={every} onChange={(e) => setEvery(e.target.value)}>
+            <option value="">Manually</option>
+            <option value="1">Every hour</option>
+            <option value="24">Every day</option>
+            <option value="168">Every week</option>
           </Select>
         </Field>
         <Button type="submit" variant="primary" disabled={!name.trim() || !url.trim() || create.isPending}>
@@ -100,7 +110,8 @@ export function AlertsPanel() {
                   </span>
                   <span className="code block truncate text-xs text-ink-3">{r.url}</span>
                   <span className="block text-caption text-ink-3">
-                    {r.last_sent_at ? `Last sent ${formatTimestamp(r.last_sent_at)}: ${r.last_status}` : "Not sent yet"}
+                    {r.every_hours ? `Every ${r.every_hours === 1 ? "hour" : r.every_hours === 24 ? "day" : r.every_hours === 168 ? "week" : `${r.every_hours} hours`} · ` : "Manual · "}
+                    {r.last_sent_at ? `last sent ${formatTimestamp(r.last_sent_at)}: ${r.last_status}` : "not sent yet"}
                   </span>
                 </span>
                 <Button size="sm" onClick={() => send.mutate(r.id)} disabled={send.isPending}>
