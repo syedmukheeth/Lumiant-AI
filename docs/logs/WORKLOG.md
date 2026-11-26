@@ -351,3 +351,8 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 - **Gates:** axe in e2e (light + dark, 12 screens, 0 serious/critical) found and fixed: unfocusable scroll regions (tables, timeline), the Refresh button's name not containing its visible text, red delta text on a red tint in dark (new `--status-critical-ink`); screenshot spec for landing, sign-in and `/design` in both themes (Windows baselines); CI uploads Playwright traces on failure. e2e ports configurable (`LUMIANT_E2E_WEB_PORT`) because another local project uses 3100.
 - **How:** steps #44, #46 and #49 ran in three parallel sessions in this checkout; the rest here. **Commands + results:** TEST_RUNS S10-25 … S10-31.
 - **Open:** ISSUES #57 (landing JS above budget), #58 (cache per process), #59 (data quality 16 queries), #60 (no Linux screenshot baselines), #61 (risk tools ignore a named warehouse).
+
+## 2026-11-26 · S10 · V1 connect (part 1): SQL connector and Data source
+- **Done:** generic read-only `SqlConnector` (PostgreSQL, SQL Server, MySQL, Oracle; SQLite as a dev stand-in) behind the same contract as DuckDB; tenant `connection: {type: sql, secret_ref: env:NAME}`; unset URL fails safe (503); `lumiant-synthetic copy` loads a generated warehouse into any engine; conformance suite (SQLite every run, PostgreSQL in CI); `POST /api/admin/source/test` probe (connect, privilege check, catalog) that never stores or echoes the URL; `GET /api/admin/source`; Admin › Data source tab (status, rows per dataset, test a connection).
+- **Commands + results:** TEST_RUNS S10-32 … S10-34.
+- **Not done (next):** encrypted credential store and saving a source from the UI, mapping studio (V2), sync jobs.
