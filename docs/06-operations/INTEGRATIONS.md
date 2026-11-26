@@ -54,7 +54,23 @@ What the customer should know before connecting an external assistant: the tool 
 warehouse names within the key's scope) go to that assistant's provider. Give such keys the narrowest rights and
 warehouses, and follow the customer's AI provider approval (OPEN_QUESTIONS Q-013).
 
+## Alert rules (signed webhooks)
+
+Admin › Integrations › Alert rules: name, https address, minimum severity. The signing secret (`whsec_...`) is shown
+once and stored encrypted (needs `LUMIANT_SECRET_KEY`). "Send now" (or `POST /api/admin/alerts/{id}/send`) computes the
+findings with the sender's scope and posts JSON `{rule, tenant_id, timestamp, data_as_of, complete, warnings, findings[]}`
+with headers `X-Lumiant-Signature: sha256=<hex>` and `X-Lumiant-Timestamp`. Verify on the receiver:
+
+```python
+import hashlib, hmac
+expected = "sha256=" + hmac.new(SECRET.encode(), request_body_bytes, hashlib.sha256).hexdigest()
+assert hmac.compare_digest(expected, request.headers["X-Lumiant-Signature"])
+```
+
+Reject deliveries whose timestamp is more than a few minutes old. In production targets must be https and may not
+resolve to private, loopback, link-local or reserved addresses. Scheduled sending arrives with the sync worker.
+
 ## Not built yet
 
-Webhooks and alert rules, embeddable widgets with signed tokens, Teams/Slack apps and the Excel add-in
+Scheduled alert sending, embeddable widgets with signed tokens, Teams/Slack apps and the Excel add-in
 (PRODUCT_V3_PLAN §4) follow on this key model.

@@ -56,6 +56,8 @@ Status: **Implemented and tested (M1)** in `services/api/src/lumiant/api/`. Base
 | GET | `/api/admin/api-keys` | `admin:tenant` | `{keys[], grantable[]}`: name, rights, warehouses, created / last used, revoked; never the secret (V3) |
 | POST | `/api/admin/api-keys` | `admin:tenant` + CSRF | body `{name, permissions[], warehouses?}` → `{key, record}`; the key is shown once; rights ⊆ creator and grantable set, warehouses ⊆ creator scope (V3) |
 | DELETE | `/api/admin/api-keys/{id}` | `admin:tenant` + CSRF | revoke (V3) |
+| GET / POST / DELETE | `/api/admin/alerts`, `/api/admin/alerts/{id}` | `admin:tenant` (+ CSRF to change) | alert rules: `{name, url, min_severity}` → `{secret (once), record}`; list never shows secrets (V3) |
+| POST | `/api/admin/alerts/{id}/send` | `admin:tenant` + CSRF | compute findings for the caller and deliver, signed → `{ok, status, findings}` (V3) |
 | POST | `/mcp` | API key (`Authorization: Bearer lmk_...`) | Model Context Protocol (JSON-RPC 2.0): `initialize`, `ping`, `tools/list`, `tools/call`; tools = permitted analyses + `ask_lumiant`; see `06-operations/INTEGRATIONS.md` (V3) |
 | GET | `/api/admin/capabilities` | `admin:tenant` | capability matrix with missing fields |
 | GET | `/api/admin/audit` | `audit:read` | tenant's audit events; filters `decision`, `action` prefix |
