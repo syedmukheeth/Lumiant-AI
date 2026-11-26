@@ -512,3 +512,17 @@ test("risks: stock ageing shows every bucket, with values only for cost roles", 
   await expect(page.getByTestId("ageing")).toContainText("pairs");
   await expect(page.getByTestId("ageing")).not.toContainText("USD");
 });
+
+test("settings: theme choice applies at once and is remembered; account shows roles and scope", async ({ page }) => {
+  await signIn(page, "alpha.analyst");
+  await page.getByTestId("settings-link").click();
+  await page.waitForURL("**/settings");
+  await expect(page.getByTestId("account")).toContainText("3100");
+  await page.getByRole("radio", { name: /Dark/ }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.getByRole("radio", { name: /Dark/ })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("radio", { name: /Light/ }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+});

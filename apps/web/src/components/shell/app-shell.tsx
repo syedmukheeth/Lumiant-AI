@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { clsx } from "clsx";
-import { Clock, Lock, LogOut, PanelLeftClose, PanelLeftOpen, Search, Sparkles } from "lucide-react";
+import { Clock, Lock, LogOut, PanelLeftClose, PanelLeftOpen, Search, Settings, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -239,6 +239,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Button variant="ghost" size="sm" onClick={signOut}>
                 <LogOut size={14} aria-hidden /> <span className="md:rail-collapsed:sr-only">Sign out</span>
               </Button>
+              <Link
+                href="/settings"
+                aria-label="Settings"
+                title="Settings"
+                className="grid size-8 place-items-center rounded-control text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+                data-testid="settings-link"
+              >
+                <Settings size={15} aria-hidden />
+              </Link>
               <IconButton
                 onClick={toggleRail}
                 aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}

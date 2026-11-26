@@ -69,7 +69,7 @@ for (const theme of THEMES) {
       await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
       await expect(page.getByTestId("kpi-items")).toContainText(/\d/);
       await scan(page, "overview");
-      await scanPages(page, ["/inventory", "/risks", "/costs", "/assistant", "/reports", "/admin", "/design"]);
+      await scanPages(page, ["/inventory", "/risks", "/costs", "/assistant", "/reports", "/admin", "/design", "/settings"]);
     });
 
     test("planning screens", async ({ page }) => {
