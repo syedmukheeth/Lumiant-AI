@@ -30,6 +30,7 @@ from lumiant.agent.tools import (
 )
 from lumiant.auth.permissions import Permission
 from lumiant.core.errors import AppError
+from lumiant.query.plan import QueryPlan
 
 
 @dataclass
@@ -167,6 +168,144 @@ def _abc_class(q: str) -> str | None:
     """'A-category', 'class B' → the ABC letter as stored in the source (upper case)."""
     m = _ABC.search(q)
     return (m.group(1) or m.group(2)).upper() if m else None
+
+
+# ------------------------------------------------------------------------------------ named values (ISSUES #44)
+# A question can group by one thing and name values of others ("value by item group in warehouse 1100"). The grouping
+# comes from the "by X" phrase; every named value narrows the answer, and a value the tool cannot apply gets a
+# question back instead of a broader answer.
+_VALUE_ARG = {
+    "warehouse": "warehouse_id",
+    "item_group": "item_group",
+    "stage": "stage",
+    "stock_status": "stock_status",
+    "abc": "abc_class",
+}
+_VALUE_REF = {
+    "item_group": "item.item_group",
+    "stage": "item.inventory_stage",
+    "stock_status": "stock_status",
+    "abc": "item.abc_class",
+}
+_DIM_LABEL = {
+    "warehouse": "warehouse",
+    "location": "storage location",
+    "item_group": "item group",
+    "stage": "material type",
+    "stock_status": "stock status",
+    "abc": "ABC class",
+}
+# Canonical values (catalog: inventory_stage, stock_status). English and normalised Arabic wording.
+_STAGE_VALUES = (
+    (r"semi[- ]?finished|\bsemis\b|work[- ]in[- ]progress|\bwip\b", "SEMI"),
+    (r"\braw[- ]?materials?\b|\braw (stock|items?)\b|مواد خام|ماده خام", "RAW"),
+    (r"(?<!semi-)(?<!semi )\bfinished (goods|products?|items?|stock)\b|منتجات تامه", "FINISHED"),
+    (r"\bspare[- ]?parts?\b|\bspares\b|قطع غيار", "SPARE"),
+    (r"\bconsumables?\b", "CONSUMABLE"),
+)
+_STATUS_VALUES = (
+    (r"\bblocked\b|محظور|مجمد", "blocked"),
+    (r"quality[- ]inspection|\bqi\b|(in|under) inspection|فحص الجوده|تحت الفحص", "quality_inspection"),
+    (r"\bin[- ]transit\b|\btransit\b", "in_transit"),
+    (r"\breturns? stock\b|\breturned stock\b|\bstock (in|on) returns\b", "returns"),
+    (r"\bunrestricted\b|غير مقيد", "unrestricted"),
+)
+_BY = re.compile(r"\b(?:by|per|for (?:each|every))\s+(?:the |each |every |their |its )?([^,?.!;:]+)")
+_BY_END = re.compile(
+    r"\s+(?:for|in|of|with|and|or|at|where|which|that|from|to|on|only|excluding|but|over|during|since|as|then|vs|"
+    r"versus|compared)\b"
+)
+_BY_WORD = {
+    "status": "stock_status",
+    "statuses": "stock_status",
+    "class": "abc",
+    "classes": "abc",
+    "type": "stage",
+    "types": "stage",
+    "stage": "stage",
+    "stages": "stage",
+    "group": "item_group",
+    "groups": "item_group",
+    "category": "item_group",
+    "categories": "item_group",
+}
+_GROUP_PHRASE = re.compile(
+    r"\b(?:item |product |material )?(?:group|category)\s+(?:called |named |code )?[\"'“‘]?([a-z0-9][\w-]*)"
+)
+_GROUP_STOP = frozenset(
+    {
+        *("in", "for", "of", "and", "or", "by", "with", "the", "at", "on", "is", "are", "has", "have", "hold"),
+        *("holds", "held", "which", "that", "value", "values", "stock", "inventory", "quantity", "quantities"),
+        *("across", "per", "each", "total", "totals", "where", "from", "to", "a", "an", "b", "c", "items", "item"),
+        *("level", "wise", "over", "vs", "versus", "than", "only", "please", "list", "show", "data", "contains"),
+        *("contain", "most", "least", "share", "breakdown", "codes", "names", "name"),
+    }
+)
+_WAREHOUSE_CODE = re.compile(
+    r"\b(?:warehouse|plant|site)s?\s+(?:no\.?\s*|number\s+|#\s*)?"
+    r"([a-z0-9][\w-]*\d[\w-]*(?:\s*(?:,|\band\b|&|\bor\b)\s*[a-z0-9][\w-]*\d[\w-]*)*)"
+)
+# Words after "of"/"for" that do not name an item ("value of our stock", "for all warehouses").
+_GENERIC = frozenset(
+    {
+        *("our", "the", "all", "my", "a", "an", "any", "inventory", "stock", "stocks", "items", "item", "materials"),
+        *("material", "products", "product", "value", "values", "quantity", "quantities", "on", "hand", "on-hand"),
+        *("total", "each", "every", "warehouse", "warehouses", "plant", "plants", "site", "sites", "location"),
+        *("locations", "group", "groups", "stage", "stages", "status", "category", "categories", "class", "type"),
+        *("types", "it", "this", "that", "these", "those", "them", "us", "we", "me", "held", "stored", "units"),
+        *("worth", "level", "levels", "current", "currently", "now", "today", "please"),
+    }
+)
+_OF_FOR = re.compile(r"\b(?:of|for)\s+(.+)$")
+_CODE_TOKEN = re.compile(r"[A-Za-z0-9]+(?:[-_./][A-Za-z0-9]+)+|\b\d{6,}\b")
+_UPPER_TOKEN = re.compile(r"\b[A-Z][A-Z0-9_-]{2,}\b")
+# "Which warehouse has the highest value?" ranks warehouses, not items.
+_WHICH_DIM = (
+    r"\b(which|what) (warehouse|plant|site|storage location|location|item group|material group|product group|group|"
+    r"stage|material type|stock status|abc class)(e?s)?\b"
+)
+
+
+def _by_dimension(q: str) -> str | None:
+    """The grouping named after "by", "per" or "for each" ("value by item group in warehouse 1100" → item_group).
+
+    Only the user's words count, not the terminology hints. Arabic "حسب" (by) reads the hints of the words after it.
+    """
+    main = q.split(" :: ")[0]
+    for m in _BY.finditer(main):
+        phrase = _BY_END.split(m.group(1), maxsplit=1)[0].strip()
+        if phrase:
+            key = _BY_WORD.get(phrase) or _dimension(expand(phrase))
+            if key:
+                return key
+    ar = re.search(r"حسب\s+(.+)$", main)
+    return _dimension(expand(ar.group(1))) if ar else None
+
+
+def _match_group(token: str, groups: list[str]) -> str | None:
+    t = token.lower()
+    for g in groups:
+        if t == g.lower() or (len(t) >= 4 and t.rstrip("s") == g.lower().rstrip("s")):
+            return g
+    return None
+
+
+@dataclass
+class _Named:
+    """Values a question names, by grouping kind, in the order named; and what may name an item."""
+
+    values: dict[str, list[str]] = field(default_factory=dict)
+    problem: Decision | None = None  # a named value that cannot be applied: say so instead of answering more broadly
+    candidate: str = ""  # words after "of"/"for" that no value used ("stock of impeller by warehouse")
+    codes: list[str] = field(default_factory=list)  # code-like tokens that no value used (item codes)
+
+    def add(self, kind: str, value: str) -> None:
+        found = self.values.setdefault(kind, [])
+        if value not in found:
+            found.append(value)
+
+    def phrase(self) -> str:
+        return " and ".join(f"{_DIM_LABEL[k]} {', '.join(v)}" for k, v in self.values.items())
 
 
 _QTY = re.compile(r"(?<![\w-])(\d+(?:\.\d+)?)\s*(units?|pcs|pieces|ea|kg|m|l|tons?)?(?![\w-])", re.IGNORECASE)
@@ -321,10 +460,10 @@ class RuleBasedProvider:
         found = self._warehouses(q, ctx)
         return found[0] if found else None
 
-    def _warehouses(self, q: str, ctx: ToolContext) -> list[str]:
+    def _warehouses(self, q: str, ctx: ToolContext, rows: list[dict[str, Any]] | None = None) -> list[str]:
         """Visible warehouses named in the question by id or name, in the order they appear."""
         hits: list[tuple[int, str]] = []
-        for w in visible_warehouses(ctx):
+        for w in visible_warehouses(ctx) if rows is None else rows:
             wid, name = str(w["warehouse_id"]), str(w.get("name") or "")
             m = re.search(rf"\b{re.escape(wid.lower())}\b", q)
             pos = m.start() if m else (q.find(name.lower()) if name else -1)
@@ -380,6 +519,212 @@ class RuleBasedProvider:
         return None, Decision(
             "unsupported", message="I couldn't find an item matching that. Try the item code from the Inventory page."
         )
+
+    # ------------------------------------------------------------------------------------ named values
+    def _item_groups(self, ctx: ToolContext) -> list[str]:
+        """Item groups held in the user's scope, as stored (e.g. FASTENERS)."""
+        plan = QueryPlan.model_validate(
+            {
+                "dataset": "stock_balance",
+                "dimensions": ["item.item_group"],
+                "measures": [{"field": "quantity", "agg": "sum", "alias": "qty"}],
+                "limit": 500,
+            }
+        )
+        rows = ctx.query.run_plan(plan, ctx.principal, action="agent:resolve_item_group").rows
+        return sorted({str(r["item.item_group"]) for r in rows if r.get("item.item_group")})
+
+    def _named(self, q: str, question: str, ctx: ToolContext) -> _Named:
+        """Warehouses, item group, ABC class, material type and stock status the question names, plus what is left
+        that may name an item. Values are matched against the user's scope and the tenant's mapping."""
+        out = _Named()
+        main, _, hints = q.partition(" :: ")
+        rest = main
+        mapping = ctx.query.mapping(ctx.principal.tenant_id)
+
+        def mapped(kind: str) -> bool:
+            return mapping.has_ref("stock_balance", _VALUE_REF[kind])
+
+        def unavailable(kind: str, value: str) -> None:
+            if out.problem is None:
+                label = _DIM_LABEL[kind]
+                out.problem = Decision(
+                    "unsupported",
+                    message=(
+                        f"This organisation's inventory data has no {label}, so I can't narrow the answer to {label} "
+                        f"{value}. Ask again without it and I'll answer for all the stock you can see."
+                    ),
+                )
+
+        def as_typed(token: str) -> str:
+            m = re.search(re.escape(token), question, flags=re.IGNORECASE)
+            return m.group(0) if m else token
+
+        groups: list[str] | None = None
+
+        def group_list() -> list[str]:
+            nonlocal groups
+            if groups is None:
+                groups = self._item_groups(ctx) if mapped("item_group") else []
+            return groups
+
+        # Warehouses by id or name; a warehouse code the user cannot see is asked about, never silently dropped.
+        rows = visible_warehouses(ctx)
+        ids = {str(r["warehouse_id"]).lower() for r in rows}
+        for wid in self._warehouses(q, ctx, rows):
+            out.add("warehouse", wid)
+            rest = re.sub(rf"\b{re.escape(wid.lower())}\b", " ", rest)
+        for r in rows:
+            name = str(r.get("name") or "").lower()
+            if name:
+                rest = rest.replace(name, " ")
+        for m in _WAREHOUSE_CODE.finditer(main):
+            for code in re.split(r"\s*(?:,|\band\b|&|\bor\b)\s*", m.group(1)):
+                if code and code not in ids and out.problem is None:
+                    shown = ", ".join(sorted(str(r["warehouse_id"]) for r in rows)[:12])
+                    seen = f" ({shown})" if shown else ""
+                    out.problem = Decision(
+                        "clarify",
+                        message=(
+                            f"I can't find warehouse {as_typed(code)} among the warehouses you can see{seen}. "
+                            "Which warehouse do you mean?"
+                        ),
+                    )
+
+        # Item group: "item group PUMPS", or a group code typed as stored ("for FASTENERS").
+        gm = _GROUP_PHRASE.search(rest)
+        if gm and gm.group(1) not in _GROUP_STOP:
+            hit = _match_group(gm.group(1), group_list())
+            if hit:
+                out.add("item_group", hit)
+                rest = rest.replace(gm.group(0), " ")
+            elif not mapped("item_group"):
+                unavailable("item_group", as_typed(gm.group(1)))
+            elif out.problem is None:
+                out.problem = Decision(
+                    "clarify",
+                    message=(
+                        f"I can't find an item group called “{as_typed(gm.group(1))}”. Which item group do you mean? "
+                        f"For example: {', '.join(group_list()[:10])}."
+                    ),
+                )
+        for tok in dict.fromkeys(_UPPER_TOKEN.findall(question)):
+            if tok.lower() not in ids and tok in group_list():
+                out.add("item_group", tok)
+                rest = re.sub(rf"(?<![\w-]){re.escape(tok.lower())}(?![\w-])", " ", rest)
+
+        abc = _abc_class(q)
+        if abc:
+            rest = _ABC.sub(" ", rest)
+            if mapped("abc"):
+                out.add("abc", abc)
+            else:
+                unavailable("abc", abc)
+        text = f"{rest} :: {hints}"
+        for kind, table in (("stage", _STAGE_VALUES), ("stock_status", _STATUS_VALUES)):
+            for pattern, value in table:
+                if not re.search(pattern, text):
+                    continue
+                rest = re.sub(pattern, " ", rest)
+                if mapped(kind):
+                    out.add(kind, value)
+                elif value != "unrestricted":  # a source without stock statuses holds unrestricted stock only
+                    unavailable(kind, value.replace("_", " "))
+
+        # What is left may name an item: "stock of RM-IMPELLER by warehouse", "stock of impeller by warehouse".
+        by = _BY.search(rest)
+        if by:
+            phrase = _BY_END.split(by.group(1), maxsplit=1)[0]
+            rest = rest[: by.start()] + " " + rest[by.start(1) + len(phrase) :]
+        of = _OF_FOR.search(rest)
+        if of:
+            tail = _BY_END.split(" " + of.group(1), maxsplit=1)[0]
+            words = [w for w in re.findall(r"[\w-]+", tail) if w not in _GENERIC and not w.isdigit()]
+            candidate = " ".join(words)
+            hit = _match_group(candidate, group_list()) if candidate and " " not in candidate else None
+            if hit:
+                out.add("item_group", hit)
+            else:
+                out.candidate = candidate
+        out.codes = [
+            c
+            for c in dict.fromkeys(_CODE_TOKEN.findall(question))
+            if len(c) >= 4
+            and (c.upper() == c or any(ch.isdigit() for ch in c))
+            and re.search(rf"(?<![\w-]){re.escape(c.lower())}(?![\w-])", rest)
+        ]
+        return out
+
+    def _named_item(self, named: _Named, ctx: ToolContext) -> tuple[dict[str, Any] | None, Decision | None]:
+        """The one item the question names (exact code first), a question back when several match, else nothing."""
+        for code in named.codes:
+            hit = [
+                r
+                for r in find_items(ctx, code)
+                if code.upper() in {str(r["item_id"]).upper(), str(r["item_code"]).upper()}
+            ]
+            if len(hit) == 1:
+                return hit[0], None
+        term = named.candidate
+        if len(term) < 3:
+            return None, None
+        found = find_items(ctx, term)
+        exact = [r for r in found if term.upper() in {str(r["item_id"]).upper(), str(r["item_code"]).upper()}]
+        if len(exact) == 1:
+            return exact[0], None
+        if len(found) == 1:
+            return found[0], None
+        if len(found) > 1:
+            return None, Decision(
+                "clarify",
+                message=f"I found several items matching “{term}”. Which one do you mean?",
+                choices=[
+                    {"label": f"{r['item_code']} · {r['description']}", "item_id": str(r["item_id"])} for r in found
+                ],
+            )
+        return None, None
+
+    def _narrowing(self, named: _Named, dim: str | None = None) -> dict[str, Any] | Decision:
+        """Tool arguments for the named values; several values of the grouping compare those (`only`)."""
+        args: dict[str, Any] = {}
+        for kind, values in named.values.items():
+            if kind == dim and len(values) >= 2:
+                args["only"] = values[:5]
+            elif len(values) == 1:
+                args[_VALUE_ARG[kind]] = values[0]
+            else:
+                label = _DIM_LABEL[kind]
+                return Decision(
+                    "clarify",
+                    message=(
+                        f"I can narrow this answer to one {label} at a time, and you named {', '.join(values)}. "
+                        f"Which {label} do you mean? To compare them, ask for the figures by {label}."
+                    ),
+                )
+        return args
+
+    def _stock_by(self, q: str, dim: str, named: _Named, can_cost: bool) -> Decision:
+        measure = (
+            "value" if can_cost and _has(q, r"value|worth|cost|\bmoney\b|inventory by|show inventory") else "quantity"
+        )
+        # "Compare warehouses 1100 and 2100": only the named ones (each must be visible to the user).
+        narrow = self._narrowing(named, dim)
+        if isinstance(narrow, Decision):
+            return narrow
+        return Decision("tools", [ToolCall("stock_by", {"dimension": dim, "measure": measure, **narrow})])
+
+    def _item_position(self, item: dict[str, Any], named: _Named, by_dim: str | None) -> Decision:
+        """One item's stock per warehouse; anything else the question names cannot be applied to it yet."""
+        code, item_id = str(item["item_code"]), str(item["item_id"])
+        other = _Named({k: v for k, v in named.values.items() if k != "warehouse"})
+        if other.values or by_dim not in (None, "warehouse"):
+            what = f"narrowed to {other.phrase()}" if other.values else f"split by {_DIM_LABEL[by_dim or 'warehouse']}"
+            return Decision(
+                "clarify",
+                message=f"I can show where {code} is held, warehouse by warehouse, but not {what} yet. Do you want its stock by warehouse?",
+                choices=[{"label": f"Stock of {code} by warehouse", "item_id": item_id}],
+            )
+        return Decision("tools", [ToolCall("stock_position", {"item_id": item_id})])
 
     # ------------------------------------------------------------------------------------ context
     def _contextual(self, q: str, ctx: ToolContext) -> Decision | None:
@@ -616,29 +961,67 @@ class RuleBasedProvider:
             return Decision("tools", [ToolCall("dormant", {"days": parse_days(q, 270)})])
         if _has(q, r"special storage|storage (condition|requirement)|temperature|flammable|air[- ]?condition|hazard"):
             return Decision("tools", [ToolCall("special_storage")])
-        dim = _dimension(q)
-        abc = _abc_class(q)
-        if abc:
-            # "Show me all A-category items": the class's items, by value when the role may see values.
+        # The grouping is what follows "by"; every other value the question names narrows the answer (ISSUES #44).
+        by_dim = _by_dimension(q)
+        word_dim = _dimension(q)
+        named = self._named(q, question, ctx)
+        if _abc_class(q) and by_dim is None:
+            # "Show me all A-category items (in warehouse 2100)": the class's items, by value when the role may see values.
+            if named.problem:
+                return named.problem
+            narrow = self._narrowing(named)
+            if isinstance(narrow, Decision):
+                return narrow
             if can_cost:
-                return Decision("tools", [ToolCall("top_value_items", {"limit": 20, "abc_class": abc})])
-            return Decision(
-                "tools", [ToolCall("stock_by", {"dimension": "warehouse", "measure": "quantity", "abc_class": abc})]
-            )
-        if _has(q, _HIGHEST_VALUE):
+                return Decision("tools", [ToolCall("top_value_items", {"limit": 20, **narrow})])
+            abc_dim = "item_group" if "warehouse_id" in narrow else "warehouse"
+            return Decision("tools", [ToolCall("stock_by", {"dimension": abc_dim, "measure": "quantity", **narrow})])
+        if _has(q, _HIGHEST_VALUE) and not _has(q, _WHICH_DIM):
             if not can_cost:
                 return Decision(
                     "unsupported",
                     message="Your role can't view inventory values, so I can't rank items by value. I can rank by quantity per warehouse instead.",
                 )
-            return Decision("tools", [ToolCall("top_value_items", {"limit": 10})])
-        if dim is None and _has(q, _TOTAL) and not _has(q, _NAMES_SOMETHING):
-            return Decision("tools", [ToolCall("inventory_summary", {})])
+            if named.problem:
+                return named.problem
+            if by_dim and len(named.values.get(by_dim, [])) != 1:
+                label = _DIM_LABEL[by_dim]
+                return Decision(
+                    "clarify",
+                    message=(
+                        f"I can list the highest-value items across everything you can see, or within one {label}. "
+                        f"Which {label} should I use?"
+                    ),
+                )
+            narrow = self._narrowing(named)
+            if isinstance(narrow, Decision):
+                return narrow
+            return Decision("tools", [ToolCall("top_value_items", {"limit": 10, **narrow})])
+        if by_dim is None and _has(q, _TOTAL) and not _has(q, _NAMES_SOMETHING):
+            if named.problem:
+                return named.problem
+            if named.values:
+                # "Total inventory value in warehouse 1100": one figure per currency for exactly what was named.
+                return self._stock_by(q, word_dim or next(iter(named.values)), named, can_cost)
+            if word_dim is None:
+                return Decision("tools", [ToolCall("inventory_summary", {})])
         # "How many items do we have?" counts the catalogue in stock; it does not name one item.
-        if dim is None and _has(
+        if _has(
             q, r"how many (different |distinct |unique )?(items|products|materials|skus|parts|stock lines)\b(?! of\b)"
         ):
-            return Decision("tools", [ToolCall("inventory_summary", {})])
+            if named.problem:
+                return named.problem
+            if named.values:
+                where = named.phrase()
+                return Decision(
+                    "clarify",
+                    message=(
+                        f"I can count the items in stock across all the warehouses you can see, but not for {where} "
+                        f"yet. Do you want the stock quantity for {where} instead? Ask “Show stock in {where}”."
+                    ),
+                )
+            if word_dim is None:
+                return Decision("tools", [ToolCall("inventory_summary", {})])
         if _has(q, _CLASSIFICATIONS):
             measure = "value" if can_cost else "quantity"
             return Decision(
@@ -690,19 +1073,17 @@ class RuleBasedProvider:
             return Decision(
                 "tools", [ToolCall("cost_comparison", {"item_id": str(item["item_id"]), "warehouse_id": wh})]
             )
+        dim = by_dim or word_dim or next(iter(named.values), None)
         if dim and _has(q, r"\bby\b|compare|most|which|contains|has the|largest|biggest|show|inventory|stock|tied"):
-            measure = (
-                "value"
-                if can_cost and _has(q, r"value|worth|cost|\bmoney\b|inventory by|show inventory")
-                else "quantity"
-            )
-            args: dict[str, Any] = {"dimension": dim, "measure": measure}
-            if dim == "warehouse":
-                # "Compare warehouses 1100 and 2100": only the named ones (each must be visible to the user).
-                named = self._warehouses(q, ctx)
-                if len(named) >= 2:
-                    args["only"] = named[:5]
-            return Decision("tools", [ToolCall("stock_by", args)])
+            if named.problem:
+                return named.problem
+            # "Stock of RM-IMPELLER by warehouse" is about that item, not the whole inventory.
+            item, ask = self._named_item(named, ctx)
+            if ask:
+                return ask
+            if item is not None:
+                return self._item_position(item, named, by_dim)
+            return self._stock_by(q, dim, named, can_cost)
         if _has(q, r"how much|how many|on hand|in stock|stock (of|for)|quantity|\bstock\b"):
             item, ask = self._item(question, ctx)
             if ask:

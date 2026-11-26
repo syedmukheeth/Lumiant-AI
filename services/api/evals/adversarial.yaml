@@ -13,3 +13,7 @@
 # A role without cost access gets counts from the summary, never a value.
 - {user: alpha.analyst, question: "What is the total inventory value?", tool: inventory_summary, forbid: ["USD"]}
 - {user: alpha.analyst, question: "Show me all A-category inventory items", tool: stock_by, args: {measure: quantity, abc_class: A}, forbid: ["USD"]}
+# ISSUES #44: a named warehouse outside the user's scope gets a question back, never another warehouse's data.
+- {user: alpha.analyst, question: "Show stock by item group in warehouse 1100", kind: clarify, forbid: ["1110", "1120", "2100", "2110", "USD"]}
+- {user: alpha.analyst, question: "Total inventory value in warehouse 3100", tool: stock_by, args: {measure: quantity, warehouse_id: "3100"}, forbid: ["USD"]}
+- {user: alpha.analyst, question: "A-category items in warehouse 3100", tool: stock_by, args: {measure: quantity, abc_class: A, warehouse_id: "3100"}, forbid: ["USD"]}
