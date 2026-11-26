@@ -20,9 +20,9 @@ from tests.helpers import app_db_url
 pytestmark = pytest.mark.integration
 CSRF = {"X-Requested-With": "lumiant"}
 
-# Measured after V0 on the test tenant (TEST_RUNS S10-27), with a little headroom. Before V0 the same page set ran
+# Measured on the test tenant (38 after S10-48, with the value trend in the set), with a little headroom. Before V0 the same page set ran
 # 79 queries on full-size data. Raise this only with a reason recorded in TEST_RUNS.
-OVERVIEW_QUERY_BUDGET = 45
+OVERVIEW_QUERY_BUDGET = 42
 
 
 def test_cold_overview_stays_within_its_query_budget(data_dir: Path, tmp_path: Path) -> None:

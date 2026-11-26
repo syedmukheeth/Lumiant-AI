@@ -417,18 +417,37 @@ def _run_data_quality(query: QueryService, principal: Principal) -> dict[str, An
         res = query.run_plan(_count_plan(dataset, filters), principal, action=action)
         return int(res.rows[0]["n"])
 
-    total_items = count("item", [], "analysis:data_quality")
-    for field, title in (
+    item_checks = (
         ("description", "Items without a description"),
         ("item_group", "Items without an item group"),
         ("abc_class", "Items without an ABC class"),
         ("base_uom", "Items without a base unit of measure"),
         ("inventory_stage", "Items without an inventory stage"),
-    ):
-        if mapping.field("item", field) is None:
+    )
+    # One statement for the item total and every "item without X" count (was one query each, ISSUES #59). The item
+    # master has no warehouse key, so it carries no scope filter, exactly as the plan path treated it.
+    mapped_fields = [f for f, _ in item_checks if mapping.field("item", f) is not None]
+    nulls: dict[str, int] = {}
+    total_items = 0
+    if mapping.is_mapped("item"):
+        it = mapping.table("item").alias("it")
+        stmt = sa.select(
+            sa.func.count().label("total"),
+            *(
+                sa.func.coalesce(
+                    sa.func.sum(sa.case((mapping.column_expr("item", f, it).is_(None), 1), else_=0)), 0
+                ).label(f)
+                for f in mapped_fields
+            ),
+        ).select_from(it)
+        raw = query.execute_select(principal, stmt, action="analysis:data_quality", dataset="item", fetch_limit=1)
+        total_items = int(raw.rows[0][0])
+        nulls = {f: int(raw.rows[0][1 + i]) for i, f in enumerate(mapped_fields)}
+    for field, title in item_checks:
+        if field not in nulls:
             checks.append({"id": f"missing_{field}", "title": title, "status": "not_mapped", "count": None})
             continue
-        n = count("item", [{"field": field, "op": "is_null"}], "analysis:data_quality")
+        n = nulls[field]
         checks.append({"id": f"missing_{field}", "title": title, "status": "ok" if n == 0 else "issue", "count": n})
 
     if principal.has(Permission.COST_READ) and mapping.field("stock_balance", "valuation_price") is not None:
