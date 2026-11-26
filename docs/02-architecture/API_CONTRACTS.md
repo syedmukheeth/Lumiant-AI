@@ -43,6 +43,15 @@ Status: **Implemented and tested (M1)** in `services/api/src/lumiant/api/`. Base
 | GET | `/api/reports/{id}` | `inventory:read` (+ report permissions) | preview (≤ 200 rows) with `metadata`; `days` for windowed reports |
 | GET | `/api/reports/{id}/export` | `inventory:read` + `export:data` | `format=csv\|xlsx`; attachment with metadata header |
 | GET | `/api/admin/schema` | `admin:tenant` | mapping vs source: drift, unmapped columns, health; `unconfigured_warehouses`: warehouses in the stock data but not in the tenant configuration (verdict becomes drift, ISSUES #46) |
+| GET | `/api/admin/source` | `admin:tenant` | current source: kind, engine, health, `data_as_of`, `stale`, rows per mapped dataset (V1) |
+| POST | `/api/admin/source/test` | `admin:tenant` + CSRF | body `{url}`: connect read-only, privilege check (`read_only.status` proved / writable / not_checked), tables and views (first 300). The URL is used once: never stored, logged or returned. SQLite only outside production (V1) |
+| POST | `/api/admin/source/suggest` | `admin:tenant` + CSRF | body `{url}`: mapping suggestions for an unconfigured source (names only) (V2) |
+| GET | `/api/admin/mapping/suggest` | `admin:tenant` | suggestions for the current source with `current_source` / `agrees` per dataset, and a YAML draft (V2) |
+| GET | `/api/admin/validation` | `admin:tenant` | `{passed, checks[]}`: key uniqueness, orphans, missing required values; counts only (V2) |
+| GET | `/api/admin/api-keys` | `admin:tenant` | `{keys[], grantable[]}`: name, rights, warehouses, created / last used, revoked; never the secret (V3) |
+| POST | `/api/admin/api-keys` | `admin:tenant` + CSRF | body `{name, permissions[], warehouses?}` → `{key, record}`; the key is shown once; rights ⊆ creator and grantable set, warehouses ⊆ creator scope (V3) |
+| DELETE | `/api/admin/api-keys/{id}` | `admin:tenant` + CSRF | revoke (V3) |
+| POST | `/mcp` | API key (`Authorization: Bearer lmk_...`) | Model Context Protocol (JSON-RPC 2.0): `initialize`, `ping`, `tools/list`, `tools/call`; tools = permitted analyses + `ask_lumiant`; see `06-operations/INTEGRATIONS.md` (V3) |
 | GET | `/api/admin/capabilities` | `admin:tenant` | capability matrix with missing fields |
 | GET | `/api/admin/audit` | `audit:read` | tenant's audit events; filters `decision`, `action` prefix |
 | POST | `/api/admin/reconciliation` | `admin:tenant` + `cost:read` | `{tolerance, rows[{warehouse_id,currency,value}]}` → per-line status + `passed` |

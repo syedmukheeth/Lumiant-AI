@@ -356,3 +356,13 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 - **Done:** generic read-only `SqlConnector` (PostgreSQL, SQL Server, MySQL, Oracle; SQLite as a dev stand-in) behind the same contract as DuckDB; tenant `connection: {type: sql, secret_ref: env:NAME}`; unset URL fails safe (503); `lumiant-synthetic copy` loads a generated warehouse into any engine; conformance suite (SQLite every run, PostgreSQL in CI); `POST /api/admin/source/test` probe (connect, privilege check, catalog) that never stores or echoes the URL; `GET /api/admin/source`; Admin › Data source tab (status, rows per dataset, test a connection).
 - **Commands + results:** TEST_RUNS S10-32 … S10-34.
 - **Not done (next):** encrypted credential store and saving a source from the UI, mapping studio (V2), sync jobs.
+
+## 2026-11-26 · S10 · V2 map and trust: suggestions and validation
+- **Done:** `mapping/suggest.py` suggests the table and columns for each canonical dataset from names only (SAP field names, common ERP names, canonical names, table-name hints with specific vs generic words, exact-name bonus for prepared views), with confidence, reasons, alternatives and a YAML draft; `admin/validation.py` checks key uniqueness, orphans and missing required values (counts only). API: `GET /api/admin/mapping/suggest` (second opinion on the mapping in force), `POST /api/admin/source/suggest` (for a URL, used once), `GET /api/admin/validation`. Admin gains Mapping and Validation tabs; the connection test offers "Suggest a mapping".
+- **Approval** stays config-as-code (ADR-0006): the draft is reviewed and committed like code, then the schema check, validation and reconciliation gate go-live. A stored, versioned approval in the app needs the tenant config in the database (PRODUCT_V3_PLAN E3), still open.
+- **Commands + results:** TEST_RUNS S10-35, S10-36.
+
+## 2026-11-26 · S10 · V3 integrations and V4 value trend
+- **V3:** API keys for service accounts (`apikeys/store.py`, Alembic 0003, Admin › Integrations: create once-shown keys, list, revoke); any read endpoint accepts `Bearer lmk_...`; MCP server at `POST /mcp` exposing the Analyst's typed tools plus `ask_lumiant` within the key's rights and scope (DEC-033, `06-operations/INTEGRATIONS.md`).
+- **V4 (start):** `GET /api/analyses/value-trend`: month-end inventory value for 12 months rebuilt from signed movements at current prices, with monthly receipts and issues, summed in the source; Overview shows it above the insight feed.
+- **Commands + results:** TEST_RUNS S10-37 … S10-39.
