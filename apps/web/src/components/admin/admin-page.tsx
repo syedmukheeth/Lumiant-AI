@@ -2,11 +2,12 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { clsx } from "clsx";
-import { CheckCircle2, CircleAlert, MinusCircle } from "lucide-react";
+import { CheckCircle2, CircleAlert, MinusCircle, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
 import { SimpleTable, type SimpleColumn } from "@/components/data/simple-table";
 import { ErrorState, Panel, Skeleton } from "@/components/data/widget";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { PageHeader } from "@/components/ui/page-header";
@@ -19,6 +20,10 @@ type SchemaResult = {
   healthy: boolean;
   verdict: "ok" | "drift";
   totals: Record<string, number>;
+  /** Warehouse ids in the source stock data that the tenant configuration does not list. */
+  unconfigured_warehouses: string[];
+  /** Stock rows with no warehouse id. */
+  rows_without_warehouse: number;
   note: string;
   datasets: {
     dataset: string;
@@ -28,6 +33,9 @@ type SchemaResult = {
     unmapped: { column: string; type: string }[];
   }[];
 };
+/** A source id with stray spaces must not look like a configured one: quote it, and name a blank one. */
+const warehouseLabel = (id: string) => (id.trim() === "" ? "(blank)" : id === id.trim() ? id : JSON.stringify(id));
+
 type Capability = { id: string; title: string; available: boolean; explanation: string | null };
 /** Reconciliation compares exact amounts: group the digits but keep every decimal the source sent (up to 8). */
 const exact = (v: unknown) => formatNumber(typeof v === "string" || typeof v === "number" ? v : null, { minFraction: 2, maxFraction: 8 });
@@ -47,7 +55,10 @@ type Tab = (typeof TABS)[number]["id"];
 function SchemaPanel() {
   const q = useQuery({ queryKey: ["admin-schema"], queryFn: () => api.get<SchemaResult>("/api/admin/schema"), retry: false });
   return (
-    <Panel title="Source connection and mapping check" subtitle="Compares what the mapping expects with what the source exposes (metadata only; no data is read)">
+    <Panel
+      title="Source connection and mapping check"
+      subtitle="Compares what the mapping expects with what the source exposes, and checks that every warehouse in the stock data is configured (reads warehouse ids only)"
+    >
       {q.isPending ? (
         <Skeleton className="h-48 w-full" />
       ) : q.error ? (
@@ -58,6 +69,37 @@ function SchemaPanel() {
             {q.data.verdict === "ok" ? <CheckCircle2 size={16} aria-hidden /> : <CircleAlert size={16} aria-hidden />}
             {q.data.verdict === "ok" ? "Mapping matches the source" : "The source has drifted from the mapping"} · connection {q.data.healthy ? "healthy" : "unavailable"}
           </p>
+          {q.data.unconfigured_warehouses.length > 0 && (
+            <div className="rounded-panel border border-signal/35 bg-signal-soft p-3 text-sm" data-testid="unconfigured-warehouses">
+              <p className="flex items-center gap-2 font-semibold text-signal">
+                <TriangleAlert size={16} aria-hidden />
+                {q.data.unconfigured_warehouses.length === 1 ? "1 warehouse is" : `${q.data.unconfigured_warehouses.length} warehouses are`} missing from the tenant configuration
+              </p>
+              <p className="mt-1 text-xs text-ink-2">
+                They are counted in totals for users who see all warehouses and are invisible to everyone else. Add them to the tenant configuration or exclude them from the source.
+              </p>
+              <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Unconfigured warehouses">
+                {q.data.unconfigured_warehouses.map((id) => (
+                  <li key={id}>
+                    <Badge tone="signal" className="code">
+                      {warehouseLabel(id)}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {q.data.rows_without_warehouse > 0 && (
+            <div className="rounded-panel border border-signal/35 bg-signal-soft p-3 text-sm" data-testid="rows-without-warehouse">
+              <p className="flex items-center gap-2 font-semibold text-signal">
+                <TriangleAlert size={16} aria-hidden />
+                {q.data.rows_without_warehouse === 1 ? "1 stock row has" : `${formatNumber(q.data.rows_without_warehouse)} stock rows have`} no warehouse
+              </p>
+              <p className="mt-1 text-xs text-ink-2">
+                They are counted in totals for users who see all warehouses and are invisible to everyone else. Fill in the warehouse in the source or exclude those rows.
+              </p>
+            </div>
+          )}
           <ul className="divide-y divide-line">
             {q.data.datasets.map((d) => (
               <li key={d.dataset} className="py-2.5 text-sm">

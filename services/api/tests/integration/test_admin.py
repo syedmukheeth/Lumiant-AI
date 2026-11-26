@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
+import shutil
 from collections.abc import Iterator
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+import duckdb
 import pytest
 import yaml
 from fastapi.testclient import TestClient
 
-from lumiant.admin.service import capability_matrix, discover, type_category
+from lumiant.admin.service import capability_matrix, discover, for_scope, type_category
+from lumiant.auth.principal import Principal, WarehouseScope
+from lumiant.connectors.base import ConnectorError
 from lumiant.connectors.duckdb_connector import DuckDBConnector
 from lumiant.core.config import BASE_DIR, Settings
 from lumiant.main import create_app
@@ -68,6 +72,9 @@ def test_discovery_finds_no_drift_on_generated_warehouses(
     assert result["verdict"] == "ok", [d for d in result["datasets"] if d["problems"]]
     assert result["healthy"] is True
     assert all(d["status"] == "ok" for d in result["datasets"])
+    assert result["unconfigured_warehouses"] == []
+    assert result["totals"]["unconfigured_warehouses"] == 0
+    assert result["rows_without_warehouse"] == 0
 
 
 def test_discovery_reports_drift_and_unmapped_columns(alpha_db: Path) -> None:
@@ -91,6 +98,77 @@ def test_discovery_reports_drift_and_unmapped_columns(alpha_db: Path) -> None:
     assert by["supplier"]["status"] == "missing_table"
     assert "ORT01" in [u["column"] for u in by["warehouse"]["unmapped"]]
     assert result["totals"]["missing_tables"] == 1
+
+
+def drop_warehouse(warehouse_id: str) -> Any:
+    def mutate(raw: dict[str, Any]) -> None:
+        raw["warehouses"] = [w for w in raw["warehouses"] if w["id"] != warehouse_id]
+
+    return mutate
+
+
+@pytest.mark.security
+def test_discovery_flags_source_warehouse_missing_from_config(alpha_db: Path) -> None:
+    # ISSUES #46: a warehouse in the stock data but not in the tenant YAML is counted in all-warehouse totals and
+    # invisible to every restricted user, so the schema check must not say ok.
+    connector = DuckDBConnector(alpha_db)
+    result = discover(tenant_variant("demo-alpha", drop_warehouse("2110")), connector)
+    connector.dispose()
+    assert result["verdict"] == "drift"
+    assert result["unconfigured_warehouses"] == ["2110"]
+    assert result["totals"]["unconfigured_warehouses"] == 1
+
+
+@pytest.mark.security
+def test_discovery_flags_stock_rows_without_a_warehouse(alpha_db: Path, tmp_path: Path) -> None:
+    # Same failure as an unconfigured warehouse: counted for all-warehouse users, invisible to restricted ones.
+    db = tmp_path / "alpha-null-warehouse.duckdb"
+    shutil.copy(alpha_db, db)
+    with duckdb.connect(str(db)) as raw:
+        raw.execute('UPDATE "ZV_STOCK" SET "WERKS" = NULL WHERE rowid IN (SELECT rowid FROM "ZV_STOCK" LIMIT 3)')
+    connector = DuckDBConnector(db)
+    result = discover(tenant_variant("demo-alpha", lambda r: None), connector)
+    connector.dispose()
+    assert result["verdict"] == "drift"
+    assert result["rows_without_warehouse"] == 3
+    assert result["totals"]["rows_without_warehouse"] == 3
+    assert result["unconfigured_warehouses"] == []
+
+
+def test_discovery_does_not_call_an_unverified_warehouse_check_ok(alpha_db: Path) -> None:
+    class FailingExecute:
+        def __init__(self, inner: DuckDBConnector) -> None:
+            self.inner = inner
+
+        def __getattr__(self, name: str) -> Any:
+            return getattr(self.inner, name)
+
+        def execute(self, *args: Any, **kwargs: Any) -> Any:
+            raise ConnectorError("query_timeout")
+
+    connector = DuckDBConnector(alpha_db)
+    result = discover(tenant_variant("demo-alpha", lambda r: None), FailingExecute(connector))
+    connector.dispose()
+    stock = next(d for d in result["datasets"] if d["dataset"] == "stock_balance")
+    assert result["verdict"] == "drift"
+    assert result["unconfigured_warehouses"] == []
+    assert stock["problems"] == [{"kind": "warehouse_check_failed", "field": "warehouse_id", "reason": "query_timeout"}]
+
+
+@pytest.mark.security
+def test_unconfigured_warehouse_ids_only_reach_all_warehouse_admins(alpha_db: Path) -> None:
+    connector = DuckDBConnector(alpha_db)
+    result = discover(tenant_variant("demo-alpha", drop_warehouse("2110")), connector)
+    connector.dispose()
+
+    def admin(scope: WarehouseScope) -> Principal:
+        return Principal("u", "U", "demo-alpha", ("super_admin",), frozenset(), scope)
+
+    assert for_scope(result, admin(WarehouseScope(all=True, ids=frozenset())))["unconfigured_warehouses"] == ["2110"]
+    limited = for_scope(result, admin(WarehouseScope(all=False, ids=frozenset({"1100"}))))
+    assert limited["unconfigured_warehouses"] == []
+    assert limited["verdict"] == "drift"
+    assert "2110" not in str(limited)
 
 
 def test_capability_matrix_explains_gaps() -> None:
@@ -123,7 +201,10 @@ def test_admin_endpoints_require_admin(client: TestClient) -> None:
 
 def test_schema_and_capabilities_endpoints(client: TestClient) -> None:
     login(client, "alpha.admin")
-    assert client.get("/api/admin/schema").json()["verdict"] == "ok"
+    schema = client.get("/api/admin/schema").json()
+    assert schema["verdict"] == "ok"
+    assert schema["unconfigured_warehouses"] == []
+    assert schema["rows_without_warehouse"] == 0
     caps = client.get("/api/admin/capabilities").json()["capabilities"]
     assert {c["id"] for c in caps} >= {"below_reorder", "cost_comparison", "fifo_pick"}
     assert "admin" in client.get("/api/auth/me").json()["sections"]
