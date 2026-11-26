@@ -32,6 +32,7 @@ from lumiant.audit.store import AuditStore, run_migrations
 from lumiant.auth.oidc import OidcAuthProvider
 from lumiant.auth.provider import DevAuthProvider
 from lumiant.connectors.registry import ConnectorRegistry
+from lumiant.connectors.secret_store import SourceSecretStore
 from lumiant.container import Container
 from lumiant.core.config import AuthMode, Settings, get_settings
 from lumiant.core.errors import install_error_handlers
@@ -54,7 +55,7 @@ def build_container(settings: Settings) -> Container:
     if settings.auto_migrate:
         run_migrations(settings.app_db_url)
     audit = AuditStore(settings.app_db_url)
-    connectors = ConnectorRegistry(tenants, settings.data_dir)
+    connectors = ConnectorRegistry(tenants, settings.data_dir, SourceSecretStore(audit.engine))
     query_service = QueryService(tenants, connectors, audit)
     reports = ReportService(query_service)
     return Container(

@@ -1,7 +1,7 @@
 "use client";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { CheckCircle2, CircleAlert, Database, PlugZap, ShieldCheck, TriangleAlert } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CheckCircle2, CircleAlert, Database, Lock, PlugZap, ShieldCheck, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
 import { ErrorState, Panel, Skeleton } from "@/components/data/widget";
@@ -52,8 +52,11 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
 }
 
 /** Admin › Data source: the tenant's current source, and a read-only test for a new one (V1 Connect step). */
+type Saved = { saved: boolean; store_available: boolean; in_use?: boolean; backend?: string; saved_by?: string; saved_at?: string };
+
 export function SourcePanel() {
   const source = useQuery({ queryKey: ["admin-source"], queryFn: () => api.get<Source>("/api/admin/source") });
+  const saved = useQuery({ queryKey: ["admin-source-saved"], queryFn: () => api.get<Saved>("/api/admin/source/saved") });
   return (
     <div className="space-y-6">
       <Panel title="Current data source" subtitle="What this workspace reads, how fresh it is, and how much each mapped table holds. No values are shown.">
@@ -89,6 +92,16 @@ export function SourcePanel() {
               </Fact>
               <Fact label="Classification">{humanize(source.data.classification)}</Fact>
             </div>
+            {saved.data && (
+              <p className="flex flex-wrap items-center gap-2 text-sm text-ink-2" data-testid="source-saved-status">
+                <Lock size={14} className="text-ink-3" aria-hidden />
+                {saved.data.saved
+                  ? `A ${humanize(saved.data.backend ?? "")} connection is saved, encrypted, by ${saved.data.saved_by} (${formatTimestamp(saved.data.saved_at ?? null)})${saved.data.in_use ? " and in use." : "; not in use until the workspace configuration says secret_ref: store."}`
+                  : saved.data.store_available
+                    ? "No saved connection. Test one below and save it, encrypted."
+                    : "Saving connections is off: the server has no encryption key (LUMIANT_SECRET_KEY)."}
+              </p>
+            )}
             <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {source.data.datasets.map((d) => (
                 <li key={d.dataset} className="flex items-center justify-between gap-3 rounded-control border border-line bg-surface-2 px-3 py-2">
@@ -111,6 +124,11 @@ export function SourcePanel() {
 function TestConnection() {
   const [url, setUrl] = useState("");
   const test = useMutation({ mutationFn: (u: string) => api.post<Probe>("/api/admin/source/test", { url: u }) });
+  const qc = useQueryClient();
+  const save = useMutation({
+    mutationFn: (u: string) => api.post<{ ok: boolean; saved?: boolean; message?: string }>("/api/admin/source/save", { url: u }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["admin-source-saved"] }),
+  });
   const suggest = useMutation({
     mutationFn: (u: string) => api.post<({ ok: true } & Suggestions) | { ok: false; message: string }>("/api/admin/source/suggest", { url: u }),
   });
@@ -191,11 +209,26 @@ function TestConnection() {
             ))}
           </ul>
           <div className="flex flex-wrap items-center gap-3">
+            <Button
+              variant="primary"
+              onClick={() => save.mutate(url.trim())}
+              disabled={save.isPending || result.read_only.status === "writable"}
+              data-testid="source-save"
+            >
+              <Lock size={14} aria-hidden /> {save.isPending ? "Saving…" : "Save this connection"}
+            </Button>
             <Button onClick={() => suggest.mutate(url.trim())} disabled={suggest.isPending} data-testid="source-suggest">
               {suggest.isPending ? "Reading names…" : "Suggest a mapping"}
             </Button>
             <span className="text-xs text-ink-3">Reads table and column names only, never values.</span>
           </div>
+          {save.error && <ErrorState error={save.error} />}
+          {save.data?.saved && (
+            <p role="status" className="flex items-center gap-2 text-sm text-ink" data-testid="source-saved">
+              <ShieldCheck size={15} className="text-ok" aria-hidden /> Saved, encrypted, for this workspace. It is used once the workspace
+              configuration says <span className="code">secret_ref: store</span>.
+            </p>
+          )}
           {suggest.data && !suggest.data.ok && <p className="text-sm text-signal">{suggest.data.message}</p>}
           {suggest.data?.ok && <SuggestionTable data={suggest.data} />}
           <div className="rounded-panel border border-line bg-surface-2 p-4 text-sm text-ink-2">

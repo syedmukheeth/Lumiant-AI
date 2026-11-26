@@ -32,7 +32,8 @@ class ConnectionConfig(StrictModel):
     # environment variable named by `secret_ref` and never appears in config, logs or responses.
     type: Literal["duckdb", "sql"]
     path: str | None = None
-    secret_ref: str | None = Field(default=None, pattern=r"^env:[A-Z][A-Z0-9_]*$")
+    # env:NAME (URL in that environment variable) or store (URL saved encrypted from Admin > Data source)
+    secret_ref: str | None = Field(default=None, pattern=r"^(env:[A-Z][A-Z0-9_]*|store)$")
 
     @model_validator(mode="after")
     def _check(self) -> ConnectionConfig:

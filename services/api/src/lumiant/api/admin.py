@@ -5,11 +5,14 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
+from lumiant.analyses import cache
 from lumiant.auth.deps import get_container, require, require_csrf
 from lumiant.auth.permissions import Permission
 from lumiant.auth.principal import Principal
 from lumiant.connectors.probe import probe, suggest_for_url
+from lumiant.connectors.secret_store import SourceSecretStore
 from lumiant.container import Container
+from lumiant.core.errors import AppError
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 Admin = Annotated[Principal, Depends(require(Permission.ADMIN_TENANT))]
@@ -55,6 +58,34 @@ def test_source(body: ProbeRequest, principal: Admin, container: Svc) -> dict[st
         principal, "admin:source_test", None, "allow", "ok" if result["ok"] else "error", reason=result.get("code")
     )
     return result
+
+
+@router.get("/source/saved")
+def saved_source(principal: Admin, container: Svc) -> dict[str, Any]:
+    tenant = container.tenants.get(principal.tenant_id)
+    status = SourceSecretStore(container.audit.engine).status(principal.tenant_id)
+    return {**status, "in_use": tenant.connection.type == "sql" and tenant.connection.secret_ref == "store"}  # noqa: S105 (a reference name, not a secret)
+
+
+@router.post("/source/save", dependencies=[Depends(require_csrf)])
+def save_source(body: ProbeRequest, principal: Admin, container: Svc) -> dict[str, Any]:
+    """Test, then store the URL encrypted for this workspace. Refused when the account can write."""
+    checked = probe(body.url, allow_sqlite=not container.settings.is_production)
+    if not checked["ok"]:
+        container.query.record(principal, "admin:source_save", None, "allow", "error", reason=checked.get("code"))
+        return checked
+    if checked["read_only"]["status"] == "writable":
+        container.query.record(principal, "admin:source_save", None, "deny", "denied", reason="writable_account")
+        raise AppError(
+            "writable_account", "This account can change data. Save a connection for a read-only account.", 409
+        )
+    status = SourceSecretStore(container.audit.engine).save(
+        principal.tenant_id, body.url, str(checked["backend"]), principal.user_id
+    )
+    container.connectors.forget(principal.tenant_id)
+    cache.clear(container.query)
+    container.query.record(principal, "admin:source_save", None, "allow", "ok", reason=str(checked["backend"]))
+    return {"ok": True, **status}
 
 
 @router.post("/source/suggest", dependencies=[Depends(require_csrf)])
