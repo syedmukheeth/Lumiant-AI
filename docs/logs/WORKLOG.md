@@ -366,3 +366,7 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 - **V3:** API keys for service accounts (`apikeys/store.py`, Alembic 0003, Admin › Integrations: create once-shown keys, list, revoke); any read endpoint accepts `Bearer lmk_...`; MCP server at `POST /mcp` exposing the Analyst's typed tools plus `ask_lumiant` within the key's rights and scope (DEC-033, `06-operations/INTEGRATIONS.md`).
 - **V4 (start):** `GET /api/analyses/value-trend`: month-end inventory value for 12 months rebuilt from signed movements at current prices, with monthly receipts and issues, summed in the source; Overview shows it above the insight feed.
 - **Commands + results:** TEST_RUNS S10-37 … S10-39.
+
+## 2026-11-26 · S10 · V4 Material 360
+- **Done:** `GET /api/items/{item_id}` (master, stock by warehouse with value for cost roles, lots on hand, latest movements, reorder rules, purchase orders; each section a validated, scoped plan with provenance, unavailable sections say why); Inventory rows open a Material 360 side sheet (native modal dialog, Esc closes).
+- **Commands + results:** TEST_RUNS S10-40.

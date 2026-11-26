@@ -48,6 +48,8 @@ Status: **Implemented and tested (M1)** in `services/api/src/lumiant/api/`. Base
 | POST | `/api/admin/source/suggest` | `admin:tenant` + CSRF | body `{url}`: mapping suggestions for an unconfigured source (names only) (V2) |
 | GET | `/api/admin/mapping/suggest` | `admin:tenant` | suggestions for the current source with `current_source` / `agrees` per dataset, and a YAML draft (V2) |
 | GET | `/api/admin/validation` | `admin:tenant` | `{passed, checks[]}`: key uniqueness, orphans, missing required values; counts only (V2) |
+| GET | `/api/analyses/value-trend` | `cost:read` | `months` (1–24, default 12) → `{as_of, rule, series[{currency, points[{period, date, value, receipts_value, issues_value}]}]}`: month-end value rebuilt from movements at current prices (V4) |
+| GET | `/api/items/{item_id}` | `inventory:read` | Material 360: `master`, `stock`, `lots`, `movements`, `policies`, `purchases`, each `{available, rows, truncated, provenance}` or `{available: false, reason}`; values only with `cost:read` (V4) |
 | GET | `/api/admin/api-keys` | `admin:tenant` | `{keys[], grantable[]}`: name, rights, warehouses, created / last used, revoked; never the secret (V3) |
 | POST | `/api/admin/api-keys` | `admin:tenant` + CSRF | body `{name, permissions[], warehouses?}` → `{key, record}`; the key is shown once; rights ⊆ creator and grantable set, warehouses ⊆ creator scope (V3) |
 | DELETE | `/api/admin/api-keys/{id}` | `admin:tenant` + CSRF | revoke (V3) |
