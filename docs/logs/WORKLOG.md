@@ -391,3 +391,6 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 
 ## 2026-11-26 · S10 · V5 first-run welcome
 - **Done:** a dismissible "Getting started" card on the Overview (four areas, ask about anything with right-click or L, Ctrl K, how each number was calculated), remembered per browser. TEST_RUNS S10-47.
+
+## 2026-11-26 · S10 · Scheduled alert rules
+- **Done:** rules can repeat every hour, day or week (Alembic 0006 adds the interval and the creator's rights snapshot); `lumiant-alerts send-due` sends due rules with that snapshot (cron or Kubernetes CronJob); the alert form offers the schedule. No resident worker process needed. TEST_RUNS S10-49.

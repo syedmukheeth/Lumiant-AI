@@ -68,9 +68,13 @@ assert hmac.compare_digest(expected, request.headers["X-Lumiant-Signature"])
 ```
 
 Reject deliveries whose timestamp is more than a few minutes old. In production targets must be https and may not
-resolve to private, loopback, link-local or reserved addresses. Scheduled sending arrives with the sync worker.
+resolve to private, loopback, link-local or reserved addresses.
+
+**Scheduled rules** (every hour, day or week) are sent by `uv run lumiant-alerts send-due`, run from cron or a
+Kubernetes CronJob every 15 minutes. A scheduled run uses the creator's rights and warehouse scope as they were when
+the rule was created (snapshot), never more. Unscheduled rules are only sent with "Send now".
 
 ## Not built yet
 
-Scheduled alert sending, embeddable widgets with signed tokens, Teams/Slack apps and the Excel add-in
+Embeddable widgets with signed tokens, Teams/Slack apps and the Excel add-in
 (PRODUCT_V3_PLAN §4) follow on this key model.
