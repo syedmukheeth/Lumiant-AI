@@ -20,7 +20,7 @@ V0 correctness and speed **done** (DEC-032); V1 connect, V2 map and trust, V3 us
 | V1: read-only `SqlConnector` for PostgreSQL / SQL Server / MySQL / Oracle (SQLite as dev stand-in), `connection: {type: sql, secret_ref}`, safe failure, `lumiant-synthetic copy`, Admin › Data source with a connection test; tested connections can be saved encrypted (`LUMIANT_SECRET_KEY`, `secret_ref: store`, DEC-034) | `test_sql_connector.py` (SQLite every run, PostgreSQL in CI), S10-32…S10-34 |
 | V2: mapping suggestions from names (all four demo tenants matched exactly), validation harness (keys, orphans, required values), Admin › Mapping and Validation | `test_mapping_suggest.py`, S10-35 |
 | V3: API keys (hashed, ⊆ creator), public API with keys, MCP server `POST /mcp` with the Analyst's typed tools + `ask_lumiant`, alert rules with signed webhooks and SSRF guard, Admin › Integrations | `test_api_keys_mcp.py`, DEC-033, `06-operations/INTEGRATIONS.md` |
-| V4: 12-month value trend (rebuilt from movements, exact), Material 360 sheet from Inventory, stock ageing buckets on Risks; V5: Settings page; ISSUES #61 fixed | `test_ageing.py`, e2e | `test_trends.py`, `test_items.py`, e2e |
+| V4: 12-month value trend (rebuilt from movements, exact), Material 360 sheet from Inventory, stock ageing buckets on Risks; V5: Settings page; ISSUES #61 fixed | `test_trends.py`, `test_items.py`, `test_ageing.py`, e2e |
 | Gates | API 951 passed + 15 env skips; web unit 90; e2e 53/53 (axe in light and dark on 12 screens, Windows screenshot baselines); bundle budget in CI |
 
 ## What is simulated (not evidence of customer readiness)
