@@ -16,6 +16,8 @@ import { formatMoney, formatNumber, humanize } from "@/lib/format";
 import { type BalanceQuery, useBalances, useInventoryFilters, usePageMe } from "@/lib/hooks";
 import { enterDelay } from "@/lib/motion";
 
+import { ItemSheet } from "./item-sheet";
+
 const LIMIT = 50;
 
 type Col = {
@@ -159,6 +161,7 @@ export function InventoryExplorer() {
   };
 
   const [term, setTerm] = useState(query.q ?? "");
+  const [openItem, setOpenItem] = useState<string | null>(null);
   // When the URL's search changes from outside this box (command palette, back button), show it in the box. A change
   // this box made itself is skipped, so typing during the round trip is never overwritten.
   const [pushedQ, setPushedQ] = useState(query.q);
@@ -299,7 +302,15 @@ export function InventoryExplorer() {
                         <Td key={c.key} align={c.align}>
                           {ci === 0 ? (
                             <div className="flex items-start gap-1">
-                              <div className="min-w-0 flex-1">{c.render(r)}</div>
+                              <button
+                                type="button"
+                                className="min-w-0 flex-1 rounded-control text-left hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
+                                onClick={() => setOpenItem(String(r.item_id))}
+                                data-testid="open-item"
+                              >
+                                {c.render(r)}
+                                <span className="sr-only">, open item details</span>
+                              </button>
                               <AnalyzeButton sel={sel} className="-mt-0.5 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100" />
                             </div>
                           ) : (
@@ -313,6 +324,7 @@ export function InventoryExplorer() {
               </tbody>
             </DataTable>
             {balances.data?.page && <Pager page={balances.data.page} onChange={(offset) => update({ offset })} />}
+            {openItem && <ItemSheet itemId={openItem} onClose={() => setOpenItem(null)} />}
           </>
         )}
       </Panel>

@@ -486,3 +486,16 @@ test("the next user in the same tab sees nothing from the Analyst of the last on
   await expect(dock).not.toContainText("USD");
   await expect(dock.getByTestId("analyst-answer")).toHaveCount(0);
 });
+
+test("material 360: an item opens with its stock, lots and movements, and closes with Esc", async ({ page }) => {
+  await signIn(page, "alpha.admin");
+  await openInventory(page);
+  await page.getByTestId("open-item").first().click();
+  const sheet = page.getByTestId("item-sheet");
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole("heading", { name: "Stock by warehouse" })).toBeVisible();
+  await expect(sheet.getByRole("heading", { name: "Latest movements" })).toBeVisible();
+  await expect(sheet.locator("tbody tr").first()).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+});
