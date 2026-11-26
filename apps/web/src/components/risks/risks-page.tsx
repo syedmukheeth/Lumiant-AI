@@ -16,6 +16,8 @@ import { formatCount, formatNumber, formatQuantity, formatTimestamp, humanize } 
 import { type RiskKind, useDataQuality, useRisk } from "@/lib/hooks";
 import { enterDelay } from "@/lib/motion";
 
+import { AgeingPanel } from "./ageing-panel";
+
 const PAGE = 25;
 
 const TABS = [
@@ -168,6 +170,8 @@ export function RisksPage() {
         title="Inventory risks"
         description="Every flag explains why it was raised and which data it used. Definitions are drafts until your organisation approves them."
       />
+
+      <AgeingPanel />
 
       <Tabs label="Risk views" tabs={TABS} value={tab} onChange={setTab} className="rise" style={enterDelay(1)} />
       <p className="text-sm text-ink-2">{current.blurb}</p>

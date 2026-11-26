@@ -5,6 +5,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
 
+from lumiant.analyses.ageing import run_ageing
 from lumiant.analyses.below_reorder import BelowReorderFilters, run_below_reorder
 from lumiant.analyses.risks import run_abc, run_cost_comparison, run_data_quality, run_dormant, run_expiring
 from lumiant.analyses.trends import run_value_trend
@@ -56,6 +57,11 @@ def expiring_lots(
 @router.get("/data-quality")
 def data_quality(principal: Reader, container: Container = Depends(get_container)) -> dict[str, Any]:  # noqa: B008
     return run_data_quality(container.query, principal)
+
+
+@router.get("/ageing")
+def ageing(principal: Reader, container: Container = Depends(get_container)) -> dict[str, Any]:  # noqa: B008
+    return run_ageing(container.query, principal)
 
 
 @router.get("/value-trend")

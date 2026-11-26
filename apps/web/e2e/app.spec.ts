@@ -499,3 +499,16 @@ test("material 360: an item opens with its stock, lots and movements, and closes
   await page.keyboard.press("Escape");
   await expect(sheet).toBeHidden();
 });
+
+test("risks: stock ageing shows every bucket, with values only for cost roles", async ({ page }) => {
+  await signIn(page, "alpha.admin");
+  await page.goto("/risks");
+  const ageing = page.getByTestId("ageing");
+  await expect(ageing).toContainText("Over 365 days");
+  await expect(ageing).toContainText("Never issued");
+  await expect(ageing).toContainText("USD");
+  await signIn(page, "alpha.analyst");
+  await page.goto("/risks");
+  await expect(page.getByTestId("ageing")).toContainText("pairs");
+  await expect(page.getByTestId("ageing")).not.toContainText("USD");
+});
