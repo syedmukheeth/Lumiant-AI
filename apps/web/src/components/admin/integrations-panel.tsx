@@ -11,6 +11,8 @@ import { Field, Input } from "@/components/ui/field";
 import { api } from "@/lib/api";
 import { formatTimestamp, humanize } from "@/lib/format";
 
+import { AlertsPanel } from "./alerts-panel";
+
 type Key = {
   id: string;
   name: string;
@@ -159,6 +161,8 @@ export function IntegrationsPanel() {
           )}
         </div>
       </Panel>
+
+      <AlertsPanel />
 
       <Panel
         title="Connect an AI assistant (MCP)"

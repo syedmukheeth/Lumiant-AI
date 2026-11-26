@@ -13,6 +13,7 @@ from lumiant.agent.service import AgentService
 from lumiant.api import (
     admin,
     agent,
+    alerts,
     analyses,
     auth,
     health,
@@ -113,6 +114,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         planning,
         public,
         keys,
+        alerts,
         mcp,
     ):
         app.include_router(module.router)

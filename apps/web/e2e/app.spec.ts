@@ -526,3 +526,18 @@ test("settings: theme choice applies at once and is remembered; account shows ro
   await page.getByRole("radio", { name: /Light/ }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 });
+
+test("integrations: an API key is shown once and listed; alerts explain a missing master key", async ({ page }) => {
+  await signIn(page, "alpha.admin");
+  await page.goto("/admin");
+  await page.getByRole("tab", { name: "Integrations" }).click();
+  await page.getByTestId("key-name").fill("e2e key");
+  await page.getByTestId("key-create").click();
+  await expect(page.getByTestId("key-created")).toContainText("lmk_");
+  await expect(page.getByTestId("key-list")).toContainText("e2e key");
+  await expect(page.getByText('"url"')).toBeVisible(); // MCP client configuration
+  await page.getByLabel("Rule name").fill("e2e rule");
+  await page.getByLabel("Webhook address").fill("http://127.0.0.1:9/hook");
+  await page.getByRole("button", { name: "Add rule" }).click();
+  await expect(page.getByText(/master key/)).toBeVisible(); // the e2e server has no LUMIANT_SECRET_KEY
+});
