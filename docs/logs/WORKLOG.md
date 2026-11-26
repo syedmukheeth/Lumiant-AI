@@ -375,3 +375,7 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 - **#61 fixed:** a single named warehouse narrows below-reorder, excess, dormant and expiry answers (scope-checked narrowing).
 - **V4 visual:** `GET /api/analyses/ageing` (on-hand stock by days since last issue, pairs for everyone, value per currency for cost roles, one statement in the source); Risks page shows it above the tabs.
 - **Commands + results:** TEST_RUNS S10-42, S10-43.
+
+## 2026-11-26 · S10 · V5 Settings
+- **Done:** `/settings` for every user (linked from the user card): theme Light / Dark / System, navigation Expanded / Compact, account (name, workspace, roles, warehouses), keyboard shortcuts. Browser-local preferences; nothing new on the server.
+- **Commands + results:** TEST_RUNS S10-44.
