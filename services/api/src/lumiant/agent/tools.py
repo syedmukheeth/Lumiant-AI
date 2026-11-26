@@ -98,8 +98,16 @@ class ConcentrationArgs(NarrowArgs):
     target_pct: int = Field(default=80, ge=50, le=95, description="Share of value to explain, in percent")
 
 
-class DaysArgs(_Args):
+class WarehouseArgs(_Args):
+    warehouse_id: FilterCode | None = Field(default=None, description="Only this warehouse (inside the user's scope)")
+
+
+class DaysArgs(WarehouseArgs):
     days: int = Field(default=270, ge=1, le=3650, description="Window in days")
+
+
+def _in_wh(warehouse_id: str | None) -> str:
+    return f" in warehouse {warehouse_id}" if warehouse_id else ""
 
 
 @dataclass(frozen=True)
@@ -380,11 +388,12 @@ _ITEM = _col("item_code", "Item")
 _DESC = _col("description", "Description")
 
 
-def below_reorder(ctx: ToolContext, a: NoArgs) -> ToolOutput:
-    res = run_below_reorder(ctx.query, ctx.principal, BelowReorderFilters(), limit=15, offset=0)
+def below_reorder(ctx: ToolContext, a: WarehouseArgs) -> ToolOutput:
+    filters = BelowReorderFilters(warehouses=(a.warehouse_id,) if a.warehouse_id else ())
+    res = run_below_reorder(ctx.query, ctx.principal, filters, limit=15, offset=0)
     s = res.summary or {}
     rows = res.payload()["data"]
-    answer = f"{s['flagged']} item–warehouse pairs are below their reorder level."
+    answer = f"{s['flagged']} item–warehouse pairs{_in_wh(a.warehouse_id)} are below their reorder level."
     if rows:
         r = rows[0]
         answer += (
@@ -406,11 +415,12 @@ def below_reorder(ctx: ToolContext, a: NoArgs) -> ToolOutput:
     )
 
 
-def excess_stock(ctx: ToolContext, a: NoArgs) -> ToolOutput:
-    res = run_below_reorder(ctx.query, ctx.principal, BelowReorderFilters(), limit=15, offset=0, mode="excess")
+def excess_stock(ctx: ToolContext, a: WarehouseArgs) -> ToolOutput:
+    filters = BelowReorderFilters(warehouses=(a.warehouse_id,) if a.warehouse_id else ())
+    res = run_below_reorder(ctx.query, ctx.principal, filters, limit=15, offset=0, mode="excess")
     s = res.summary or {}
     rows = res.payload()["data"]
-    answer = f"{s['flagged']} item–warehouse pairs hold more than their maximum stock policy."
+    answer = f"{s['flagged']} item–warehouse pairs{_in_wh(a.warehouse_id)} hold more than their maximum stock policy."
     if rows:
         answer += (
             f" The largest is {rows[0]['item_code']} in {rows[0]['warehouse_id']}: {_quantity(rows[0]['on_hand'])} on "
@@ -428,11 +438,9 @@ def excess_stock(ctx: ToolContext, a: NoArgs) -> ToolOutput:
 
 
 def dormant(ctx: ToolContext, a: DaysArgs) -> ToolOutput:
-    res = run_dormant(ctx.query, ctx.principal, days=a.days, limit=15, offset=0)
+    res = run_dormant(ctx.query, ctx.principal, days=a.days, limit=15, offset=0, warehouse_id=a.warehouse_id)
     s = res.summary or {}
-    answer = (
-        f"{s['flagged']} item–warehouse pairs have stock but no issue in the last {a.days} days (as of {s['as_of']})."
-    )
+    answer = f"{s['flagged']} item–warehouse pairs{_in_wh(a.warehouse_id)} have stock but no issue in the last {a.days} days (as of {s['as_of']})."
     cols = [
         _ITEM,
         _DESC,
@@ -453,10 +461,10 @@ def _lines(n: int) -> str:
 
 
 def expiring_lots(ctx: ToolContext, a: DaysArgs) -> ToolOutput:
-    res = run_expiring(ctx.query, ctx.principal, days=min(a.days, 3650), limit=15)
+    res = run_expiring(ctx.query, ctx.principal, days=min(a.days, 3650), limit=15, warehouse_id=a.warehouse_id)
     s = res.summary or {}
     answer = (
-        f"{_lots(s['expired_lots'])} on hand {'has' if s['expired_lots'] == 1 else 'have'} already expired "
+        f"{_lots(s['expired_lots'])} on hand{_in_wh(a.warehouse_id)} {'has' if s['expired_lots'] == 1 else 'have'} already expired "
         f"({_lines(s['expired'])}) and {s['expiring_lots']} more {'expires' if s['expiring_lots'] == 1 else 'expire'} "
         f"within {a.days} days ({_lines(s['expiring'])})."
     )
@@ -775,14 +783,14 @@ TOOLS: dict[str, ToolDef] = {
         ToolDef(
             "below_reorder",
             "Items below their customer-defined reorder level.",
-            NoArgs,
+            WarehouseArgs,
             (Permission.INVENTORY_READ,),
             below_reorder,
         ),
         ToolDef(
             "excess_stock",
             "Items above their customer-defined maximum stock.",
-            NoArgs,
+            WarehouseArgs,
             (Permission.INVENTORY_READ,),
             excess_stock,
         ),

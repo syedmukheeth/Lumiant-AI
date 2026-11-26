@@ -3,6 +3,7 @@ is a DRAFT until the customer approves it (docs/04-domain/INVENTORY_CALCULATIONS
 
 from __future__ import annotations
 
+import dataclasses
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -13,7 +14,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from lumiant.analyses.below_reorder import SHARED_ROWS, BelowReorderFilters, run_below_reorder
 from lumiant.analyses.cache import cached
 from lumiant.auth.permissions import Permission
-from lumiant.auth.principal import Principal
+from lumiant.auth.principal import Principal, WarehouseScope
 from lumiant.core.errors import AppError, ForbiddenError
 from lumiant.costing.abc import AbcConfig
 from lumiant.costing.engine import (
@@ -112,7 +113,20 @@ def _paged(
 
 
 # --------------------------------------------------------------------------------------- dormant stock
-def run_dormant(query: QueryService, principal: Principal, *, days: int, limit: int, offset: int) -> QueryResult:
+def narrowed(query: QueryService, principal: Principal, warehouse_id: str | None, action: str) -> Principal:
+    """The caller limited to one warehouse they may see (a question that names a warehouse). Narrows, never widens."""
+    if warehouse_id is None:
+        return principal
+    if not principal.scope.allows(warehouse_id):
+        query.record(principal, action, None, "deny", "denied", reason="forbidden_scope")
+        raise ForbiddenError("forbidden_scope", "You do not have access to that warehouse.")
+    return dataclasses.replace(principal, scope=WarehouseScope(False, frozenset({warehouse_id})))
+
+
+def run_dormant(
+    query: QueryService, principal: Principal, *, days: int, limit: int, offset: int, warehouse_id: str | None = None
+) -> QueryResult:
+    principal = narrowed(query, principal, warehouse_id, "analysis:dormant_stock")
     return cached(
         query,
         principal,
@@ -270,7 +284,10 @@ def _run_dormant(query: QueryService, principal: Principal, *, days: int, limit:
 
 
 # --------------------------------------------------------------------------------------- expiring lots
-def run_expiring(query: QueryService, principal: Principal, *, days: int, limit: int) -> QueryResult:
+def run_expiring(
+    query: QueryService, principal: Principal, *, days: int, limit: int, warehouse_id: str | None = None
+) -> QueryResult:
+    principal = narrowed(query, principal, warehouse_id, "analysis:expiring_lots")
     return cached(
         query,
         principal,

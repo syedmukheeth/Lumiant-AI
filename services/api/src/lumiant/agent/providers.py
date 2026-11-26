@@ -947,18 +947,21 @@ class RuleBasedProvider:
             r"\b(no|zero|missing|without( an?)?) (valuation |unit )?(price|abc( indicator| class)?|material master)\b",
         ):
             return Decision("tools", [ToolCall("data_quality")])
+        # ISSUES #61: one named warehouse narrows the risk analyses (several: whole scope, as before).
+        one_wh = self._warehouses(q, ctx)
+        wh_arg = {"warehouse_id": one_wh[0]} if len(one_wh) == 1 else {}
         if _has(q, r"expir|shelf[- ]life|best before"):
-            return Decision("tools", [ToolCall("expiring_lots", {"days": parse_days(q, 60)})])
+            return Decision("tools", [ToolCall("expiring_lots", {"days": parse_days(q, 60), **wh_arg})])
         # Excess first: "above the reordering rule maximum" names a reorder rule but asks about excess.
         if _has(q, r"excess|overstock|over-stock|above (the )?max|get rid of|clear out|too much stock"):
-            return Decision("tools", [ToolCall("excess_stock")])
+            return Decision("tools", [ToolCall("excess_stock", wh_arg)])
         if _has(q, r"reorder|low stock|running low|below (the )?min"):
-            return Decision("tools", [ToolCall("below_reorder")])
+            return Decision("tools", [ToolCall("below_reorder", wh_arg)])
         if _has(
             q,
             r"not moved|dormant|slow[- ]?moving|no movement|haven'?t moved|not been (issued|used)|\bidle\b|not (been )?(used|issued)",
         ):
-            return Decision("tools", [ToolCall("dormant", {"days": parse_days(q, 270)})])
+            return Decision("tools", [ToolCall("dormant", {"days": parse_days(q, 270), **wh_arg})])
         if _has(q, r"special storage|storage (condition|requirement)|temperature|flammable|air[- ]?condition|hazard"):
             return Decision("tools", [ToolCall("special_storage")])
         # The grouping is what follows "by"; every other value the question names narrows the answer (ISSUES #44).

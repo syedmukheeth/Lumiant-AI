@@ -332,3 +332,22 @@ def test_insights_endpoint_states_completeness(client: TestClient) -> None:
     body = client.get("/api/insights?fresh=true").json()
     assert body["complete"] is True
     assert body["failed"] == []
+
+
+# ------------------------------------------------------------------------------------------- ISSUES #61
+def test_a_named_warehouse_narrows_risk_answers(query_service: QueryService, principals: dict[str, Principal]) -> None:
+    whole = run_expiring(query_service, principals["alpha.admin"], days=3650, limit=1)
+    one = run_expiring(query_service, principals["alpha.admin"], days=3650, limit=1, warehouse_id="3100")
+    scoped = run_expiring(query_service, principals["alpha.analyst"], days=3650, limit=1)  # analyst sees only 3100
+    assert one.summary == scoped.summary
+    assert (one.summary or {})["expiring"] + (one.summary or {})["expired"] < (whole.summary or {})["expiring"] + (
+        whole.summary or {}
+    )["expired"]
+    with pytest.raises(AppError) as exc:
+        run_expiring(query_service, principals["alpha.analyst"], days=60, limit=1, warehouse_id="1100")
+    assert exc.value.code == "forbidden_scope"
+    out = AgentService(query_service, SETTINGS).chat(
+        principals["alpha.admin"], "Which lots are expiring in warehouse 3100?"
+    )
+    assert out["tool_calls"][0]["args"].get("warehouse_id") == "3100"
+    assert "in warehouse 3100" in out["answer"]
