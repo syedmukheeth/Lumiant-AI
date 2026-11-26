@@ -394,3 +394,7 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 
 ## 2026-11-26 · S10 · Scheduled alert rules
 - **Done:** rules can repeat every hour, day or week (Alembic 0006 adds the interval and the creator's rights snapshot); `lumiant-alerts send-due` sends due rules with that snapshot (cron or Kubernetes CronJob); the alert form offers the schedule. No resident worker process needed. TEST_RUNS S10-49.
+
+## 2026-11-26 · S10 · Saved views API (session ended at the usage limit)
+- **Done:** `/api/views` (list, save, delete; per user, only the page's known query keys kept; Alembic 0007), `test_views.py` passes.
+- **Not done:** the Inventory "Save view" UI; full API and e2e suites were not re-run after this last step.

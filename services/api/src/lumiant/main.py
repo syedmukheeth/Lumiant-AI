@@ -28,6 +28,7 @@ from lumiant.api import (
     public,
     query,
     reports,
+    views,
 )
 from lumiant.audit.store import AuditStore, run_migrations
 from lumiant.auth.oidc import OidcAuthProvider
@@ -113,6 +114,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         query,
         planning,
         public,
+        views,
         keys,
         alerts,
         mcp,
