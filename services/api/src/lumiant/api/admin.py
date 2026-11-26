@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from lumiant.auth.deps import get_container, require, require_csrf
 from lumiant.auth.permissions import Permission
 from lumiant.auth.principal import Principal
+from lumiant.connectors.probe import probe
 from lumiant.container import Container
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -34,6 +35,26 @@ class ReconRequest(BaseModel):
 @router.get("/schema")
 def schema(principal: Admin, container: Svc) -> dict[str, Any]:
     return container.admin.discovery(principal)
+
+
+@router.get("/source")
+def source(principal: Admin, container: Svc) -> dict[str, Any]:
+    return container.admin.source(principal)
+
+
+class ProbeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    url: Annotated[str, StringConstraints(min_length=8, max_length=2000)]
+
+
+@router.post("/source/test", dependencies=[Depends(require_csrf)])
+def test_source(body: ProbeRequest, principal: Admin, container: Svc) -> dict[str, Any]:
+    """Try a connection URL before it is configured. The URL is used once: never stored, logged or returned."""
+    result = probe(body.url, allow_sqlite=not container.settings.is_production)
+    container.query.record(
+        principal, "admin:source_test", None, "allow", "ok" if result["ok"] else "error", reason=result.get("code")
+    )
+    return result
 
 
 @router.get("/capabilities")

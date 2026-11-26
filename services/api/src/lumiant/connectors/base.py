@@ -55,3 +55,40 @@ class Connector(Protocol):
     def execute(self, stmt: sa.Select[Any], *, fetch_limit: int, timeout_s: float) -> RawResult: ...
 
     def dispose(self) -> None: ...
+
+
+class UnavailableConnector:
+    """Stands in for a source that cannot be reached at all (for example its URL is not configured).
+
+    Every call fails with `source_unavailable`, the same safe error as a missing DuckDB file, so callers need no
+    special case. Statements still compile (generic SQL dialect) so validation and the SQL guard run as usual.
+    """
+
+    dialect_name = "sqlite"
+
+    def __init__(self) -> None:
+        from sqlalchemy.dialects import sqlite
+
+        self._dialect = sqlite.dialect()
+
+    @property
+    def dialect(self) -> Dialect:
+        return self._dialect
+
+    def health(self) -> bool:
+        return False
+
+    def has_table(self, schema: str | None, name: str) -> bool:
+        raise ConnectorError("source_unavailable")
+
+    def list_objects(self) -> list[ObjectInfo]:
+        raise ConnectorError("source_unavailable")
+
+    def describe(self, schema: str | None, name: str) -> list[ColumnInfo]:
+        raise ConnectorError("source_unavailable")
+
+    def execute(self, stmt: sa.Select[Any], *, fetch_limit: int, timeout_s: float) -> RawResult:
+        raise ConnectorError("source_unavailable")
+
+    def dispose(self) -> None:
+        return None

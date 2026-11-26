@@ -209,6 +209,12 @@ test("a role without export or cost access sees a reduced menu and cannot export
 test("admin: schema check, capability matrix, reconciliation gate and audit log", async ({ page }) => {
   await signIn(page, "alpha.admin");
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Admin" }).click();
+  await expect(page.getByTestId("source-status")).toContainText("Answering");
+  await page.getByTestId("source-url").fill("firebird://reader:secret@host/erp");
+  await page.getByTestId("source-test").click();
+  await expect(page.getByTestId("source-result")).toContainText("Supported databases");
+  await expect(page.getByTestId("source-result")).not.toContainText("secret");
+  await page.getByRole("tab", { name: "Connection and schema" }).click();
   await expect(page.getByTestId("schema-result")).toContainText("Mapping matches the source");
   await page.getByRole("tab", { name: "Capabilities" }).click();
   await expect(page.getByTestId("capabilities")).toContainText("Below-reorder analysis");

@@ -343,6 +343,35 @@ class AdminService:
         )
         return result
 
+    def source(self, principal: Principal) -> dict[str, Any]:
+        """The tenant's data source: kind, health, freshness and rows per mapped dataset (admin only, no values)."""
+        tenant = self.query.tenants.get(principal.tenant_id)
+        mapping = self.query.mapping(principal.tenant_id)
+        connector = self.query.connectors.get(principal.tenant_id)
+        meta = self.query.tenant_meta(principal.tenant_id)
+        healthy = connector.health()
+        datasets: list[dict[str, Any]] = []
+        for name in sorted(tenant.datasets):
+            rows: int | None = None
+            if healthy:
+                stmt = sa.select(sa.func.count()).select_from(mapping.table(name))
+                try:
+                    rows = int(_run(mapping, connector, stmt, 1)[0][0])
+                except (ConnectorError, IndexError):
+                    rows = None
+            datasets.append({"dataset": name, "source_object": mapping.source_object(name), "rows": rows})
+        self.query.record(principal, "admin:source", None, "allow", "ok", rows=len(datasets))
+        return {
+            "kind": tenant.connection.type,
+            "engine": connector.dialect.name,
+            "healthy": healthy,
+            "data_as_of": meta.data_as_of.isoformat() if meta.data_as_of else None,
+            "stale": meta.stale,
+            "stale_after_hours": tenant.policies.stale_after_hours,
+            "classification": tenant.data_classification,
+            "datasets": datasets,
+        }
+
     def capabilities(self, principal: Principal) -> list[dict[str, Any]]:
         return capability_matrix(self.query.mapping(principal.tenant_id))
 

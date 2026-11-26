@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import logging
+import os
 import threading
 from pathlib import Path
 
-from lumiant.connectors.base import Connector
+from lumiant.connectors.base import Connector, ConnectorError, UnavailableConnector
 from lumiant.connectors.duckdb_connector import DuckDBConnector
+from lumiant.connectors.sql_connector import SqlConnector
 from lumiant.tenancy.registry import TenantRegistry
+
+log = logging.getLogger("lumiant.connectors")
 
 
 class ConnectorRegistry:
@@ -29,6 +34,16 @@ class ConnectorRegistry:
         conn = self._tenants.get(tenant_id).connection
         if conn.type == "duckdb" and conn.path:
             return DuckDBConnector(self._data_dir / conn.path)
+        if conn.type == "sql" and conn.secret_ref:
+            url = os.environ.get(conn.secret_ref.removeprefix("env:"), "")
+            if not url:
+                log.warning("source_not_configured", extra={"tenant": tenant_id, "secret_ref": conn.secret_ref})
+                return UnavailableConnector()
+            try:
+                return SqlConnector(url)
+            except ConnectorError as exc:
+                log.warning("source_rejected", extra={"tenant": tenant_id, "code": exc.code})
+                return UnavailableConnector()
         raise NotImplementedError(f"connector type '{conn.type}' is not implemented")
 
     def dispose_all(self) -> None:

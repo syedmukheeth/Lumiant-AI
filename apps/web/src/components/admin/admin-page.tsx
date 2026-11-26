@@ -16,6 +16,8 @@ import { api, ApiError, type Me, type Row } from "@/lib/api";
 import { formatNumber, formatTimestamp } from "@/lib/format";
 import { useMe } from "@/lib/hooks";
 
+import { SourcePanel } from "./source-panel";
+
 type SchemaResult = {
   healthy: boolean;
   verdict: "ok" | "drift";
@@ -44,6 +46,7 @@ type ReconLine = { warehouse_id: string; currency: string; platform: string | nu
 type Recon = { passed: boolean; counts: Record<string, number>; lines: ReconLine[]; tolerance: string; note: string };
 
 const TABS = [
+  { id: "source", label: "Data source" },
   { id: "schema", label: "Connection and schema" },
   { id: "capabilities", label: "Capabilities" },
   { id: "reconciliation", label: "Reconciliation" },
@@ -291,7 +294,7 @@ function DemoRequestsPanel({ me }: { me?: Me }) {
 
 export function AdminPage() {
   const me = useMe();
-  const [tab, setTab] = useState<Tab>("schema");
+  const [tab, setTab] = useState<Tab>("source");
   return (
     <div className="mx-auto max-w-[96rem] space-y-8">
       <PageHeader
@@ -299,6 +302,7 @@ export function AdminPage() {
         description="Check a data source against its mapping, see what is unlocked, prove numbers against the customer's own reports, and review access."
       />
       <Tabs label="Administration" tabs={TABS} value={tab} onChange={setTab} />
+      {tab === "source" && <SourcePanel />}
       {tab === "schema" && <SchemaPanel />}
       {tab === "capabilities" && <CapabilitiesPanel />}
       {tab === "reconciliation" && <ReconciliationPanel />}
