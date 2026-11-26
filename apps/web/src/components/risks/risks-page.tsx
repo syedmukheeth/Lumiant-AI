@@ -74,7 +74,7 @@ function RiskTable({ kind, columns, days, empty }: { kind: RiskKind; columns: Si
         summary?.flagged !== undefined
           ? `${formatCount(summary.flagged)} flagged`
           : kind === "expiring-lots" && summary
-            ? `${formatCount(summary.expired)} expired · ${formatCount(summary.expiring)} expiring within ${summary.days} days`
+            ? `${formatCount(summary.expired_lots)} lots expired · ${formatCount(summary.expiring_lots)} expiring within ${summary.days} days · ${formatCount(Number(summary.expired) + Number(summary.expiring))} stock lines`
             : undefined
       }
       provenance={data?.provenance}

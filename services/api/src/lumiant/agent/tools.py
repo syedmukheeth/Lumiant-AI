@@ -444,10 +444,22 @@ def dormant(ctx: ToolContext, a: DaysArgs) -> ToolOutput:
     return _analysis_output("dormant", f"Stock with no issue in {a.days} days", res, cols, answer)
 
 
+def _lots(n: int) -> str:
+    return f"{n} lot" if n == 1 else f"{n} lots"
+
+
+def _lines(n: int) -> str:
+    return f"{n} stock line" if n == 1 else f"{n} stock lines"
+
+
 def expiring_lots(ctx: ToolContext, a: DaysArgs) -> ToolOutput:
     res = run_expiring(ctx.query, ctx.principal, days=min(a.days, 3650), limit=15)
     s = res.summary or {}
-    answer = f"{s['expired']} lots on hand have already expired and {s['expiring']} more expire within {a.days} days."
+    answer = (
+        f"{_lots(s['expired_lots'])} on hand {'has' if s['expired_lots'] == 1 else 'have'} already expired "
+        f"({_lines(s['expired'])}) and {s['expiring_lots']} more {'expires' if s['expiring_lots'] == 1 else 'expire'} "
+        f"within {a.days} days ({_lines(s['expiring'])})."
+    )
     if res.truncated:
         answer += f" The table shows the first {len(res.rows)}."
     cols = [
@@ -599,7 +611,7 @@ def inventory_summary(ctx: ToolContext, a: NoArgs) -> ToolOutput:
     items = items_res.rows[0]["items"] if items_res.rows else 0
     lines = lines_res.rows[0]["lines"] if lines_res.rows else 0
     blocks: list[Block] = []
-    warnings: list[dict[str, str]] = []
+    warnings: list[dict[str, str]] = _warn(items_res) + _warn(lines_res)
     data: dict[str, Any] = {"items_in_stock": to_json_value(items), "stock_lines": to_json_value(lines)}
     provenance = items_res.payload()["provenance"]
     counts = f"{_quantity(items)} items in stock across {_quantity(lines)} stock lines"
@@ -609,7 +621,7 @@ def inventory_summary(ctx: ToolContext, a: NoArgs) -> ToolOutput:
         values = [r for r in payload["data"] if r.get("value") is not None]
         data["value"] = values
         provenance = payload["provenance"]
-        warnings = _warn(value_res)
+        warnings += _warn(value_res)
         if values:
             shown = " and ".join(_money(r.get("currency"), r["value"]) for r in values)
             answer = f"Your inventory is worth {shown}, with {counts}."

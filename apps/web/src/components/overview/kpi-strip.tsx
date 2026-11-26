@@ -10,7 +10,7 @@ import { ErrorState, Skeleton } from "@/components/data/widget";
 import type { Selection } from "@/lib/agent";
 import type { Envelope, Provenance, ResultWarning } from "@/lib/api";
 import { formatCount, formatMoney } from "@/lib/format";
-import { useBelowReorder, useMetric } from "@/lib/hooks";
+import { OVERVIEW_BELOW_REORDER, useBelowReorder, useMetric } from "@/lib/hooks";
 import { enterDelay } from "@/lib/motion";
 
 type CellProps = {
@@ -85,7 +85,7 @@ export function KpiStrip({ canSeeValue }: { canSeeValue: boolean }) {
   const value = useMetric("inventory_value_total", canSeeValue);
   const items = useMetric("items_in_stock");
   const lines = useMetric("stock_lines");
-  const below = useBelowReorder({ offset: 0, limit: 1 });
+  const below = useBelowReorder(OVERVIEW_BELOW_REORDER); // same request as the below-reorder panel, sent once
 
   return (
     <div className="grid grid-cols-1 gap-4 @lg:grid-cols-2 @5xl:grid-cols-4">

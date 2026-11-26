@@ -156,6 +156,9 @@ export type InventoryFilters = {
   abc_classes: string[];
   stages: string[];
   stock_statuses?: string[];
+  /** Lists that hold more values than were returned (each list stops at `limit`). */
+  truncated?: string[];
+  limit?: number;
 };
 
 export type DataQualityCheck = {

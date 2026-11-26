@@ -189,7 +189,7 @@ REPORTS: dict[str, ReportDef] = {
         ReportDef(
             "expiring_lots",
             "Expiring lots",
-            "Lots expired or expiring in the chosen window.",
+            "Stock lines in lots that are expired or expire in the chosen window.",
             (INV,),
             (
                 ("item.item_code", "Item"),

@@ -238,6 +238,13 @@ export function InventoryExplorer() {
             onChange={(v) => update({ status: v })}
           />
         )}
+        {(f?.truncated?.length ?? 0) > 0 && (
+          <p className="col-span-full text-xs text-ink-3" role="note" data-testid="filters-truncated">
+            Only the first {formatNumber(f?.limit)} choices are listed for{" "}
+            {(f?.truncated ?? []).map((k) => humanize(k).toLowerCase()).join(", ")}. Search by item code or description to
+            reach the rest.
+          </p>
+        )}
       </div>
 
       <Panel

@@ -26,7 +26,11 @@ export function DataTable({
   children: React.ReactNode;
 }) {
   return (
-    <div className="-mx-5 max-h-[min(70vh,44rem)] overflow-auto overscroll-contain sm:-mx-6">
+    // Focusable so keyboard users can scroll a wide or tall table (WCAG 2.1.1; axe scrollable-region-focusable).
+    <div
+      className="-mx-5 max-h-[min(70vh,44rem)] overflow-auto overscroll-contain focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent sm:-mx-6"
+      tabIndex={0}
+    >
       <table className="w-full text-dense text-ink-2" style={{ minWidth }} aria-busy={busy} data-testid={testId}>
         {children}
       </table>

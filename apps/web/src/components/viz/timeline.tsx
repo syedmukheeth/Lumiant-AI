@@ -37,7 +37,7 @@ export function Timeline({ lanes, from, to, label, today }: { lanes: TimelineLan
         rows: lanes.flatMap((l) => l.bars.map((b) => [l.label, b.label, b.start, b.end, b.note ?? ""])),
       }}
     >
-      <div className="min-w-0 overflow-x-auto">
+      <div className="min-w-0 overflow-x-auto focus-visible:outline-2 focus-visible:outline-accent" tabIndex={0} role="region" aria-label={label}>
         <div className="min-w-[36rem]">
           <div className="relative ml-36 h-5 border-b border-line text-caption text-ink-3">
             {ticks.map((d) => (

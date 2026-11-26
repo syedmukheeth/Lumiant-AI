@@ -20,7 +20,7 @@ export function DeltaChip({ direction, text, goodWhen = "up", period }: { direct
       className={clsx(
         "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-caption font-medium",
         good && "bg-ok/10 text-ok",
-        bad && "bg-status-critical/10 text-status-critical",
+        bad && "bg-status-critical/10 text-status-critical-ink",
         !good && !bad && "bg-surface-2 text-ink-3",
       )}
     >

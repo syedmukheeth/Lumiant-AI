@@ -31,7 +31,7 @@ from lumiant.core.config import Settings
 from lumiant.core.errors import AppError
 from lumiant.core.logging import request_id_var
 from lumiant.query.plan import QueryPlan
-from lumiant.query.service import QueryService
+from lumiant.query.service import QueryService, meta_warnings
 
 log = logging.getLogger("lumiant.agent")
 MAX_TOOL_CALLS = 4  # per round
@@ -74,6 +74,18 @@ def _label(call: ToolCall) -> str:
     if call.name == "stock_by" and call.args.get("dimension"):
         label += " by " + str(call.args["dimension"]).replace("_", " ")
     return label
+
+
+def _unique(warnings: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Each warning once, in first-seen order (several tools can report the same one)."""
+    seen: set[tuple[str, str]] = set()
+    out: list[dict[str, str]] = []
+    for w in warnings:
+        key = (w.get("code", ""), w.get("message", ""))
+        if key not in seen:
+            seen.add(key)
+            out.append(w)
+    return out
 
 
 def _step(step_id: str, label: str, status: str, **extra: Any) -> Event:
@@ -366,7 +378,12 @@ class AgentService:
             follow = SUGGESTIONS[:5]
         elif decision.kind == "reply":
             follow = SUGGESTIONS[:4]
-        warnings = [w for o in outputs for w in o.warnings]
+        warnings = _unique([w for o in outputs for w in o.warnings])
+        if outputs:  # any figure shown carries the data's freshness (ISSUES #47), once per answer
+            seen = {w["code"] for w in warnings}
+            for w in meta_warnings(self.query.tenant_meta(principal.tenant_id)):
+                if w.code not in seen:
+                    warnings.append({"code": w.code, "message": w.message})
         yield {
             "type": "answer",
             "answer": {

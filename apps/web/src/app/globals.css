@@ -80,6 +80,8 @@
   --status-warning: #fab219;
   --status-serious: #ec835a;
   --status-critical: #e05252;
+  /* critical text on a critical tint (delta chips): #e05252 reaches only ~4:1 there, this 5.9:1 (axe, V0) */
+  --status-critical-ink: #f08080;
 
   /* Product v2 (docs/05-plan/PRODUCT_V2_PLAN.md §3): data ramps. No separate AI colour: AI work uses the same
    * neutral surfaces and brand accent as everything else (owner, 2026-11-25). */
@@ -177,6 +179,7 @@
   --viz-axis: #d3cbbb;
   --viz-cursor: rgb(15 29 51 / 0.04);
   --status-critical: #c93030;
+  --status-critical-ink: #c93030;
   --seq-1: #e2f1ef;
   --seq-2: #b2dcd7;
   --seq-3: #6cbab2;
@@ -231,6 +234,7 @@
   --color-status-warning: var(--status-warning);
   --color-status-serious: var(--status-serious);
   --color-status-critical: var(--status-critical);
+  --color-status-critical-ink: var(--status-critical-ink);
   --color-seq-1: var(--seq-1);
   --color-seq-2: var(--seq-2);
   --color-seq-3: var(--seq-3);

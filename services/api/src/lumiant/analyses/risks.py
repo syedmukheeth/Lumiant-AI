@@ -10,11 +10,12 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.sql.elements import ColumnElement
 
-from lumiant.analyses.below_reorder import BelowReorderFilters, run_below_reorder
+from lumiant.analyses.below_reorder import SHARED_ROWS, BelowReorderFilters, run_below_reorder
+from lumiant.analyses.cache import cached
 from lumiant.auth.permissions import Permission
 from lumiant.auth.principal import Principal
 from lumiant.core.errors import AppError, ForbiddenError
-from lumiant.costing.abc import AbcConfig, classify
+from lumiant.costing.abc import AbcConfig
 from lumiant.costing.engine import (
     CostingError,
     Movement,
@@ -28,9 +29,10 @@ from lumiant.costing.engine import (
 from lumiant.costing.item_code import parse_item_code
 from lumiant.mapping.resolver import UNMAPPED
 from lumiant.query.compiler import ExactDecimal
-from lumiant.query.plan import QueryPlan
+from lumiant.query.plan import Op, QueryPlan
 from lumiant.query.results import Column, QueryResult, to_json_value
 from lumiant.query.service import MetricRef, QueryService, meta_warnings
+from lumiant.query.validator import AppliedFilter, FieldRef, FilterGroup
 
 DORMANT_RULE = (
     "Item–warehouse pairs with positive on-hand stock and no ISSUE movement within the given number of days "
@@ -39,6 +41,10 @@ DORMANT_RULE = (
 EXPIRY_RULE = (
     "Stock lines with positive quantity in a lot whose expiry date is on or before the data timestamp plus the "
     "given number of days. Already-expired lots are included and marked."
+)
+LOT_COUNT_RULE = (
+    "Lots are counted once per item and lot, however many warehouses or locations hold them; stock-line counts "
+    "count every line."
 )
 ABC_RULE = (
     "Draft: items ranked by on-hand value in one currency; class A until the cumulative share before the item "
@@ -52,6 +58,8 @@ COST_RULES = {
     "latest_receipt_cost": "Unit cost of the most recent RECEIPT movement.",
     "source_valuation": "Source valuation value ÷ quantity from the stock balance, as provided by the source system.",
 }
+ABC_LISTED = 200  # items listed in the ABC result (the matrix and counts cover every item)
+LOTS_LISTED = 200  # lots on hand listed next to a cost comparison
 RECONCILE_TOLERANCE = Decimal("0.0002")  # source prices carry 4 decimals; below this is rounding noise
 
 
@@ -68,8 +76,53 @@ def _money(value: Decimal | None, places: int = 4) -> str | None:
     return None if value is None else format(present(value, places), "f")
 
 
+MAX_PAGES = 50  # pages of `max_rows` an analysis reads before it says the input was cut
+
+
+def _paged(
+    query: QueryService,
+    principal: Principal,
+    spec: dict[str, Any],
+    *,
+    action: str,
+    metric: MetricRef | None = None,
+    max_pages: int = MAX_PAGES,
+) -> tuple[list[dict[str, Any]], QueryResult, bool]:
+    """Every row of a plan, read in pages of the tenant's `max_rows` (the cap limits one response, not an analysis).
+
+    Returns (rows, first page for provenance and warnings, complete). The plan must be ordered so pages neither
+    overlap nor skip rows.
+    """
+    page_size = query.tenants.get(principal.tenant_id).policies.max_rows
+    rows: list[dict[str, Any]] = []
+    first: QueryResult | None = None
+    for page in range(max_pages):
+        res = query.run_plan(
+            QueryPlan.model_validate({**spec, "limit": page_size, "offset": page * page_size}),
+            principal,
+            action=action,
+            metric=metric if page == 0 else None,
+        )
+        first = first or res
+        rows += res.rows
+        if not res.truncated:
+            return rows, first, True
+    assert first is not None
+    return rows, first, False
+
+
 # --------------------------------------------------------------------------------------- dormant stock
 def run_dormant(query: QueryService, principal: Principal, *, days: int, limit: int, offset: int) -> QueryResult:
+    return cached(
+        query,
+        principal,
+        "dormant_stock",
+        (days, limit, offset),
+        lambda: _run_dormant(query, principal, days=days, limit=limit, offset=offset),
+    )
+
+
+def _run_dormant(query: QueryService, principal: Principal, *, days: int, limit: int, offset: int) -> QueryResult:
     mapping = query.mapping(principal.tenant_id)
     action = "analysis:dormant_stock"
     needs = {
@@ -218,6 +271,16 @@ def run_dormant(query: QueryService, principal: Principal, *, days: int, limit: 
 
 # --------------------------------------------------------------------------------------- expiring lots
 def run_expiring(query: QueryService, principal: Principal, *, days: int, limit: int) -> QueryResult:
+    return cached(
+        query,
+        principal,
+        "expiring_lots",
+        (days, limit),
+        lambda: _run_expiring(query, principal, days=days, limit=limit),
+    )
+
+
+def _run_expiring(query: QueryService, principal: Principal, *, days: int, limit: int) -> QueryResult:
     mapping = query.mapping(principal.tenant_id)
     if mapping.field("lot", "expiry_date") is None or mapping.field("stock_balance", "lot_id") is None:
         raise AppError(
@@ -259,11 +322,63 @@ def run_expiring(query: QueryService, principal: Principal, *, days: int, limit:
 
     total = count(in_window)
     expired = count({"field": "lot.expiry_date", "op": "lt", "value": as_of.isoformat()})
+    lots_total, lots_expired = _count_expiring_lots(query, principal, as_of, as_of + timedelta(days=days))
     result.columns += [Column("days_to_expiry", "integer", "measure"), Column("status", "string", "dimension")]
     result.provenance["rule"] = EXPIRY_RULE
     result.provenance["parameters"] = {"days": days, "as_of": as_of.isoformat()}
-    result.summary = {"expired": expired, "expiring": total - expired, "days": days}
+    result.provenance["lot_count_rule"] = LOT_COUNT_RULE
+    # `expired` / `expiring` count stock lines (one lot can sit in several warehouses); the `_lots` keys count lots.
+    result.summary = {
+        "expired": expired,
+        "expiring": total - expired,
+        "expired_lots": lots_expired,
+        "expiring_lots": lots_total - lots_expired,
+        "days": days,
+    }
     return result
+
+
+def _count_expiring_lots(query: QueryService, principal: Principal, as_of: date, window_end: date) -> tuple[int, int]:
+    """Distinct (item, lot) pairs with stock on hand that expire by `window_end`, and how many already expired.
+
+    One statement, counted in the source with the caller's warehouse scope, so the listing limit never caps it.
+    """
+    mapping = query.mapping(principal.tenant_id)
+    sb = mapping.table("stock_balance").alias("sb")
+    lt = mapping.table("lot").alias("lt")
+
+    def c(ds: str, name: str, table: Any) -> ColumnElement[Any]:
+        return mapping.column_expr(ds, name, table)
+
+    expiry = c("lot", "expiry_date", lt)
+    lots = (
+        sa.select(
+            c("stock_balance", "item_id", sb).label("item_id"),
+            c("stock_balance", "lot_id", sb).label("lot_id"),
+            sa.case((expiry < as_of, 1), else_=0).label("is_expired"),
+        )
+        .select_from(sb.join(lt, c("stock_balance", "lot_id", sb) == c("lot", "lot_id", lt)))
+        .where(
+            c("stock_balance", "quantity", sb) > 0,
+            expiry <= window_end,
+            *_scope_filter(principal, c("stock_balance", "warehouse_id", sb)),
+        )
+        .distinct()
+        .subquery("lots")
+    )
+    stmt = sa.select(
+        sa.func.count().label("n"),
+        sa.func.coalesce(sa.func.sum(lots.c.is_expired), 0).label("expired"),
+    ).select_from(lots)
+    raw = query.execute_select(
+        principal,
+        stmt,
+        action="analysis:expiring_lots",
+        dataset="stock_balance",
+        fields=("lot_id", "lot.expiry_date"),
+        fetch_limit=1,
+    )
+    return int(raw.rows[0][0]), int(raw.rows[0][1])
 
 
 # --------------------------------------------------------------------------------------- data quality
@@ -274,6 +389,10 @@ def _count_plan(dataset: str, filters: list[dict[str, Any]]) -> QueryPlan:
 
 
 def run_data_quality(query: QueryService, principal: Principal) -> dict[str, Any]:
+    return cached(query, principal, "data_quality", (), lambda: _run_data_quality(query, principal))
+
+
+def _run_data_quality(query: QueryService, principal: Principal) -> dict[str, Any]:
     mapping = query.mapping(principal.tenant_id)
     checks: list[dict[str, Any]] = []
 
@@ -320,7 +439,7 @@ def run_data_quality(query: QueryService, principal: Principal) -> dict[str, Any
         )
 
     try:
-        summary = run_below_reorder(query, principal, BelowReorderFilters(), limit=1, offset=0).summary or {}
+        summary = run_below_reorder(query, principal, BelowReorderFilters(), limit=SHARED_ROWS, offset=0).summary or {}
         n = int(summary.get("pairs_without_policy", 0))
         checks.append(
             {
@@ -351,12 +470,13 @@ def run_data_quality(query: QueryService, principal: Principal) -> dict[str, Any
             }
         )
     else:
-        listing = query.run_plan(
-            QueryPlan.model_validate({"dataset": "item", "dimensions": ["item_id", "item_code"], "limit": 1000}),
+        listed, _, complete = _paged(
+            query,
             principal,
+            {"dataset": "item", "dimensions": ["item_id", "item_code"], "order_by": [{"field": "item_id"}]},
             action="analysis:data_quality",
         )
-        bad = [(r["item_id"], r["item_code"], parse_item_code(r["item_code"], coding).problems) for r in listing.rows]
+        bad = [(r["item_id"], r["item_code"], parse_item_code(r["item_code"], coding).problems) for r in listed]
         bad = [(i, c, p) for i, c, p in bad if p]
         checks.append(
             {
@@ -365,8 +485,8 @@ def run_data_quality(query: QueryService, principal: Principal) -> dict[str, Any
                 "status": "ok" if not bad else "issue",
                 "count": len(bad),
                 "examples": [{"item_id": i, "item_code": c, "problems": list(p)} for i, c, p in bad[:10]],
-                "checked": len(listing.rows),
-                "partial": listing.truncated,
+                "checked": len(listed),
+                "partial": not complete,
             }
         )
     checks += _source_checks(query, principal)
@@ -571,71 +691,169 @@ def _master_without_stock(query: QueryService, principal: Principal) -> int:
 def run_abc(
     query: QueryService, principal: Principal, *, a_cutoff: Decimal, b_cutoff: Decimal, currency: str | None
 ) -> dict[str, Any]:
+    """ABC computed in the source with window sums, so it works for any number of items (no row cap).
+
+    Same rule as `costing.abc.classify`: rank by value (ties by item id), classify by the cumulative share *before*
+    the item, items with value <= 0 unclassified. `before < cutoff × total` avoids a division.
+    """
     if not principal.has(Permission.COST_READ):
         raise ForbiddenError("forbidden_field", "Your role cannot view cost or value information.")
     try:
         config = AbcConfig(a_cutoff, b_cutoff)
     except ValueError as exc:
         raise AppError("invalid_request", str(exc), 422) from exc
-    filters: list[dict[str, Any]] = [{"field": "quantity", "op": "gt", "value": "0"}]
-    if currency:
-        filters.append({"field": "currency", "op": "eq", "value": currency})
-    values_res = query.run_plan(
-        QueryPlan.model_validate(
-            {
-                "dataset": "stock_balance",
-                "dimensions": ["item_id"],
-                "measures": [{"field": "stock_value", "agg": "sum", "alias": "value"}],
-                "filters": filters,
-                "limit": 1000,
-            }
-        ),
-        principal,
-        action="analysis:abc",
-        metric=MetricRef("abc_computed", 1, "draft", ABC_RULE),
-    )
-    currencies = sorted({str(r["currency"]) for r in values_res.rows if r.get("currency")})
-    if len(currencies) > 1:
-        raise AppError(
-            "abc_mixed_currency",
-            f"Values are held in several currencies ({', '.join(currencies)}). Choose one currency; values are never converted.",
-            409,
-        )
-    if values_res.truncated:
-        raise AppError(
-            "analysis_too_large",
-            "Too many items for this method in one request (large runs arrive with background reports).",
-            409,
-        )
-    values: dict[str, Decimal] = {}
-    for row in values_res.rows:
-        v = _dec(row["value"])
-        if v is not None:
-            values[str(row["item_id"])] = values.get(str(row["item_id"]), Decimal(0)) + v
-    computed = classify(values, config)
-    assigned: dict[str, str | None] = {}
-    if query.mapping(principal.tenant_id).field("item", "abc_class") is not None:
-        a_res = query.run_plan(
-            QueryPlan.model_validate({"dataset": "item", "dimensions": ["item_id", "abc_class"], "limit": 1000}),
+    mapping = query.mapping(principal.tenant_id)
+    for name in ("item_id", "quantity", "stock_value", "warehouse_id"):
+        if mapping.field("stock_balance", name) is None:
+            raise AppError("analysis_unavailable", "This analysis needs stock values, which are not mapped.", 409)
+    action = "analysis:abc"
+    sb = mapping.table("stock_balance").alias("sb")
+
+    def c(name: str) -> ColumnElement[Any]:
+        return mapping.column_expr("stock_balance", name, sb)
+
+    has_currency = mapping.field("stock_balance", "currency") is not None
+    where = [c("quantity") > 0, *_scope_filter(principal, c("warehouse_id"))]
+    if currency and has_currency:
+        where.append(c("currency") == currency)
+
+    currencies: list[str] = []
+    if has_currency:
+        found = query.execute_select(
             principal,
-            action="analysis:abc",
+            sa.select(c("currency").label("currency"))
+            .select_from(sb)
+            .where(*where, c("currency").is_not(None))
+            .distinct()
+            .limit(3),
+            action=action,
+            dataset="stock_balance",
+            fetch_limit=3,
+            audit=False,
         )
-        assigned = {str(r["item_id"]): (str(r["abc_class"]) if r["abc_class"] else None) for r in a_res.rows}
+        currencies = sorted(str(r[0]) for r in found.rows)
+        if len(currencies) > 1:
+            raise AppError(
+                "abc_mixed_currency",
+                f"Values are held in several currencies ({', '.join(currencies)}). Choose one currency; values are never converted.",
+                409,
+            )
+
+    per_item = (
+        sa.select(c("item_id").label("item_id"), sa.func.sum(c("stock_value")).label("value"))
+        .select_from(sb)
+        .where(*where)
+        .group_by(c("item_id"))
+        .subquery("per_item")
+    )
+    valued = sa.select(per_item).where(per_item.c.value.is_not(None)).subquery("valued")
+    positive = sa.case((valued.c.value > 0, valued.c.value), else_=0)
+    running = sa.func.sum(positive).over(order_by=(valued.c.value.desc(), valued.c.item_id), rows=(None, 0))
+    total = sa.func.sum(positive).over()
+    ranked = sa.select(
+        valued.c.item_id,
+        valued.c.value,
+        sa.case(
+            (valued.c.value <= 0, sa.null()),
+            (running - positive < total * sa.literal(config.a_cutoff, sa.Numeric(9, 6)), "A"),
+            (running - positive < total * sa.literal(config.b_cutoff, sa.Numeric(9, 6)), "B"),
+            else_="C",
+        ).label("computed"),
+    ).subquery("ranked")
+
+    assigned_available = mapping.is_mapped("item") and mapping.field("item", "abc_class") is not None
+    source: Any = ranked
+    assigned_col: ColumnElement[Any] = sa.null()
+    extra_sources: list[str] = []
+    if assigned_available:
+        it = mapping.table("item").alias("it")
+        source = ranked.outerjoin(it, ranked.c.item_id == mapping.column_expr("item", "item_id", it))
+        assigned_col = sa.func.nullif(mapping.column_expr("item", "abc_class", it), "")
+        extra_sources = ["item"]
+
+    top_stmt = (
+        sa.select(
+            ranked.c.item_id,
+            sa.type_coerce(ranked.c.value, ExactDecimal()).label("value"),
+            ranked.c.computed,
+            assigned_col.label("assigned"),
+        )
+        .select_from(source)
+        .order_by(ranked.c.value.desc(), ranked.c.item_id)
+        .limit(ABC_LISTED)
+    )
+    top = query.execute_select(principal, top_stmt, action=action, dataset="stock_balance", fetch_limit=ABC_LISTED)
+    # Labelled in a subquery and grouped by plain columns: the same constant would otherwise be two bind
+    # parameters, and the source would see SELECT and GROUP BY expressions that differ.
+    classified = (
+        sa.select(
+            sa.func.coalesce(ranked.c.computed, "none").label("computed"),
+            sa.func.coalesce(assigned_col, "none").label("assigned"),
+        )
+        .select_from(source)
+        .subquery("classified")
+    )
+    matrix_stmt = sa.select(classified.c.computed, classified.c.assigned, sa.func.count().label("n")).group_by(
+        classified.c.computed, classified.c.assigned
+    )
+    cells = query.execute_select(
+        principal, matrix_stmt, action=action, dataset="stock_balance", fetch_limit=100, audit=False
+    )
+
     matrix: dict[str, dict[str, int]] = {}
+    for cls, assigned, n in cells.rows:
+        matrix.setdefault(str(cls), {})[str(assigned)] = int(n)
     items = []
-    for item_id, cls in sorted(computed.items(), key=lambda kv: (-(values.get(kv[0]) or 0), kv[0])):
-        a = assigned.get(item_id)
-        matrix.setdefault(cls or "none", {}).setdefault(a or "none", 0)
-        matrix[cls or "none"][a or "none"] += 1
+    for item_id, value, cls, assigned in top.rows:
+        a = str(assigned) if assigned else None
         items.append(
             {
-                "item_id": item_id,
-                "value": _money(values.get(item_id), 2),
+                "item_id": str(item_id),
+                "value": _money(_dec(value), 2),
                 "computed": cls,
                 "assigned": a,
                 "differs": a is not None and a != cls,
             }
         )
+    item_count = sum(n for row in matrix.values() for n in row.values())
+    differences = sum(n for cls, row in matrix.items() for a, n in row.items() if a != "none" and a != cls)
+
+    meta = query.tenant_meta(principal.tenant_id)
+    scope_field = mapping.field("stock_balance", "warehouse_id")
+    assert scope_field is not None  # checked above
+    injected: list[AppliedFilter | FilterGroup] = (
+        []
+        if principal.scope.all
+        else [
+            AppliedFilter(
+                FieldRef("warehouse_id", None, "stock_balance", scope_field),
+                Op.IN,
+                sorted(principal.scope.ids),
+                "scope",
+            )
+        ]
+    )
+    provenance = query.provenance(
+        principal,
+        mapping,
+        meta,
+        dataset="stock_balance",
+        source_datasets=["stock_balance", *extra_sources],
+        fields={
+            "value": f"SUM({mapping.physical_ref('stock_balance', 'stock_value')}) per item, quantity > 0",
+            "computed": "cumulative share of value before the item, by value descending",
+            **({"assigned": mapping.physical_ref("item", "abc_class")} if assigned_available else {}),
+        },
+        filters=injected,
+        auto_grouped=[],
+        metric=MetricRef("abc_computed", 2, "draft", ABC_RULE),
+        row_count=item_count,
+        truncated=False,
+        duration_ms=round(top.duration_ms + cells.duration_ms, 1),
+        stmt=top_stmt,
+        rule=ABC_RULE,
+    )
+    query.record(principal, action, "stock_balance", "allow", "ok", rows=item_count, ms=provenance["duration_ms"])
     return {
         "currency": currencies[0] if currencies else currency,
         "config": {
@@ -643,14 +861,14 @@ def run_abc(
             "b_cutoff": str(b_cutoff),
             "value_definition": "on-hand value (quantity × source valuation price)",
         },
-        "items": items[:200],
-        "item_count": len(items),
-        "differences": sum(1 for i in items if i["differs"]),
+        "items": items,
+        "item_count": item_count,
+        "differences": differences,
         "matrix": matrix,
-        "assigned_available": bool(assigned),
+        "assigned_available": assigned_available and any(a != "none" for row in matrix.values() for a in row),
         "rule": ABC_RULE,
-        "provenance": values_res.provenance,
-        "warnings": [w.__dict__ for w in values_res.warnings if w.code != "auto_grouped"],
+        "provenance": provenance,
+        "warnings": [w.__dict__ for w in meta_warnings(meta)],
     }
 
 
@@ -665,26 +883,28 @@ def run_cost_comparison(
         {"field": "item_id", "op": "eq", "value": item_id},
         {"field": "warehouse_id", "op": "eq", "value": warehouse_id},
     ]
-    mv = query.run_plan(
-        QueryPlan.model_validate(
-            {
-                "dataset": "inventory_transaction",
-                "dimensions": ["txn_id", "txn_type", "quantity", "unit_cost", "posting_date"],
-                "filters": pair,
-                "order_by": [{"field": "posting_date"}, {"field": "txn_id"}],
-                "limit": query.tenants.get(principal.tenant_id).policies.max_rows,
-            }
-        ),
+    mv_rows, mv, complete = _paged(
+        query,
         principal,
+        {
+            "dataset": "inventory_transaction",
+            "dimensions": ["txn_id", "txn_type", "quantity", "unit_cost", "posting_date"],
+            "filters": pair,
+            "order_by": [{"field": "posting_date"}, {"field": "txn_id"}],
+        },
         action=action,
         metric=MetricRef("cost_comparison", 1, "draft", "; ".join(f"{k}: {v}" for k, v in COST_RULES.items())),
     )
-    if not mv.rows:
+    if not mv_rows:
         raise AppError(
             "no_data", "No movements were found for this item in this warehouse (or it is outside your scope).", 404
         )
-    if mv.truncated:
-        raise AppError("analysis_too_large", "This item has too many movements to cost in one request.", 409)
+    if not complete:  # costing a partial history would give a wrong figure, so refuse rather than guess
+        raise AppError(
+            "analysis_too_large",
+            f"This item has more than {len(mv_rows):,} movements in this warehouse, more than one request can cost.",
+            409,
+        )
     movements = [
         Movement(
             str(r["txn_id"]),
@@ -695,7 +915,7 @@ def run_cost_comparison(
             str(r["currency"]) if r.get("currency") else None,
             str(r["uom"]) if r.get("uom") else None,
         )
-        for r in mv.rows
+        for r in mv_rows
     ]
     warnings: list[dict[str, str]] = [w.__dict__ for w in mv.warnings if w.code in ("stale_data", "unknown_freshness")]
     methods: dict[str, Any] = {}
@@ -736,34 +956,29 @@ def run_cost_comparison(
         else None
     )
 
-    purchases = (
-        query.run_plan(
-            QueryPlan.model_validate(
-                {
-                    "dataset": "purchase_record",
-                    "dimensions": ["po_id", "order_date", "status", "unit_price"],
-                    "filters": pair,
-                    "limit": query.tenants.get(principal.tenant_id).policies.max_rows,
-                }
-            ),
+    purchase = None
+    if query.mapping(principal.tenant_id).is_mapped("purchase_record"):
+        purchase_rows, _, purchases_complete = _paged(
+            query,
             principal,
+            {
+                "dataset": "purchase_record",
+                "dimensions": ["po_id", "order_date", "status", "unit_price"],
+                "filters": pair,
+                "order_by": [{"field": "order_date", "direction": "desc"}, {"field": "po_id"}],
+            },
             action=action,
         )
-        if query.mapping(principal.tenant_id).is_mapped("purchase_record")
-        else None
-    )
-    purchase = None
-    if purchases is not None:
         statuses = frozenset(query.tenants.get(principal.tenant_id).latest_price_statuses)
         purchase = latest_valid_purchase_price(
             [
                 PurchaseLine(str(r["po_id"]), r["order_date"], str(r["status"]), _dec(r["unit_price"]))
-                for r in purchases.rows
+                for r in purchase_rows
                 if r["order_date"]
             ],
             statuses,
         )
-        if purchases.truncated:
+        if not purchases_complete:
             warnings.append(
                 {
                     "code": "partial_purchases",
@@ -824,7 +1039,8 @@ def run_cost_comparison(
                         {"field": "quantity", "op": "gt", "value": "0"},
                         {"field": "lot_id", "op": "is_not_null"},
                     ],
-                    "limit": 200,
+                    "order_by": [{"field": "lot.receipt_date"}, {"field": "lot_id"}],
+                    "limit": min(LOTS_LISTED, query.tenants.get(principal.tenant_id).policies.max_rows),
                 }
             ),
             principal,
@@ -833,6 +1049,10 @@ def run_cost_comparison(
         if query.mapping(principal.tenant_id).field("lot", "unit_cost") is not None
         else None
     )
+    if lots_res is not None and lots_res.truncated:
+        warnings.append(
+            {"code": "partial_lots", "message": f"Only the oldest {len(lots_res.rows)} lots on hand are listed."}
+        )
     lots = [
         {
             "lot_id": r["lot_id"],

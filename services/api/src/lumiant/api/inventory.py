@@ -53,11 +53,17 @@ def _in(field: str, values: list[str] | None) -> list[dict[str, Any]]:
 
 @router.get("/inventory/filters")
 def filters(principal: Reader, container: Container = Depends(get_container)) -> dict[str, Any]:  # noqa: B008
+    """Choices for the explorer's filters, sorted, up to the tenant's row cap each.
+
+    `truncated` names every list that has more values than were returned, so the UI can say so instead of offering a
+    silently incomplete list (TECHNICAL_BOTTLENECKS: lists used to stop at 100 without a word).
+    """
     q = container.query
-
     mapping = q.mapping(principal.tenant_id)
+    cap = mapping.tenant.policies.max_rows
+    truncated: list[str] = []
 
-    def distinct(dataset: str, field: str) -> list[str]:
+    def distinct(key: str, dataset: str, field: str) -> list[str]:
         if not mapping.has_ref(dataset, field):
             return []
         plan = QueryPlan.model_validate(
@@ -65,22 +71,36 @@ def filters(principal: Reader, container: Container = Depends(get_container)) ->
                 "dataset": dataset,
                 "dimensions": [field],
                 "measures": [{"field": "item_id", "agg": "count", "alias": "n"}],
+                "order_by": [{"field": field}],
+                "limit": cap,
             }
         )
-        return [r[field] for r in q.run_plan(plan, principal, action="inventory.filters").rows if r[field] is not None]
+        res = q.run_plan(plan, principal, action="inventory.filters")
+        if res.truncated:
+            truncated.append(key)
+        return [r[field] for r in res.rows if r[field] is not None]
 
     wh_dims = [f for f in ("warehouse_id", "name") if mapping.has_ref("warehouse", f)]
-    warehouses = (
-        q.run_plan(QueryPlan(dataset="warehouse", dimensions=wh_dims), principal, action="inventory.filters").rows
-        if "warehouse_id" in wh_dims
-        else []
-    )
+    warehouses: list[dict[str, Any]] = []
+    if "warehouse_id" in wh_dims:
+        res = q.run_plan(
+            QueryPlan.model_validate(
+                {"dataset": "warehouse", "dimensions": wh_dims, "order_by": [{"field": "warehouse_id"}], "limit": cap}
+            ),
+            principal,
+            action="inventory.filters",
+        )
+        warehouses = res.rows
+        if res.truncated:
+            truncated.append("warehouses")
     return {
         "warehouses": [{"id": w["warehouse_id"], "name": w.get("name")} for w in warehouses],
-        "item_groups": distinct("item", "item_group"),
-        "abc_classes": distinct("item", "abc_class"),
-        "stages": distinct("item", "inventory_stage"),
-        "stock_statuses": distinct("stock_balance", "stock_status"),
+        "item_groups": distinct("item_groups", "item", "item_group"),
+        "abc_classes": distinct("abc_classes", "item", "abc_class"),
+        "stages": distinct("stages", "item", "inventory_stage"),
+        "stock_statuses": distinct("stock_statuses", "stock_balance", "stock_status"),
+        "truncated": truncated,
+        "limit": cap,
     }
 
 
