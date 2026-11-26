@@ -17,11 +17,11 @@ V0 correctness and speed **done** (DEC-032); V1 connect, V2 map and trust, V3 us
 |---|---|
 | Everything in the M1–M11 table of the previous state (query engine, scope, auth, analyses, agent, M8 extract, M10/M11 UI) | API suite, e2e |
 | V0: five wrong-figure bugs fixed (#44–#47, #49); ABC in SQL with no item cap; paged analyses; filter truncation flags; shared scoped result cache; Overview 79 → 41 source queries | `test_scale_limits.py`, `test_overview_budget.py`, `test_dialect_matrix.py`, TEST_RUNS S10-25…S10-31 |
-| V1: read-only `SqlConnector` for PostgreSQL / SQL Server / MySQL / Oracle (SQLite as dev stand-in), `connection: {type: sql, secret_ref}`, safe failure, `lumiant-synthetic copy`, Admin › Data source with a connection test that never stores the URL | `test_sql_connector.py` (SQLite every run, PostgreSQL in CI), S10-32…S10-34 |
+| V1: read-only `SqlConnector` for PostgreSQL / SQL Server / MySQL / Oracle (SQLite as dev stand-in), `connection: {type: sql, secret_ref}`, safe failure, `lumiant-synthetic copy`, Admin › Data source with a connection test; tested connections can be saved encrypted (`LUMIANT_SECRET_KEY`, `secret_ref: store`, DEC-034) | `test_sql_connector.py` (SQLite every run, PostgreSQL in CI), S10-32…S10-34 |
 | V2: mapping suggestions from names (all four demo tenants matched exactly), validation harness (keys, orphans, required values), Admin › Mapping and Validation | `test_mapping_suggest.py`, S10-35 |
-| V3: API keys (hashed, ⊆ creator), public API with keys, MCP server `POST /mcp` with the Analyst's typed tools + `ask_lumiant`, Admin › Integrations | `test_api_keys_mcp.py`, DEC-033, `06-operations/INTEGRATIONS.md` |
-| V4: 12-month value trend (rebuilt from movements, exact), Material 360 sheet from Inventory | `test_trends.py`, `test_items.py`, e2e |
-| Gates | API 930 passed + 15 env skips; web unit 90; e2e 50/50 (axe in light and dark on 12 screens, Windows screenshot baselines); bundle budget in CI |
+| V3: API keys (hashed, ⊆ creator), public API with keys, MCP server `POST /mcp` with the Analyst's typed tools + `ask_lumiant`, alert rules with signed webhooks and SSRF guard, Admin › Integrations | `test_api_keys_mcp.py`, DEC-033, `06-operations/INTEGRATIONS.md` |
+| V4: 12-month value trend (rebuilt from movements, exact), Material 360 sheet from Inventory, stock ageing buckets on Risks; V5: Settings page; ISSUES #61 fixed | `test_ageing.py`, e2e | `test_trends.py`, `test_items.py`, e2e |
+| Gates | API 951 passed + 15 env skips; web unit 90; e2e 53/53 (axe in light and dark on 12 screens, Windows screenshot baselines); bundle budget in CI |
 
 ## What is simulated (not evidence of customer readiness)
 - All demo data is synthetic; the client SAP extract is a local one-off.
@@ -31,14 +31,13 @@ V0 correctness and speed **done** (DEC-032); V1 connect, V2 map and trust, V3 us
 - Authentication is development-only in practice (OIDC never ran against a real IdP).
 
 ## Not built yet
-Encrypted credential store and saving a source from the UI; tenant config in the database with versioned mapping
-approval; sync worker and scheduler; webhooks, alert rules, embeds; virtualised grid, more visuals, global filters,
-saved views, Analyst inline charts; settings page, first-run tour, SSO/SCIM, Helm chart; Teams/Slack/Excel.
+Tenant config in the database with versioned mapping
+approval; sync worker and scheduler (scheduled syncs and alert sending); embeds; virtualised grid, more visuals, global filters,
+saved views, Analyst inline charts; first-run tour, SSO/SCIM, Helm chart; Teams/Slack/Excel.
 
 ## Known limitations
 `../logs/ISSUES.md`: open include #13 (live AI), #16 (real IdP), #37 / #58 (per-process caches), #57 (landing JS above
-budget, being reduced), #59 (data quality 16 queries), #60 (Windows-only screenshot baselines), #61 (risk tools ignore a
-named warehouse), plus the SAP-extract items #23–#30.
+budget, being reduced), #59 (data quality 16 queries), #60 (Windows-only screenshot baselines), plus the SAP-extract items #23–#30.
 
 ## Next step
 1. Owner reviews `feature/product-v2` and decides on merging to `main`.
