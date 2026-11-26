@@ -8,7 +8,7 @@
     "api": {
       "root": "services/api",
       "entrypoint": "vercel_app:app",
-      "buildCommand": "uv run lumiant-synthetic generate --all"
+      "buildCommand": "UV_LINK_MODE=copy uv run lumiant-synthetic generate --all"
     }
   },
   "rewrites": [
