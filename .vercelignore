@@ -1,0 +1,33 @@
+# Upload only what the two services need (vercel.json). Everything else stays local: secrets, the client SAP extract
+# (services/api/var), test output, docs and tooling. Whitelist style: ignore all, then allow.
+/*
+!/apps
+!/services
+!/vercel.json
+!/.vercelignore
+
+/apps/*
+!/apps/web
+/apps/web/node_modules
+/apps/web/.next
+/apps/web/test-results
+/apps/web/playwright-report
+/apps/web/e2e
+/apps/web/tests
+
+/services/*
+!/services/api
+/services/api/.venv
+/services/api/var
+/services/api/tests
+/services/api/benchmarks
+/services/api/eval
+/services/api/evals
+/services/api/.mypy_cache
+/services/api/.pytest_cache
+/services/api/.ruff_cache
+
+**/__pycache__
+**/.env
+**/.env.*
+!**/.env.example
