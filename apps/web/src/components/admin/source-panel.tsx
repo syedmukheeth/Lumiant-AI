@@ -11,6 +11,8 @@ import { Field, Input } from "@/components/ui/field";
 import { api } from "@/lib/api";
 import { formatCount, formatTimestamp, humanize } from "@/lib/format";
 
+import { SuggestionTable, type Suggestions } from "./mapping-panel";
+
 type Source = {
   kind: "duckdb" | "sql";
   engine: string;
@@ -109,6 +111,9 @@ export function SourcePanel() {
 function TestConnection() {
   const [url, setUrl] = useState("");
   const test = useMutation({ mutationFn: (u: string) => api.post<Probe>("/api/admin/source/test", { url: u }) });
+  const suggest = useMutation({
+    mutationFn: (u: string) => api.post<({ ok: true } & Suggestions) | { ok: false; message: string }>("/api/admin/source/suggest", { url: u }),
+  });
   const result = test.data;
   return (
     <Panel
@@ -185,6 +190,14 @@ function TestConnection() {
               </li>
             ))}
           </ul>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button onClick={() => suggest.mutate(url.trim())} disabled={suggest.isPending} data-testid="source-suggest">
+              {suggest.isPending ? "Reading names…" : "Suggest a mapping"}
+            </Button>
+            <span className="text-xs text-ink-3">Reads table and column names only, never values.</span>
+          </div>
+          {suggest.data && !suggest.data.ok && <p className="text-sm text-signal">{suggest.data.message}</p>}
+          {suggest.data?.ok && <SuggestionTable data={suggest.data} />}
           <div className="rounded-panel border border-line bg-surface-2 p-4 text-sm text-ink-2">
             <p className="font-medium text-ink">Next: map the tables</p>
             <p className="mt-1">

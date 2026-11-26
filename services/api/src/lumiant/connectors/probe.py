@@ -99,3 +99,19 @@ def probe(url: str, *, allow_sqlite: bool) -> dict[str, Any]:
         return {"ok": False, "code": "source_unavailable", "message": "Connected, but the catalog could not be read."}
     finally:
         connector.dispose()
+
+
+def suggest_for_url(url: str, *, allow_sqlite: bool) -> dict[str, Any]:
+    """Mapping suggestions for a source that is not configured yet (names only; the URL is used once)."""
+    from lumiant.mapping.suggest import read_tables, suggest
+
+    checked = probe(url, allow_sqlite=allow_sqlite)
+    if not checked["ok"]:
+        return checked
+    connector = SqlConnector(url)
+    try:
+        return {"ok": True, **suggest(read_tables(connector))}
+    except (ConnectorError, sa.exc.DBAPIError):
+        return {"ok": False, "code": "source_unavailable", "message": "The table and column names could not be read."}
+    finally:
+        connector.dispose()

@@ -12,11 +12,13 @@ from typing import Any
 
 import sqlalchemy as sa
 
+from lumiant.admin.validation import run_validation
 from lumiant.audit.store import AuditEvent
 from lumiant.auth.principal import Principal
 from lumiant.connectors.base import ConnectorError
 from lumiant.core.errors import AppError
 from lumiant.mapping.resolver import SourceObject, TenantMapping
+from lumiant.mapping.suggest import read_tables, suggest
 from lumiant.query.compiler import condition
 from lumiant.query.plan import Op
 from lumiant.query.service import QueryService
@@ -371,6 +373,29 @@ class AdminService:
             "classification": tenant.data_classification,
             "datasets": datasets,
         }
+
+    def suggest_mapping(self, principal: Principal) -> dict[str, Any]:
+        """Suggestions for the current source, compared with the mapping in force (a second opinion, names only)."""
+        tenant = self.query.tenants.get(principal.tenant_id)
+        connector = self.query.connectors.get(principal.tenant_id)
+        result = suggest(read_tables(connector))
+        for row in result["datasets"]:
+            current = tenant.datasets.get(row["dataset"])
+            row["current_source"] = current.source if current else None
+            row["agrees"] = current is not None and (
+                current.source == row["source"]
+                and all(current.fields.get(k) in (None, v) for k, v in row["fields"].items())
+            )
+        self.query.record(principal, "admin:mapping_suggest", None, "allow", "ok", rows=len(result["datasets"]))
+        return result
+
+    def validation(self, principal: Principal) -> dict[str, Any]:
+        """Structural checks a mapping must pass before go-live: unique keys, no orphans, no missing required values."""
+        mapping = self.query.mapping(principal.tenant_id)
+        connector = self.query.connectors.get(principal.tenant_id)
+        checks = run_validation(mapping, connector)
+        self.query.record(principal, "admin:validation", None, "allow", "ok", rows=len(checks))
+        return {"passed": all(c["status"] != "issue" for c in checks), "checks": checks}
 
     def capabilities(self, principal: Principal) -> list[dict[str, Any]]:
         return capability_matrix(self.query.mapping(principal.tenant_id))
