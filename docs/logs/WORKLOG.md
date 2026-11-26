@@ -370,3 +370,8 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 ## 2026-11-26 · S10 · V4 Material 360
 - **Done:** `GET /api/items/{item_id}` (master, stock by warehouse with value for cost roles, lots on hand, latest movements, reorder rules, purchase orders; each section a validated, scoped plan with provenance, unavailable sections say why); Inventory rows open a Material 360 side sheet (native modal dialog, Esc closes).
 - **Commands + results:** TEST_RUNS S10-40.
+
+## 2026-11-26 · S10 · ISSUES #61 and stock ageing
+- **#61 fixed:** a single named warehouse narrows below-reorder, excess, dormant and expiry answers (scope-checked narrowing).
+- **V4 visual:** `GET /api/analyses/ageing` (on-hand stock by days since last issue, pairs for everyone, value per currency for cost roles, one statement in the source); Risks page shows it above the tabs.
+- **Commands + results:** TEST_RUNS S10-42, S10-43.
