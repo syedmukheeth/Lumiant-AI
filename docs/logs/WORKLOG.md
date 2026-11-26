@@ -388,3 +388,6 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 - **Done:** `alerts/service.py` + Alembic 0005: rules (name, https target, minimum severity) with an encrypted signing secret shown once; "Send now" computes the insight feed for the sender's scope and POSTs the matching findings with `X-Lumiant-Signature` (HMAC-SHA256) and a timestamp; SSRF guard (https only, no private, loopback, link-local or reserved addresses) in production; last delivery status kept. Admin › Integrations gains Alert rules. `06-operations/INTEGRATIONS.md` explains verification.
 - **Not done:** scheduled sending (needs the V1 worker); today a rule sends on "Send now" or through the API.
 - **Commands + results:** TEST_RUNS S10-46.
+
+## 2026-11-26 · S10 · V5 first-run welcome
+- **Done:** a dismissible "Getting started" card on the Overview (four areas, ask about anything with right-click or L, Ctrl K, how each number was calculated), remembered per browser. TEST_RUNS S10-47.
