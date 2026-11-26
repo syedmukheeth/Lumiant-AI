@@ -327,3 +327,13 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 - **Also fixed:** logo box on the landing header; regenerated local demo data so warehouse names carry no em dash.
 - **Commands + results:** TEST_RUNS S10-17, S10-18; e2e S10-19 pending at the time of writing.
 - **Known:** a visitor whose session cookie expired lands on sign-in rather than the landing page (the app clears the cookie on the 401); sign-in links back to the landing page.
+
+## 2026-11-25 · S10 · Layout redesign (loop chunk 6)
+- **Owner:** "full redesign … colours, design, layout fully premium". Shared building blocks changed so every screen follows (DEC-030): floating-canvas shell, logo tile, raised active nav pill, card-style user block, 10/16/16 px radii, panel and table padding 20–24 px, eyebrow KPI labels with 32 px figures, `space-y-8` page rhythm. No route, wording, permission or test id changed.
+- **Checks:** typecheck, lint, unit 90 green; looked at Overview at 1440 px (light) while the owner was using the pane; e2e S10-20 was interrupted; rerun with chunk 7 (S10-24).
+
+## 2026-11-26 · S10 · Dark theme fix (loop chunk 7)
+- **Owner:** "the dark mode colours are not at all good, fix them and complete the work". Cause: blue navy planes made every panel, line and chart read cold and muddy against warm ivory text. Replaced with warm-neutral charcoal "Obsidian" (DEC-031); chart grid, axis and diverging midpoint follow; light theme unchanged.
+- **Logo:** the dark logo file has a navy background baked in, so `BrandLogo` now draws a `--logo-plate` (navy in dark, white in light) by default: a deliberate brand tile in the sidebar, mobile header, sign-in and landing header/footer. `/design` lists `--canvas` and `--logo-plate`.
+- **Docs:** FRONTEND.md, BRAND_IMPLEMENTATION.md, PRODUCT_V2_PLAN.md §3 updated.
+- **Commands + results:** TEST_RUNS S10-20 (interrupted earlier run), S10-21…S10-24: contrast AA on every plane, typecheck/lint clean, unit 90, browser check dark and light, e2e 37/37.

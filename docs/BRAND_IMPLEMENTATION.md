@@ -11,7 +11,7 @@ The dark file is **byte-identical** to its attachment. The light file is the att
 
 - **Component:** `apps/web/src/components/ui/brand-logo.tsx` renders both images, and CSS (`light:` variant on `[data-theme="light"]`, set before first paint) shows exactly one. There is no flash and no hydration mismatch.
 - **Placements:** sign-in page (52 px, on a plate), sidebar (34 px, and 17 px when the rail is collapsed), mobile header (26 px, on a plate). Report exports and the favicon still use the previous assets (no square mark was supplied).
-- **Background match:** the dark-theme panel colour `--surface` is set to the dark logo's own background `#101a2e`, and the light theme's is white, so the image edge disappears. On the page background the logo sits on a `--surface` plate.
+- **Background match:** the logo always sits on a `--logo-plate` set to its own file's background (dark: navy `#101a2e`, light: white), so the image edge disappears into a deliberate tile on any plane. Since DEC-031 the dark planes are warm charcoal, no longer navy.
 - **Palette from the artwork:** navy `#101a2e`, navy `#112545` (wordmark), gold `#c4872f` (tagline), teal `#045b62`. Gold is used only for non-text marks: the active-page indicator and the "recommended supplier" mark. In light theme gold reaches 4.4:1, below AA for small text.
 - **Middleware:** `brand/` is excluded from the sign-in redirect so the logo loads on the sign-in page (`src/proxy.ts`).
 - **Tests:** e2e `planning.spec.ts` checks that the right file shows per theme, the natural sizes (232 wide; 230×78), and that the sidebar logo renders at least 150 px wide.

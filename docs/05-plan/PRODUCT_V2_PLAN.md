@@ -39,7 +39,7 @@ Keep the official palette from the logos (DEC in `BRAND_IMPLEMENTATION.md`); ele
 
 | Token group | Change |
 |---|---|
-| Surfaces | Flat navy planes with a 1-px top highlight on raised cards; no page wash or radial glow |
+| Surfaces | Flat warm-charcoal planes in dark (DEC-031), ivory paper in light, a 1-px top highlight on raised cards; no page wash or radial glow |
 | Accent | Teal stays the working accent in dark, navy in light. No separate "AI" colour, glow or gradient: AI work uses the same neutral surfaces and accent as the rest of the product (owner, 25 Nov 2026) |
 | Data colours | Existing validated `--viz-*` set; add a sequential teal ramp (heatmaps, treemap) and a diverging teal↔amber ramp (variance, over/under): validated with the dataviz checker for both themes |
 | Type | Inter for UI and numbers (tabular), Geist Mono for codes; add a display size (40/48 px, tight tracking) for landing and KPI heroes |
