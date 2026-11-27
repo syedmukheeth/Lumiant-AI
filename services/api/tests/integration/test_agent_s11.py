@@ -240,12 +240,23 @@ def test_computed_abc_uses_the_cutoffs_given(query_service: QueryService, princi
 def test_open_purchase_orders_keep_the_users_scope(
     query_service: QueryService, principals: dict[str, Principal]
 ) -> None:
-    admin = run(ToolContext(query_service, principals["alpha.admin"]), "open_purchase_orders")
-    assert admin.data["overdue_lines"] <= admin.data["open_lines"]
+    delta = run(ToolContext(query_service, principals["delta.admin"]), "open_purchase_orders")
+    assert delta.data["overdue_lines"] is not None
+    assert delta.data["overdue_lines"] <= delta.data["open_lines"]
     analyst = run(ToolContext(query_service, principals["alpha.analyst"]), "open_purchase_orders")
     rows = table(analyst, "Open purchase orders")["rows"]
     assert {r["warehouse_id"] for r in rows} <= {"3100"}
     assert "unit_price" not in {c["key"] for c in table(analyst, "Open purchase orders")["columns"]}
+
+
+def test_overdue_is_never_claimed_without_expected_dates(agent: AgentService, principals: dict[str, Principal]) -> None:
+    """Regression (S11 production smoke test): demo-alpha maps no expected date, so no line can be called overdue."""
+    out = agent.chat(principals["alpha.admin"], "Which purchase orders are overdue?")
+    assert out["tool_calls"] == [{"name": "open_purchase_orders", "args": {"overdue_only": True}}]
+    assert "overdue lines cannot be told apart" in out["answer"]
+    assert "are past their expected date" not in out["answer"]
+    late = agent.chat(principals["delta.admin"], "Which purchase orders are overdue?")
+    assert "past their expected date" in late["answer"]
 
 
 # ------------------------------------------------------------------------------------------- Gemini (fake client)

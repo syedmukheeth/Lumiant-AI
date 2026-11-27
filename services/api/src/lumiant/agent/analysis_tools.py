@@ -216,7 +216,9 @@ def open_purchase_orders(ctx: ToolContext, a: OpenPoArgs) -> ToolOutput:
         return int(rows[0]["n"]) if rows else 0
 
     total = count([])
-    late = count([overdue]) if has_expected and not a.overdue_only else (total if a.overdue_only else 0)
+    # Without an expected date nothing can be called overdue: say so instead of labelling every open line late.
+    overdue_known = has_expected
+    late = (total if a.overdue_only else count([overdue])) if overdue_known else 0
     wanted = ["po_id", "line", "item_id", "supplier_id", "warehouse_id", "expected_date", "status"]
     if ctx.principal.has(Permission.COST_READ):
         wanted += ["unit_price", "currency"]
@@ -234,12 +236,19 @@ def open_purchase_orders(ctx: ToolContext, a: OpenPoArgs) -> ToolOutput:
     )
     res = ctx.query.run_plan(plan, ctx.principal, action="agent:open_purchase_orders")
     payload = res.payload()
-    what = "overdue open purchase-order lines" if a.overdue_only else "open purchase-order lines"
-    answer = f"{total} {what} in your scope."
-    if has_expected and not a.overdue_only:
-        answer += f" {late} of them are past their expected date (as of {as_of})."
+    if a.overdue_only and overdue_known:
+        answer = f"{total} open purchase-order lines in your scope are past their expected date (as of {as_of})."
+    else:
+        answer = f"{total} open purchase-order lines in your scope."
+        if overdue_known:
+            answer += f" {late} of them are past their expected date (as of {as_of})."
+        elif a.overdue_only:
+            answer += (
+                " Expected delivery dates are not in this organisation's data, so overdue lines cannot be told apart."
+            )
     if res.truncated:
-        answer += f" The table shows the first {len(res.rows)}, earliest expected first."
+        order = "earliest expected first" if has_expected else "in order"
+        answer += f" The table shows the first {len(res.rows)}, {order}."
     labels = {
         "po_id": ("Order", "text"),
         "line": ("Line", "text"),
@@ -253,7 +262,7 @@ def open_purchase_orders(ctx: ToolContext, a: OpenPoArgs) -> ToolOutput:
     }
     columns = [_col(d, *labels[d]) for d in dims] + [_col("open_qty", "Open quantity", "qty"), _col("uom", "Unit")]
     block = {"type": "table", "title": "Open purchase orders", "columns": columns, "rows": payload["data"]}
-    data = {**payload, "open_lines": total, "overdue_lines": late, "as_of": as_of}
+    data = {**payload, "open_lines": total, "overdue_lines": late if overdue_known else None, "as_of": as_of}
     return ToolOutput(
         "open_purchase_orders",
         "Open purchase orders",
