@@ -62,7 +62,7 @@ Every analysis declares `required_fields`; the capability matrix disables tools 
 
 ## 5. AI data boundary (what leaves the system)
 
-Sent to the model: user question; canonical dataset/field names and descriptions permitted for this user; tool results capped (e.g. ≤ 50 rows, aggregated preferred); tenant glossary.
+Sent to the model: user question; canonical dataset/field names and descriptions permitted for this user; tool results capped (e.g. ≤ 50 rows, aggregated preferred); tenant glossary; up to 300 characters of each earlier answer (S11). Sent for embeddings (knowledge search, DEC-038): product text, the question, and the approved tenant's catalog text (mapped canonical fields, attribute descriptions, source hints; cost fields only for roles with cost access).
 Never sent: credentials, physical table names, SQL, rows beyond the cap, fields the user cannot see, other tenants' anything.
 Per request, a **disclosure log** records exactly what was sent (viewable by tenant admins; retention configurable). External providers require customer approval (Q-013); **AI-off mode** keeps the product usable without any LLM.
 
@@ -100,3 +100,26 @@ Per request, a **disclosure log** records exactly what was sent (viewable by ten
 
 1. Stock of item X (by warehouse). 2. Warehouse with most stock value. 3. Category-A items below reorder. 4. Spare parts not moved in N months. 5. Latest price of item X (per approved definition). 6. Latest price vs average cost. 7. Inventory by warehouse and item group. 8. Lots nearing expiry. 9. Items with incomplete master data. 10. Compare inventory value of two warehouses. 11. Highest-value items. 12. Items requiring special storage.
 "Which items may become obsolete?" is answered honestly as *not supported without lifecycle data* (REQ-061), offering dormant/slow-moving instead.
+
+## 10. Business questions, derived figures and the AI allowance (S11, ADR-0013)
+- **Inventory levers.** Goal questions ("make 200000 profit", "free up cash", "cut carrying cost") call
+  `inventory_levers`. It sizes stock above maximum, stock not issued in 270 days, expired lots and lots expiring
+  within 90 days, with their value per currency (cost access only). It also counts pairs below reorder level, pairs
+  without a policy and stock lines without a valuation price. Each lever comes with an action and a "not in your
+  data" line (no sales history, selling prices or margins, so no profit figure). The built-in matcher routes these
+  questions too, so the answer works without external AI.
+- **`calculate`.** The model asks the application for a sum, difference, ratio, % change or share. It cites result
+  cells by reference (`c<call>.r<row>.<field>`, shown as `ref` on every row it sees), or a number already in the
+  results or the question. Decimal arithmetic; units and currencies must agree; the result is evidence. The model
+  still never writes a figure itself.
+- **More analyses as tools:** `stock_ageing`, `value_trend` (line chart block, cost access), `computed_abc` (cutoffs
+  required, no defaults) and `open_purchase_orders` (scoped, overdue count).
+- **Answer format (Gemini).** One direct sentence; up to five findings with figures; up to three actions; a "Not in
+  your data:" line when something is missing; at most about 150 words, in the user's language.
+- **History.** Each earlier turn may carry the first 300 characters of its answer, as context only. Evidence comes
+  from this question's results alone.
+- **Evidence.** Timings, request ids and SQL are not evidence (LA-10).
+- **Cost guard (DEC-037).** Each external model call spends one unit of the tenant's rolling 24-hour allowance
+  (`LUMIANT_AI_DAILY_CALLS`, default 300); when it is spent, the built-in matcher answers with a notice. There is a
+  45 s deadline per question. Live evaluation: `services/api/eval/analyst_live.py` runs the 42 cases in
+  `services/api/evals/live.yaml`.

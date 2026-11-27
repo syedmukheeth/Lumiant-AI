@@ -426,3 +426,28 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 - **Found after deploy:** the auth proxy redirected `/icon.svg` and `/apple-icon.png` to sign-in (307), so public pages lost the new SVG icon. Matcher now skips both; e2e "site icons load without a session" added.
 - **Not a bug:** a first smoke run got 401s after a 200 sign-in; the body ("Sign in to continue") meant no cookie was sent: the script had `MSYS_NO_PATHCONV=1`, so the Windows curl could not write its cookie file. Re-run with a Windows path: all 200.
 - **Commands + results:** TEST_RUNS S11-5 … S11-7.
+
+## 2026-11-27 · S11 · Smart Analyst (plan approved; agent core done, side sessions running)
+- **Owner:** "the assistant should answer smartly … plan first like a senior dev … perfect functional RAG … complete the work". Plan approved with owner decisions: external AI on all four synthetic demos, daily AI budget, app-computed figures, document upload later (ADR-0013, DEC-036, DEC-037).
+- **Done here (agent core):**
+  - **Phase 0:** tenants approved. A customer extract can never be approved: the tenant model and `sap_tenant_config` both refuse it, and the test fixture now states extracts as written. Daily AI allowance (`agent/budget.py`, reuses the rate limiter); 45 s deadline; Gemini output cap and temperature.
+  - **Phase 1:** `inventory_levers` (exact per-pair value attribution in Decimal, per currency, cost access only, "not in your data" line), `calculate` (cell references, units and currencies checked, Decimal), `stock_ageing`, `value_trend` (line chart block), `computed_abc` (cutoffs required), `open_purchase_orders`. The built-in matcher now routes goal questions (including misspellings such as "pofit", and Arabic), ageing, trends and open POs. Labels added for every tool.
+  - **Phase 2:** `grounding.evidence_from` (no timings, ids or SQL as evidence).
+  - **Phase 5:** advisor answer format; rows shown to the model carry `ref`; history may carry 300 characters of the earlier answer (context, never evidence).
+  - **Phase 7:** `tests/integration/test_agent_s11.py` (25), 10 golden cases, live harness `eval/analyst_live.py` + `evals/live.yaml` (42 cases, needs the key).
+- **Side sessions (same checkout):** query bucketing (Phase 3), RAG v2 (Phase 4), web chart blocks and history (Phase 6). All three hit the usage limit once and were resumed.
+- **Docs:** ADR-0013, DEC-036/037, ISSUES #63–#65 new, #13/#14/#56 updated, AGENT_DESIGN §10, DEV_SETUP and `.env.example` AI settings.
+- **Not done yet:** full API/web/e2e run with the side sessions' work, browser check of the dock, PR. Live Gemini run waits for the owner's key.
+- **Commands + results:** TEST_RUNS S11-9 … S11-12.
+
+## 2026-11-27 · S11 · Smart Analyst complete (owner: "complete the work and push to main")
+- **All four workstreams combined in one checkout:** agent core (here), query time bucketing, RAG v2, Analyst UI. Each side session's results are logged in S11-13 … S11-16.
+- **Fixes found while combining:**
+  - Follow-up history args from the browser were rejected for `query_inventory`, `calculate` and long knowledge queries (S11-15).
+  - The goal matcher missed the owner's own misspelling ("pofit") and word order.
+  - `ref_rows` falls back to bar rows so `stock_by` figures can be cited.
+- **Recorded:** DEC-038 (RAG v2, catalog text now embedded for approved tenants), AGENT_DESIGN §5 data boundary, ISSUES #66–#70 (including MySQL guard #68 and ordering #69, which predate S11 and correct CURRENT_STATE's earlier claim).
+- **Verification:**
+  - S11-17: API 1113 passed, ruff and mypy clean, web unit 100, e2e 56/56.
+  - S11-18: the real UI shows the levers table and the trend chart.
+- **Release:** a PR to `main` with green CI, then merge (owner authorization in the session log). No AI key is set: the live harness, `lumiant-knowledge embed` and the Gemini checks wait for the owner.

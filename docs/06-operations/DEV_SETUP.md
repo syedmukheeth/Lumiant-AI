@@ -61,6 +61,9 @@ API (`services/api/.env`, see `.env.example`; prefix `LUMIANT_`):
 | `LUMIANT_AGENT_PROVIDER` | `rules` | `rules` (built-in, no data leaves) , `anthropic` or `gemini`. Anthropic needs `LUMIANT_ANTHROPIC_API_KEY`, `LUMIANT_AGENT_MODEL`, **and** `ai.external_provider_approved: true` in the tenant YAML) |
 | `LUMIANT_GEMINI_API_KEY` | unset | secret, `.env` only (git-ignored); Google AI Studio key. **Use a paid key before any client data could reach it** (free-tier prompts may be used by Google). Also needs `ai.external_provider_approved: true` in the tenant YAML (ADR-0009) |
 | `LUMIANT_GEMINI_MODEL` | `gemini-flash-latest` | the alias for Google's current Flash model; set an exact model id to pin it |
+| `LUMIANT_GEMINI_MAX_OUTPUT_TOKENS` / `LUMIANT_GEMINI_TEMPERATURE` | `1024` / `0.2` | Gemini answer length cap and sampling temperature (ADR-0013) |
+| `LUMIANT_AI_DAILY_CALLS` | `300` | external model calls per organisation per rolling 24 h (choosing tools, each review round, each embedding); when spent the Analyst answers with built-in matching and says so. Per API instance unless `LUMIANT_RATE_LIMIT_REDIS_URL` is set (ISSUES #63): also cap spend on the key in Google AI Studio |
+| `LUMIANT_AI_REQUEST_DEADLINE_S` | `45` | after this, no further model rounds for one question; the answer is written from the results so far |
 
 Web: `LUMIANT_API_ORIGIN` (default `http://127.0.0.1:8000`; read at build time for `next build`).
 
