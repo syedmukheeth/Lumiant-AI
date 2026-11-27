@@ -21,14 +21,22 @@ export type ChatContext = {
   selections?: Selection[];
 };
 
-export type HistoryTurn = { question: string; tool?: string; args?: Record<string, unknown> };
+/** A previous turn: the question, the first tool that answered it and the answer's wording (≤ 300). Never result rows. */
+export type HistoryTurn = { question: string; tool?: string; args?: Record<string, unknown>; answer?: string };
 
 export type ColumnKind = "text" | "qty" | "money" | "int" | "date" | "pct";
 export type TableBlock = { type: "table"; title: string; columns: { key: string; label: string; kind: ColumnKind }[]; rows: Row[] };
 export type BarBlock = { type: "bar"; title: string; label_key: string; value_key: string; kind: "money" | "qty"; unit_key: string; rows: Row[] };
 export type SourceItem = { id: string; source: string; heading: string; text: string };
 export type SourcesBlock = { type: "sources"; title: string; items: SourceItem[] };
-export type Block = TableBlock | BarBlock | SourcesBlock;
+export type ChartSeries = { key: string; label: string; kind: "money" | "qty" | "int" | "pct"; unit_key?: string };
+/**
+ * A chart over result rows (contract with the API). `x_key` names the category or period column; each series names
+ * a value column and, for money and quantities, the column that holds its currency or unit. Series of different
+ * kinds or units are drawn on separate axes, never one.
+ */
+export type ChartBlock = { type: "chart"; variant: "line" | "bar"; title: string; x_key: string; series: ChartSeries[]; rows: Row[] };
+export type Block = TableBlock | BarBlock | ChartBlock | SourcesBlock;
 export type Choice = { label: string; item_id?: string; warehouse_id?: string };
 
 export type Step = {
@@ -136,13 +144,23 @@ export async function streamChat(body: ChatBody, onEvent: (event: StreamEvent) =
   return answer;
 }
 
-/** History the API accepts: the question and the first tool that answered it, never result data. */
+const MAX_HISTORY_ANSWER = 300;
+
+/**
+ * History the API accepts: the question, the first tool that answered it and the answer's wording cut to 300
+ * characters, so a follow-up ("and last month?") can be understood. Result rows and blocks are never sent.
+ */
 export function toHistory(turns: { question: string; answer?: ChatAnswer }[]): HistoryTurn[] {
   return turns
     .filter((t) => t.answer)
     .slice(-6)
     .map((t) => {
       const call = t.answer?.tool_calls[0];
-      return call ? { question: t.question.slice(0, 500), tool: call.name, args: call.args } : { question: t.question.slice(0, 500) };
+      const text = t.answer?.answer ? Array.from(t.answer.answer).slice(0, MAX_HISTORY_ANSWER).join("") : "";
+      return {
+        question: t.question.slice(0, 500),
+        ...(call ? { tool: call.name, args: call.args } : {}),
+        ...(text ? { answer: text } : {}),
+      };
     });
 }

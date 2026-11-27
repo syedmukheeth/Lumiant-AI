@@ -2,16 +2,31 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { clsx } from "clsx";
-import { BookOpen, CheckCircle2, CircleDashed, Loader2, ShieldCheck, ThumbsDown, ThumbsUp, TriangleAlert, XCircle } from "lucide-react";
-import { useState } from "react";
+import {
+  BookOpen,
+  CheckCircle2,
+  CircleDashed,
+  Compass,
+  Info,
+  Loader2,
+  MessageCircleQuestionMark,
+  ShieldCheck,
+  ThumbsDown,
+  ThumbsUp,
+  TriangleAlert,
+  XCircle,
+} from "lucide-react";
+import { useId, useState } from "react";
 
 import { ProvenanceButton } from "@/components/data/provenance";
 import { SimpleTable, type SimpleColumn } from "@/components/data/simple-table";
 import { Chip } from "@/components/ui/badge";
 import { IconButton } from "@/components/ui/button";
-import type { BarBlock, Block, ChatAnswer, ColumnKind, SourcesBlock, Step, TableBlock } from "@/lib/agent";
+import { ChartFrame, VIZ } from "@/components/viz/shared";
+import { TrendArea, type TrendRow } from "@/components/viz/trend-area";
+import type { BarBlock, Block, ChartBlock, ChartSeries, ChatAnswer, Choice, ColumnKind, SourcesBlock, Step, TableBlock } from "@/lib/agent";
 import { api, type Row } from "@/lib/api";
-import { formatMoney, formatNumber, formatQuantity } from "@/lib/format";
+import { formatMoney, formatNumber, formatQuantity, humanize, toChartNumber } from "@/lib/format";
 import { enterDelay } from "@/lib/motion";
 
 function cell(kind: ColumnKind, row: Row, key: string) {
@@ -39,31 +54,172 @@ export function TableView({ block, compact }: { block: TableBlock; compact?: boo
   );
 }
 
+type BarItem = { label: string; title?: string; value: number; text: string };
+
+/** Horizontal bars on one scale: label, a bar sized from the number, and the exact display string. */
+function BarList({ items, max, color = VIZ[0], compact }: { items: BarItem[]; max?: number; color?: string; compact?: boolean }) {
+  const top = max ?? (Math.max(...items.map((b) => b.value), 0) || 1);
+  return (
+    <div className="space-y-1.5">
+      {items.map((b, i) => (
+        <div
+          key={i}
+          className={clsx(
+            "grid items-center gap-3 text-sm",
+            compact ? "grid-cols-[minmax(4rem,7rem)_1fr_auto]" : "grid-cols-[minmax(5rem,10rem)_1fr_auto]",
+          )}
+        >
+          <span className="truncate text-ink-2" title={b.title ?? b.label}>{b.label}</span>
+          <span className="h-2 overflow-hidden rounded-full bg-surface-2">
+            <span
+              className="bar-grow block h-full rounded-full"
+              style={{ width: `${(Math.max(b.value, 0) / top) * 100}%`, background: color, ...enterDelay(i) }}
+            />
+          </span>
+          <span className="figure text-xs text-ink">{b.text}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function BarView({ block }: { block: BarBlock }) {
   const groups = new Map<string, Row[]>();
   for (const r of block.rows) groups.set(String(r[block.unit_key] ?? ""), [...(groups.get(String(r[block.unit_key] ?? "")) ?? []), r]);
   return (
     <div className="space-y-3">
       <p className="text-dense font-medium text-ink-2">{block.title}</p>
-      {[...groups.entries()].map(([unit, rows]) => {
-        const max = Math.max(...rows.map((r) => Number(r[block.value_key])), 0) || 1;
+      {[...groups.entries()].map(([unit, rows]) => (
+        <div key={unit} className="space-y-1.5">
+          {groups.size > 1 && <p className="text-xs text-ink-3">{unit}</p>}
+          <BarList
+            items={rows.map((r) => ({
+              label: String(r[block.label_key] ?? "Not set"),
+              title: String(r[block.label_key] ?? ""),
+              value: toChartNumber(r[block.value_key] as string),
+              text: block.kind === "money" ? formatMoney(r[block.value_key] as string, unit) : formatQuantity(r[block.value_key] as string, unit),
+            }))}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+type SeriesKind = ChartSeries["kind"];
+
+/**
+ * One value as printed: the API's decimal string formatted without float maths (`lib/format`), the same way a table
+ * cell prints it. A string that is not a plain decimal is printed exactly as sent.
+ */
+function seriesText(kind: SeriesKind, value: string | number, unit: string): string {
+  const text =
+    kind === "money"
+      ? formatMoney(value, unit || undefined)
+      : kind === "qty"
+        ? formatQuantity(value, unit || undefined)
+        : kind === "int"
+          ? formatNumber(value, { maxFraction: 0 })
+          : `${formatNumber(value, { maxFraction: 1 })}%`;
+  return text === "–" || text === "–%" ? String(value) : text;
+}
+
+type ChartPoint = { x: string; values: Record<string, number>; exact: Record<string, string> };
+/** The series that share one axis: same kind and same currency or unit. */
+type ChartPanel = { id: string; kind: SeriesKind; unit: string; series: ChartSeries[]; points: ChartPoint[] };
+
+/** Split a chart block into one panel per kind and unit, so currencies and units never share an axis. */
+function chartPanels(block: ChartBlock): ChartPanel[] {
+  const panels = new Map<string, { panel: ChartPanel; keys: Set<string>; at: Map<string, number> }>();
+  for (const row of block.rows) {
+    const xv = row[block.x_key];
+    const x = xv === null || xv === undefined || xv === "" ? "Not set" : String(xv);
+    for (const s of block.series) {
+      const v = row[s.key];
+      if (v === null || v === undefined || v === "" || typeof v === "boolean") continue;
+      const unit = s.unit_key ? String(row[s.unit_key] ?? "") : "";
+      const id = `${s.kind}|${unit}`;
+      let entry = panels.get(id);
+      if (!entry) {
+        entry = { panel: { id, kind: s.kind, unit, series: [], points: [] }, keys: new Set(), at: new Map() };
+        panels.set(id, entry);
+      }
+      entry.keys.add(s.key);
+      let i = entry.at.get(x);
+      if (i === undefined) {
+        i = entry.panel.points.push({ x, values: {}, exact: {} }) - 1;
+        entry.at.set(x, i);
+      }
+      entry.panel.points[i].values[s.key] = toChartNumber(v);
+      entry.panel.points[i].exact[s.key] = seriesText(s.kind, v, unit);
+    }
+  }
+  return [...panels.values()].map(({ panel, keys }) => ({ ...panel, series: block.series.filter((s) => keys.has(s.key)) }));
+}
+
+const NO_UNIT: Record<SeriesKind, string> = { money: "No currency", qty: "No unit", int: "Count", pct: "Percent" };
+
+function panelLabel(block: ChartBlock, p: ChartPanel) {
+  if (p.unit) return `${block.title}, in ${p.unit}`;
+  return p.kind === "pct" ? `${block.title}, in percent` : block.title;
+}
+
+/**
+ * A chart answer. Line → the kit's TrendArea; bar → the bar list. Each kind and currency or unit gets its own panel
+ * (never one axis for two units). Printed values are the API strings; numbers only size the marks.
+ */
+export function ChartView({ block, compact }: { block: ChartBlock; compact?: boolean }) {
+  const panels = chartPanels(block);
+  return (
+    <div className="min-w-0 space-y-3" data-testid="answer-chart">
+      <p className="text-dense font-medium text-ink-2">{block.title}</p>
+      {panels.length === 0 && <p className="text-xs text-ink-3">Nothing to show.</p>}
+      {panels.map((p) => {
+        const label = panelLabel(block, p);
+        const colors = p.series.map((_, i) => VIZ[i % VIZ.length]);
         return (
-          <div key={unit} className="space-y-1.5">
-            {groups.size > 1 && <p className="text-xs text-ink-3">{unit}</p>}
-            {rows.map((r, i) => (
-              <div key={i} className="grid grid-cols-[minmax(5rem,10rem)_1fr_auto] items-center gap-3 text-sm">
-                <span className="truncate text-ink-2" title={String(r[block.label_key] ?? "")}>{String(r[block.label_key] ?? "Not set")}</span>
-                <span className="h-2 overflow-hidden rounded-full bg-surface-2">
-                  <span
-                    className="bar-grow block h-full rounded-full bg-(--viz-1)"
-                    style={{ width: `${(Number(r[block.value_key]) / max) * 100}%`, ...enterDelay(i) }}
-                  />
-                </span>
-                <span className="figure text-xs text-ink">
-                  {block.kind === "money" ? formatMoney(r[block.value_key] as string, unit) : formatQuantity(r[block.value_key] as string, unit)}
-                </span>
+          <div key={p.id} className="min-w-0 space-y-1.5">
+            {panels.length > 1 && <p className="text-xs text-ink-3">{p.unit || NO_UNIT[p.kind]}</p>}
+            {block.variant === "line" && p.points.length > 1 ? (
+              // The kit's legend sits below its fixed-height frame; the padding keeps it clear of the next block.
+              <div className={clsx(p.series.length > 1 && "pb-7")}>
+                <TrendArea
+                  rows={p.points.map((pt): TrendRow => ({ label: pt.x, values: pt.values, exact: pt.exact }))}
+                  series={p.series.map((s) => ({ key: s.key, label: s.label }))}
+                  label={label}
+                  height={compact ? 160 : 220}
+                />
               </div>
-            ))}
+            ) : (
+              <ChartFrame
+                label={label}
+                table={{
+                  columns: [humanize(block.x_key), ...p.series.map((s) => s.label)],
+                  rows: p.points.map((pt) => [pt.x, ...p.series.map((s) => pt.exact[s.key] ?? "")]),
+                }}
+              >
+                <div className="space-y-2.5">
+                  {p.series.map((s, i) => (
+                    <div key={s.key} className="space-y-1.5">
+                      {p.series.length > 1 && (
+                        <p className="flex items-center gap-1.5 text-xs text-ink-3">
+                          <span className="size-2 shrink-0 rounded-full" style={{ background: colors[i] }} aria-hidden />
+                          {s.label}
+                        </p>
+                      )}
+                      <BarList
+                        compact={compact}
+                        color={colors[i]}
+                        max={Math.max(...p.points.flatMap((pt) => Object.values(pt.values)), 0) || 1}
+                        items={p.points
+                          .filter((pt) => s.key in pt.values)
+                          .map((pt) => ({ label: pt.x, value: pt.values[s.key], text: pt.exact[s.key] }))}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </ChartFrame>
+            )}
           </div>
         );
       })}
@@ -98,9 +254,19 @@ function SourcesView({ block }: { block: SourcesBlock }) {
 }
 
 export function BlockView({ block, compact }: { block: Block; compact?: boolean }) {
-  if (block.type === "table") return <TableView block={block} compact={compact} />;
-  if (block.type === "sources") return <SourcesView block={block} />;
-  return <BarView block={block} />;
+  switch (block.type) {
+    case "table":
+      return <TableView block={block} compact={compact} />;
+    case "bar":
+      return <BarView block={block} />;
+    case "chart":
+      return <ChartView block={block} compact={compact} />;
+    case "sources":
+      return <SourcesView block={block} />;
+    default:
+      // A block type this build does not know (a newer API): show nothing rather than guess its shape.
+      return null;
+  }
 }
 
 /** The agent's work as it happens: understand → each analysis (rows, time) → wording → number check. */
@@ -161,6 +327,12 @@ export function Feedback({ turn }: { turn: number }) {
   );
 }
 
+/** The question a clarification choice asks next; a choice without an item asks its own label. */
+function choiceQuestion(c: Choice) {
+  if (!c.item_id) return c.label;
+  return c.warehouse_id ? `compare cost of item ${c.item_id} in warehouse ${c.warehouse_id}` : `how much stock of item ${c.item_id}`;
+}
+
 const MODE_LABEL: Record<ChatAnswer["mode"], string> = {
   rules: "Built-in matching",
   anthropic: "AI-assisted (Claude)",
@@ -183,9 +355,15 @@ export function AnswerBody({
   compact?: boolean;
   extra?: React.ReactNode;
 }) {
+  const uid = useId();
   return (
     <div className="answer-in space-y-3" data-testid={testId}>
-      {r.notice && <p className="text-xs text-ink-3">{r.notice}</p>}
+      {r.notice && (
+        <p role="note" className="flex items-start gap-1.5 rounded-control border border-line bg-surface-2/60 px-2.5 py-1.5 text-xs leading-relaxed text-ink-2" data-testid="answer-notice">
+          <Info size={13} className="mt-0.5 shrink-0 text-ink-3" aria-hidden />
+          <span className="min-w-0">{r.notice}</span>
+        </p>
+      )}
       <p dir="auto" className="text-sm leading-relaxed text-ink">{r.answer}</p>
       {!r.grounding.passed && (
         <p role="alert" className="flex items-start gap-1.5 text-xs text-signal" data-testid="grounding-failed">
@@ -209,31 +387,64 @@ export function AnswerBody({
             ))}
         </ul>
       )}
-      {r.choices.length > 0 && (
-        <div className="flex flex-wrap gap-2" aria-label="Choose one">
-          {r.choices.map((c, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() =>
-                onAsk(c.warehouse_id ? `compare cost of item ${c.item_id} in warehouse ${c.warehouse_id}` : `how much stock of item ${c.item_id}`)
-              }
-              className="rounded-control border border-line-strong bg-surface px-2.5 py-1.5 text-left text-xs transition-colors hover:border-control-line hover:bg-surface-2"
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
-      )}
-      {r.follow_ups.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {r.follow_ups.map((f) => (
-            <Chip key={f} size="sm" onClick={() => onAsk(f)}>
-              {f}
-            </Chip>
-          ))}
-        </div>
-      )}
+      {r.choices.length > 0 &&
+        (r.kind === "clarify" ? (
+          <div role="group" aria-labelledby={`${uid}-clarify`} className="rounded-control border border-accent/30 bg-accent-soft p-3" data-testid="answer-clarify">
+            <p id={`${uid}-clarify`} className="mb-2 flex items-center gap-1.5 text-xs font-medium text-ink">
+              <MessageCircleQuestionMark size={14} className="shrink-0 text-accent" aria-hidden />
+              Which one did you mean?
+            </p>
+            <div className={clsx("grid gap-2", !compact && "sm:grid-cols-2")}>
+              {r.choices.map((c, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => onAsk(choiceQuestion(c))}
+                  className="rounded-control border border-line-strong bg-surface px-3 py-2 text-left text-sm font-medium text-ink shadow-e1 transition-colors hover:border-accent/50 hover:text-accent"
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div role="group" className="flex flex-wrap gap-2" aria-label="Choose one">
+            {r.choices.map((c, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => onAsk(choiceQuestion(c))}
+                className="rounded-control border border-line-strong bg-surface px-2.5 py-1.5 text-left text-xs transition-colors hover:border-control-line hover:bg-surface-2"
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        ))}
+      {r.follow_ups.length > 0 &&
+        (r.kind === "unsupported" ? (
+          <section aria-labelledby={`${uid}-can`} className="rounded-control border border-line bg-surface-2/60 p-3" data-testid="answer-unsupported">
+            <p id={`${uid}-can`} className="mb-2 flex items-center gap-1.5 text-xs font-medium text-ink">
+              <Compass size={14} className="shrink-0 text-ink-2" aria-hidden />
+              Here is what I can answer
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {r.follow_ups.map((f) => (
+                <Chip key={f} size="sm" onClick={() => onAsk(f)}>
+                  {f}
+                </Chip>
+              ))}
+            </div>
+          </section>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {r.follow_ups.map((f) => (
+              <Chip key={f} size="sm" onClick={() => onAsk(f)}>
+                {f}
+              </Chip>
+            ))}
+          </div>
+        ))}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-line pt-2 text-xs text-ink-3">
         <span title={r.mode === "rules" ? "Built-in question matching; no data left this system" : "External AI chose the analysis and worded the answer from the results"}>
           {MODE_LABEL[r.mode] ?? r.mode}
