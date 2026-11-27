@@ -3,6 +3,9 @@ id: demo-beta
 display_name: "Demo Beta Distribution (synthetic)"
 data_classification: synthetic
 source_system: "Synthetic DuckDB warehouse — snake_case schema"
+# Synthetic data only: the owner approved external AI for this demo tenant (S11, 2026-11-27).
+ai:
+  external_provider_approved: true
 connection:
   type: duckdb
   path: data/synthetic/demo-beta.duckdb

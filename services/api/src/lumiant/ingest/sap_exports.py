@@ -704,8 +704,13 @@ def sap_tenant_config(
     connection_path: str,
     plants: list[str],
     dev_users: list[dict[str, Any]],
+    external_ai_approved: bool = False,
 ) -> dict[str, Any]:
-    """The tenant mapping for databases written by `import_sap_exports` (same shape for client and twin)."""
+    """The tenant mapping for databases written by `import_sap_exports` (same shape for client and twin).
+
+    External AI may be approved only for synthetic data (the twin); a client extract always stays local."""
+    if external_ai_approved and data_classification != "synthetic":
+        raise ValueError("external AI can only be approved for synthetic data")
     return {
         "id": tenant_id,
         "display_name": display_name,
@@ -714,7 +719,7 @@ def sap_tenant_config(
         "connection": {"type": "duckdb", "path": connection_path},
         "freshness": {"object": "_extract_metadata", "column": "extracted_at"},
         "policies": {"max_rows": 1000, "default_rows": 100, "query_timeout_s": 15, "stale_after_hours": 36},
-        "ai": {"external_provider_approved": False},
+        "ai": {"external_provider_approved": external_ai_approved},
         "departments": [DEPARTMENT],
         "warehouses": [{"id": p, "department": DEPARTMENT["id"]} for p in plants],
         "roles": ROLES,

@@ -149,11 +149,39 @@ def test_source_hints_must_name_canonical_datasets(tmp_path: Path) -> None:
 def extract_raw() -> dict[str, object]:
     raw = load_raw("demo-gamma.yaml")
     raw.update(id="client-x", data_classification="customer_extract")
+    # A real extract is written with external AI off (`sap_tenant_config`); the synthetic twin is approved (S11).
+    raw["ai"] = {"external_provider_approved": False}
     raw["connection"] = {"type": "duckdb", "path": "var/private/client-x/warehouse.duckdb"}
     raw["dev_users"] = [
         {"username": "client-x.admin", "display_name": "X", "roles": ["super_admin"], "warehouses": ["*"]}
     ]
     return raw
+
+
+@pytest.mark.security
+def test_customer_extract_can_never_be_approved_for_external_ai(tmp_path: Path) -> None:
+    raw = extract_raw()
+    raw["ai"] = {"external_provider_approved": True}
+    write(tmp_path, raw, "client-x.yaml")
+    with pytest.raises(TenantConfigError, match="customer_extract"):
+        TenantRegistry.load(TENANT_DIR, tmp_path)
+
+
+@pytest.mark.security
+def test_sap_config_refuses_external_ai_for_real_data() -> None:
+    from lumiant.ingest.sap_exports import sap_tenant_config
+
+    with pytest.raises(ValueError, match="synthetic"):
+        sap_tenant_config(
+            tenant_id="client-x",
+            display_name="X",
+            data_classification="customer_extract",
+            source_system="SAP",
+            connection_path="var/private/client-x/warehouse.duckdb",
+            plants=["P1"],
+            dev_users=[],
+            external_ai_approved=True,
+        )
 
 
 @pytest.mark.security

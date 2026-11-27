@@ -17,7 +17,7 @@ policies:
   query_timeout_s: 15
   stale_after_hours: 36
 ai:
-  external_provider_approved: false
+  external_provider_approved: true
 departments:
 - id: PLANTS
   name: All plants (organisation structure not provided in the extract)
