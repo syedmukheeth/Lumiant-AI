@@ -22,6 +22,19 @@ test("unauthenticated visitors are sent to the login page", async ({ page }) => 
   await expect(page).toHaveURL(/\/login$/);
 });
 
+test("site icons load without a session", async ({ request }) => {
+  // Regression (S11): new icon files were caught by the sign-in redirect, so public pages had no SVG icon.
+  for (const [path, type] of [
+    ["/favicon.ico", "image/"],
+    ["/icon.svg", "image/svg+xml"],
+    ["/apple-icon.png", "image/png"],
+  ]) {
+    const res = await request.get(path, { maxRedirects: 0 });
+    expect(res.status(), path).toBe(200);
+    expect(res.headers()["content-type"], path).toContain(type);
+  }
+});
+
 test("visitors see the public landing page and can reach sign-in", async ({ page }) => {
   await page.context().clearCookies();
   await page.goto("/");
