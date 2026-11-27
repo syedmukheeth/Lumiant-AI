@@ -149,7 +149,7 @@ export function AssistantPage() {
       <div ref={end} />
 
       <form
-        className="sticky bottom-3 flex gap-2 rounded-panel border border-control-line bg-surface p-1.5 shadow-e2 transition-colors focus-within:border-accent"
+        className="sticky bottom-3 flex gap-2 rounded-panel border border-control-line bg-surface p-1.5 shadow-e2 transition-[border-color,box-shadow] focus-within:border-accent focus-within:ring-1 focus-within:ring-accent"
         onSubmit={(e) => {
           e.preventDefault();
           void ask(text);
@@ -161,6 +161,7 @@ export function AssistantPage() {
           maxLength={500}
           placeholder="e.g. Which items are below reorder level?"
           aria-label="Ask a question"
+          data-focus-frame
           className="h-10 min-w-0 flex-1 bg-transparent px-2.5 text-sm text-ink outline-none placeholder:text-ink-3"
         />
         <Button type="submit" variant="primary" size="lg" disabled={pending || text.trim().length < 2}>

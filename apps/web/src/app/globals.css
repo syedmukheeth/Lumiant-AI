@@ -542,8 +542,11 @@ kbd,
   outline-offset: 2px;
 }
 
-/* The one exception: the palette's search field, whose row shows focus instead (focus-within accent border). */
-[cmdk-input]:focus-visible {
+/* The exceptions: fields whose frame shows focus instead (focus-within accent border + ring): the palette's search
+ * field and any field marked [data-focus-frame], such as the Analyst composer. Without this the field draws a second
+ * box inside its already-highlighted frame. */
+[cmdk-input]:focus-visible,
+[data-focus-frame]:focus-visible {
   outline: none;
 }
 
