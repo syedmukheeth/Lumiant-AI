@@ -46,8 +46,8 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     {
-      // Public static files (logo on the sign-in page, theme script) must load without a session.
-      source: "/((?!api|_next/static|_next/image|favicon.ico|theme-init.js|brand/).*)",
+      // Public static files (logo and site icons on the public pages, theme script) must load without a session.
+      source: "/((?!api|_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|theme-init.js|brand/).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },

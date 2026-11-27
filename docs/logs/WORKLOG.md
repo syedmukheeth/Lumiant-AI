@@ -419,3 +419,10 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 - **"Website is stuck" (owner, production):** measured: every API call takes ~0.37–0.42 s even on a reused connection; `X-Vercel-Id: bom1::iad1` shows the edge in Mumbai and the API function in Washington DC. `vercel.json` now pins functions to `bom1` (DEC-035). Not deployed: needs a commit and merge to `main`. Client side: the sticky app header no longer uses a backdrop blur (recomputed on every scroll frame); it is solid `--canvas`.
 - **"Gave an API key, why no pro analysis" (owner):** the answer footer said "Built-in matching". Checked: no `LUMIANT_AGENT_PROVIDER` / `LUMIANT_GEMINI_API_KEY` in Vercel (only `LUMIANT_DEV_JWT_SECRET`), no `services/api/.env` locally, and no tenant has `ai.external_provider_approved: true` (Demo Gamma sets it false). All three are needed (ADR-0009). Nothing changed; owner to add the key.
 - **Commands + results:** TEST_RUNS S11-1 … S11-4.
+
+## 2026-11-27 · S11 · Deployed (PR #9) and icon fix
+- **Deployed:** PR #9 merged to `main` as `0a990c4` after CI passed (7 checks, CodeRabbit skipped); branch deleted, only `main` remains. Owner authorization in `sessions/2026-11-27-session-11.md`. Preview and production functions run in `bom1` (`vercel inspect`, `X-Vercel-Id: bom1::bom1`).
+- **Result:** warm API calls 0.05–0.07 s on a reused connection (were 0.37–0.42 s). The first call after the function has idled still takes ~2.7 s (cold start).
+- **Found after deploy:** the auth proxy redirected `/icon.svg` and `/apple-icon.png` to sign-in (307), so public pages lost the new SVG icon. Matcher now skips both; e2e "site icons load without a session" added.
+- **Not a bug:** a first smoke run got 401s after a 200 sign-in; the body ("Sign in to continue") meant no cookie was sent: the script had `MSYS_NO_PATHCONV=1`, so the Windows curl could not write its cookie file. Re-run with a Windows path: all 200.
+- **Commands + results:** TEST_RUNS S11-5 … S11-7.
