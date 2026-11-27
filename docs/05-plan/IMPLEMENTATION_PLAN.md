@@ -119,9 +119,9 @@ See `ROADMAP.md` and `07-customer/OPEN_QUESTIONS.md`.
 - [x] D2 Shell: icon rail + command bar, ⌘K palette (pages, materials, ask), shortcuts, route transitions, restyled shared primitives
 - [x] D3 Analyst Lens: analyzable KPIs/panels/bars/rows/insights, Lens mode, persistent dock with streamed trace, pins (ADR-0010)
 - [x] D4 (part) Overview as command center with the insight feed; assistant page on the shared streamed renderer
-- [ ] D4 (rest) Inventory virtualized grid + Material 360 sheet; Admin › Data sources (the Risks/Costs/Reports/Admin restyle was done in M11)
+- [ ] D4 (rest) Inventory virtualized grid + Material 360 sheet; Admin › Data sources (the Risks/Costs/Reports/Admin restyle was done in M11). S10: Material 360 sheet and Admin › Data source done (PRODUCT_V3 V1/V4); virtualized grid still open
 - [x] D5 (part) Vitest for SSE/selections/Lens; e2e for insights → Analyst, Lens compare, viewer leak check
-- [ ] D5 (rest) axe accessibility run
+- [x] D5 (rest) axe accessibility run (S10 V0: `e2e/a11y.spec.ts`, light + dark, 12 screens, 0 serious/critical)
 - [x] D6 Docs (USER_GUIDE, FRONTEND § Analyst Lens, AGENT_DESIGN §6a/6b, ADR-0009/0010)
 
 ## M11 — Visual refresh: graphite + emerald, Inter, system theme (owner request 2026-11-11, ADR-0011)
@@ -138,7 +138,7 @@ Visual layer only: same routes, navigation labels, behaviour, wording, permissio
 - [x] Table header that stays in view while scrolling (ISSUES #50)
 - [x] Formatted ABC values and reconciliation amounts (ISSUES #52)
 - [x] CI green again: no-mapping tests no longer need the developer's local data (ISSUES #54)
-- [ ] axe accessibility run (still open from M10 D5)
+- [x] axe accessibility run (done in S10 V0, see M10 D5)
 
 ## M12 — Product v2: premium UI, landing page, Analyst v2 on Gemini (owner request 2026-11-25; **proposed**, `PRODUCT_V2_PLAN.md`)
 Approved 2026-11-25 with the default decisions D1–D7. Started S10.
@@ -146,8 +146,8 @@ Approved 2026-11-25 with the default decisions D1–D7. Started S10.
 - [ ] P1b Performance baseline measurements; contrast gate re-run for the new tokens
 - [x] P2a Multi-step tool loop, `query_inventory` tool, knowledge index + `search_knowledge` with cited sources in the UI, bar blocks from queries (ADR-0012; S10-1…S10-3)
 - [ ] P2b Live Gemini on a synthetic tenant (owner's key), semantic item resolution, token streaming, threads, 150-question live eval
-- [ ] P3 Public landing page at `/` and sign-in redesign
-- [ ] P4 Executive command centre (Overview) + time-bucket metric + synthetic movement history
-- [ ] P5 Inventory grid (virtualised, chips, column chooser, saved views) + Material 360
-- [ ] P6 Risks, Costs, Planning, Commitments, Suppliers, Master data, Reports, Admin › Data sources visual upgrade
-- [ ] P7 Shell (alerts centre, settings), first-run tour, budgets in §7, axe run, demo-request capture
+- [x] P3 Public landing page at `/` and sign-in redesign (S10; `components/landing/`, split-view `/login`)
+- [ ] P4 Executive command centre (Overview) + time-bucket metric + synthetic movement history. S10: 12-month value trend on the Overview (V4); rest open
+- [ ] P5 Inventory grid (virtualised, chips, column chooser, saved views) + Material 360. S10: Material 360 and saved views done; virtualised grid, chips, column chooser open
+- [ ] P6 Risks, Costs, Planning, Commitments, Suppliers, Master data, Reports, Admin › Data sources visual upgrade. S10: ageing buckets on Risks; rest open
+- [ ] P7 Shell (alerts centre, settings), first-run tour, budgets in §7, axe run, demo-request capture. S10: settings, first-run welcome card, bundle budget in CI, axe run, demo-request capture done; alerts centre open

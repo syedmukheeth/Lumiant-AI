@@ -4,13 +4,17 @@ type Variant = "primary" | "secondary" | "ghost" | "soft";
 type Size = "sm" | "md" | "lg";
 
 const BASE =
-  "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-control font-medium whitespace-nowrap transition-[background-color,border-color,color,opacity,transform] active:translate-y-px disabled:pointer-events-none disabled:opacity-40";
+  "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-control font-medium whitespace-nowrap transition-[background-color,border-color,color,opacity,transform] active:translate-y-px disabled:pointer-events-none";
+
+// A disabled primary turns neutral (muted plate, muted text, hairline) instead of a washed-out accent, which read as a
+// broken grey-blue button. The other variants simply dim.
+export const PRIMARY_DISABLED = "disabled:bg-surface-2 disabled:text-ink-3 disabled:ring-1 disabled:ring-line-strong disabled:ring-inset";
 
 const VARIANT: Record<Variant, string> = {
-  primary: "bg-accent text-accent-ink hover:bg-accent-strong",
-  secondary: "border border-line-strong bg-surface text-ink shadow-e1 hover:border-control-line hover:bg-surface-2",
-  ghost: "text-ink-2 hover:bg-surface-2 hover:text-ink",
-  soft: "bg-accent-soft text-accent hover:bg-accent hover:text-accent-ink",
+  primary: clsx("bg-accent text-accent-ink hover:bg-accent-strong", PRIMARY_DISABLED),
+  secondary: "border border-line-strong bg-surface text-ink shadow-e1 hover:border-control-line hover:bg-surface-2 disabled:opacity-40",
+  ghost: "text-ink-2 hover:bg-surface-2 hover:text-ink disabled:opacity-40",
+  soft: "bg-accent-soft text-accent hover:bg-accent hover:text-accent-ink disabled:opacity-40",
 };
 
 const SIZE: Record<Size, string> = {

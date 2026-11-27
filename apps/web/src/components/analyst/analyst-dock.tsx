@@ -167,6 +167,13 @@ export function AnalystDock({ canCost }: { canCost: boolean }) {
   useEffect(() => {
     if (open && selections.length > 0) input.current?.focus({ preventScroll: true });
   }, [open, selections]);
+  // The composer grows with its text up to its max height, then scrolls.
+  useEffect(() => {
+    const el = input.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [text, open]);
 
   const send = (q: string) => {
     if (q.trim().length < 2 || busy) return;
@@ -309,7 +316,7 @@ export function AnalystDock({ canCost }: { canCost: boolean }) {
               send(text);
             }}
           >
-            <div className="flex items-end gap-2 rounded-panel border border-control-line bg-surface px-3 py-2 transition-colors focus-within:border-accent">
+            <div className="flex items-end gap-2 rounded-panel border border-control-line bg-surface p-1.5 pl-3.5 transition-[border-color,box-shadow] focus-within:border-accent focus-within:ring-1 focus-within:ring-accent">
               <textarea
                 ref={input}
                 value={text}
@@ -324,17 +331,22 @@ export function AnalystDock({ canCost }: { canCost: boolean }) {
                 maxLength={500}
                 placeholder={selections.length ? "Ask about the selection…" : "Ask anything about your inventory…"}
                 aria-label="Ask the Analyst"
-                className="max-h-32 min-h-6 flex-1 resize-none bg-transparent text-sm text-ink outline-none placeholder:text-ink-3"
+                aria-describedby="analyst-composer-hint"
+                data-focus-frame
+                className="max-h-32 min-h-8 flex-1 resize-none bg-transparent py-1.5 text-sm leading-5 text-ink outline-none placeholder:text-ink-3"
               />
               <button
                 type="submit"
                 disabled={busy || text.trim().length < 2}
-                className="grid size-7 shrink-0 place-items-center rounded-control bg-accent text-accent-ink transition-[background-color,opacity,transform] hover:bg-accent-strong active:translate-y-px disabled:opacity-35"
+                className="grid size-8 shrink-0 place-items-center rounded-control bg-accent text-accent-ink transition-[background-color,color,transform] hover:bg-accent-strong active:translate-y-px disabled:pointer-events-none disabled:bg-surface-2 disabled:text-ink-3 disabled:ring-1 disabled:ring-line-strong disabled:ring-inset"
                 aria-label="Send"
               >
-                <ArrowUp size={15} aria-hidden />
+                <ArrowUp size={16} aria-hidden />
               </button>
             </div>
+            <p id="analyst-composer-hint" className="mt-1.5 px-1 text-xs text-ink-3">
+              Enter to send · Shift + Enter for a new line
+            </p>
           </form>
         </motion.aside>
       )}
