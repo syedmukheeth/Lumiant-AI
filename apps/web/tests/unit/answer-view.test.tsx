@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { AnswerBody, BlockView, ChartView } from "@/components/analyst/answer-view";
 import type { Block, ChartBlock, ChatAnswer } from "@/lib/agent";
@@ -64,10 +64,16 @@ function renderAnswer(a: ChatAnswer, onAsk = vi.fn()) {
 }
 
 describe("ChartView", () => {
-  it("draws a line per currency, never two currencies on one axis, with the exact strings in its table", () => {
+  // The chart module is loaded on demand in the app; load it once here so a cold import never eats a test's time.
+  beforeAll(async () => {
+    await import("@/components/viz/trend-area");
+  }, 30_000);
+
+  it("draws a line per currency, never two currencies on one axis, with the exact strings in its table", async () => {
     render(<ChartView block={valueTrend} />);
-    const usd = screen.getByRole("table", { name: "Inventory value by month, in USD" });
-    const eur = screen.getByRole("table", { name: "Inventory value by month, in EUR" });
+    // The line chart loads lazily (Recharts is not in every page bundle): wait for it, then check as before.
+    const usd = await screen.findByRole("table", { name: "Inventory value by month, in USD" });
+    const eur = await screen.findByRole("table", { name: "Inventory value by month, in EUR" });
     expect(screen.getByRole("img", { name: "Inventory value by month, in USD" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Inventory value by month, in EUR" })).toBeInTheDocument();
 
@@ -80,9 +86,9 @@ describe("ChartView", () => {
     expect(within(eur).queryByText(/USD/)).toBeNull();
   });
 
-  it("is shorter in the dock", () => {
+  it("is shorter in the dock", async () => {
     render(<ChartView block={valueTrend} compact />);
-    expect(screen.getByRole("img", { name: "Inventory value by month, in USD" })).toHaveStyle({ height: "160px" });
+    expect(await screen.findByRole("img", { name: "Inventory value by month, in USD" })).toHaveStyle({ height: "160px" });
   });
 
   it("draws bars per unit and prints the exact strings, visibly and in the hidden table", () => {

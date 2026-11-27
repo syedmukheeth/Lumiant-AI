@@ -16,6 +16,7 @@ import {
   TriangleAlert,
   XCircle,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useId, useState } from "react";
 
 import { ProvenanceButton } from "@/components/data/provenance";
@@ -23,7 +24,14 @@ import { SimpleTable, type SimpleColumn } from "@/components/data/simple-table";
 import { Chip } from "@/components/ui/badge";
 import { IconButton } from "@/components/ui/button";
 import { ChartFrame, VIZ } from "@/components/viz/shared";
-import { TrendArea, type TrendRow } from "@/components/viz/trend-area";
+import type { TrendRow } from "@/components/viz/trend-area";
+
+// Recharts loads only when an answer draws a line chart: the Analyst sits on every app page, and the chart library
+// would otherwise add about 85 KB (gzip) to each of them (bundle budget, S11).
+const TrendArea = dynamic(() => import("@/components/viz/trend-area").then((m) => m.TrendArea), {
+  ssr: false,
+  loading: () => <div className="skeleton h-40 rounded-control" aria-hidden />,
+});
 import type { BarBlock, Block, ChartBlock, ChartSeries, ChatAnswer, Choice, ColumnKind, SourcesBlock, Step, TableBlock } from "@/lib/agent";
 import { api, type Row } from "@/lib/api";
 import { formatMoney, formatNumber, formatQuantity, humanize, toChartNumber } from "@/lib/format";
