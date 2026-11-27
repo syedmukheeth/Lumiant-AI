@@ -1,0 +1,110 @@
+# Retrieval eval for the Analyst's knowledge search (RAG v2).
+#
+# Each question lists the chunk ids a good answer should cite (`file#section` for the Markdown in
+# src/lumiant/knowledge/content, `catalog#dataset` for the data catalog, `tenant#...` for the organisation chunks).
+# tests/unit/test_retrieval_eval.py scores BM25 on the product index and on one organisation's index; ids that do not
+# exist in an index (a dataset that organisation does not map, a tenant chunk in the product index) are ignored there,
+# and a question with none left is skipped for that index.
+#
+# Section ids are positional: adding or moving a `##` section in a content file renumbers the ones after it, so
+# update this file in the same change.
+k: 4
+tenant: demo-gamma  # maps item, warehouse, item_warehouse and stock_balance only, with source hints
+questions:
+  # ---- cash, cost and profit
+  - q: How can we free up cash tied up in inventory?
+    expect: [inventory_levers#1, inventory_levers#0]
+  - q: What does working capital mean for our stock?
+    expect: [inventory_levers#0]
+  - q: How do we reduce our carrying cost?
+    expect: [inventory_levers#2]
+  - q: What does it cost us to hold stock for a year?
+    expect: [inventory_levers#2]
+  - q: Can you calculate our profit by product?
+    expect: [inventory_levers#11, tenant#not_mapped, analyst_capabilities#7]
+  - q: Why can't you show me our margins?
+    expect: [inventory_levers#11, tenant#not_mapped]
+  - q: What are inventory turns and how are they worked out?
+    expect: [inventory_levers#3]
+  - q: How many days of cover do we have?
+    expect: [inventory_levers#3, analyst_capabilities#2]
+  # ---- excess, idle and expiring stock
+  - q: What should we do with our excess stock?
+    expect: [inventory_levers#4, inventory_metrics#3]
+  - q: Can we send surplus stock back to the supplier?
+    expect: [inventory_levers#4]
+  - q: How is dormant stock defined?
+    expect: [inventory_metrics#4]
+  - q: Should we write off items that have not been used in two years?
+    expect: [inventory_levers#5, planning_and_procurement#8, inventory_metrics#4]
+  - q: What is FEFO and why does it matter?
+    expect: [inventory_levers#6]
+  - q: Which lots are about to expire?
+    expect: [inventory_metrics#5, analyst_capabilities#3]
+  # ---- service, replenishment and suppliers
+  - q: How much safety stock should we keep?
+    expect: [inventory_levers#7]
+  - q: What service level should we aim for?
+    expect: [inventory_levers#7]
+  - q: How should we set our reorder points?
+    expect: [inventory_levers#8, inventory_metrics#2]
+  - q: Our reorder levels are years old. How do we tune them?
+    expect: [inventory_levers#8]
+  - q: How do supplier lead times affect how much stock we need?
+    expect: [inventory_levers#9, planning_and_procurement#5]
+  - q: What is lead time?
+    expect: [planning_and_procurement#5]
+  - q: How do we compare suppliers for an item?
+    expect: [planning_and_procurement#4]
+  - q: How does MRP work?
+    expect: [planning_and_procurement#1]
+  - q: Can this customer order be delivered on time?
+    expect: [planning_and_procurement#2, analyst_capabilities#5]
+  # ---- definitions and methods
+  - q: How is inventory value calculated?
+    expect: [inventory_metrics#0]
+  - q: Why might our inventory valuation be wrong?
+    expect: [inventory_levers#10, inventory_metrics#8]
+  - q: How does the moving weighted average work?
+    expect: [costing_methods#0]
+  - q: Explain FIFO cost layers
+    expect: [costing_methods#2]
+  - q: What does latest price mean?
+    expect: [costing_methods#6]
+  - q: What is ABC classification?
+    expect: [inventory_metrics#7]
+  - q: What does the 80/20 rule say about our stock value?
+    expect: [inventory_metrics#6]
+  - q: What does quality inspection stock status mean?
+    expect: [inventory_metrics#9]
+  - q: Do we have duplicate items in the item master?
+    expect: [planning_and_procurement#7, analyst_capabilities#6]
+  # ---- ERP terms
+  - q: What is a plant in SAP?
+    expect: [erp_terminology#0]
+  - q: What are quants in Odoo?
+    expect: [erp_terminology#1]
+  - q: What is a subinventory in Oracle?
+    expect: [erp_terminology#2]
+  # ---- what the Analyst and this organisation's data can do
+  - q: What can't the Analyst answer?
+    expect: [analyst_capabilities#7]
+  - q: Can you forecast demand for next year?
+    expect: [analyst_capabilities#7]
+  - q: What data do you need to find dormant stock?
+    expect: [analyst_capabilities#2, inventory_metrics#4]
+  - q: Does our data include stock movement history?
+    expect: [tenant#not_mapped, catalog#inventory_transaction]
+  - q: Where would our purchase order data come from?
+    expect: [tenant#source_hints, catalog#purchase_record]
+  - q: Which fields does the stock balance have?
+    expect: [catalog#stock_balance]
+  - q: What is the plant planning type?
+    expect: [catalog#item_warehouse]
+  # ---- trust
+  - q: Does the AI write SQL or make up numbers?
+    expect: [trust_and_security#0]
+  - q: Who can see prices and stock values?
+    expect: [trust_and_security#2]
+  - q: Is our data sent to an external AI provider?
+    expect: [trust_and_security#5]

@@ -170,6 +170,13 @@ class TenantConfig(StrictModel):
         default_factory=dict
     )
 
+    @model_validator(mode="after")
+    def _extract_stays_local(self) -> TenantConfig:
+        # Real customer files loaded for local analysis never go to an external AI provider (ADR-0008, ADR-0009).
+        if self.customer_extract and self.ai.external_provider_approved:
+            raise ValueError("ai.external_provider_approved cannot be true for a customer_extract tenant")
+        return self
+
     @property
     def synthetic(self) -> bool:
         return self.data_classification == "synthetic"

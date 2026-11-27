@@ -57,6 +57,14 @@ class Settings(BaseSettings):
     # Gemini Developer API (ADR-0009). The alias follows Google's current Flash model; pin an exact id if needed.
     gemini_api_key: SecretStr | None = None
     gemini_model: str = Field(default="gemini-flash-latest", pattern=r"^[A-Za-z0-9._-]{1,80}$")
+    gemini_max_output_tokens: int = Field(default=1024, ge=64, le=8192)
+    # A model setting, not an amount: the no-float rule covers money and quantities only.
+    gemini_temperature: float = Field(default=0.2, ge=0, le=2)
+    # AI cost guard (DEC-037): external model calls (decide, each review round, embeddings) per tenant per UTC day.
+    # Past it the Analyst answers with built-in matching. Shared across instances only with the Redis store.
+    ai_daily_calls: int = Field(default=300, ge=0)
+    # One question may not keep calling the model past this; the answer is then written from the results so far.
+    ai_request_deadline_s: int = Field(default=45, ge=5, le=300)
 
     @model_validator(mode="after")
     def _production_guards(self) -> Settings:

@@ -14,8 +14,9 @@ from typing import Any
 from pydantic import ValidationError
 
 from lumiant.agent import smalltalk
+from lumiant.agent.budget import EXHAUSTED_NOTICE, AiBudget
 from lumiant.agent.context import MAX_HISTORY, ChatContext, HistoryTurn
-from lumiant.agent.grounding import collect_numbers, ungrounded_numbers
+from lumiant.agent.grounding import evidence_from, ungrounded_numbers
 from lumiant.agent.providers import (
     MAX_ROUNDS,
     SUGGESTIONS,
@@ -30,6 +31,7 @@ from lumiant.auth.principal import Principal
 from lumiant.core.config import Settings
 from lumiant.core.errors import AppError
 from lumiant.core.logging import request_id_var
+from lumiant.core.ratelimit import Limiter
 from lumiant.query.plan import QueryPlan
 from lumiant.query.service import QueryService, meta_warnings
 
@@ -59,6 +61,20 @@ TOOL_LABELS = {
     "insights": "Running every insight check",
     "query_inventory": "Querying the inventory data",
     "search_knowledge": "Looking up definitions",
+    "inventory_levers": "Sizing where money is tied up",
+    "calculate": "Calculating",
+    "stock_ageing": "Ageing the stock",
+    "value_trend": "Rebuilding the value trend",
+    "computed_abc": "Classifying items by value",
+    "open_purchase_orders": "Reading open purchase orders",
+    "order_fulfilment": "Checking order fulfilment",
+    "material_plan": "Planning material requirements",
+    "bom_explosion": "Exploding the bill of materials",
+    "supplier_comparison": "Comparing suppliers",
+    "customer_commitment": "Checking customer commitments",
+    "duplicate_items": "Looking for duplicate items",
+    "lifecycle_review": "Reviewing item lifecycles",
+    "planning_scope": "Checking what planning data exists",
 }
 # A page filter narrows a tool unless the tool groups by that same field (then the comparison is the point).
 _FILTER_DIMENSION = {
@@ -93,9 +109,10 @@ def _step(step_id: str, label: str, status: str, **extra: Any) -> Event:
 
 
 class AgentService:
-    def __init__(self, query: QueryService, settings: Settings) -> None:
+    def __init__(self, query: QueryService, settings: Settings, limiter: Limiter | None = None) -> None:
         self.query = query
         self.settings = settings
+        self.budget = AiBudget(limiter, settings.ai_daily_calls)
 
     def _provider(self, principal: Principal) -> tuple[Provider, str | None]:
         tenant = self.query.tenants.get(principal.tenant_id)
@@ -108,7 +125,16 @@ class AgentService:
             api_key=secret.get_secret_value() if secret else None,
             model=model,
             tenant_approved=tenant.ai.external_provider_approved,
+            max_output_tokens=s.gemini_max_output_tokens,
+            temperature=s.gemini_temperature,
         )
+
+    def _spend(self, principal: Principal, what: str) -> bool:
+        """One external model call from the organisation's daily allowance; a refusal is audited once per call."""
+        if self.budget.spend(principal.tenant_id):
+            return True
+        self.query.record(principal, "agent:budget", None, "deny", "denied", reason=f"ai_daily_calls:{what}")
+        return False
 
     def _run_tool(self, ctx: ToolContext, call: ToolCall) -> ToolOutput:
         tool = TOOLS.get(call.name)
@@ -201,13 +227,14 @@ class AgentService:
     ) -> Iterator[Event]:
         started = time.perf_counter()
         question = " ".join(message.split())[:MAX_QUESTION_CHARS]
-        ctx = ToolContext(self.query, principal, context, list(history or [])[-MAX_HISTORY:])
+        ctx = ToolContext(self.query, principal, context, list(history or [])[-MAX_HISTORY:], question=question)
         steps: list[Event] = []
 
         def done(event: Event) -> Event:
             steps.append(event)
             return event
 
+        deadline = started + self.settings.ai_request_deadline_s
         yield _step("understand", "Understanding the question", "running")
         provider, notice = self._provider(principal)
         decision: Decision
@@ -218,6 +245,9 @@ class AgentService:
         elif small_talk is not None:
             # "hey", "thanks", "who are you?": answered directly; no data is read and nothing goes to a model.
             provider, decision = RuleBasedProvider(), Decision("reply", message=small_talk)
+        elif provider.external and not self._spend(principal, "decide"):
+            provider, notice = RuleBasedProvider(), EXHAUSTED_NOTICE
+            decision = provider.decide(question, ctx)
         else:
             try:
                 decision = provider.decide(question, ctx)
@@ -240,7 +270,14 @@ class AgentService:
 
         embed = getattr(provider, "embed", None) if provider.external else None
         if embed is not None:
-            ctx.embedder, ctx.embed_key = embed, getattr(provider, "embed_key", provider.name)
+
+            def budgeted_embed(texts: list[str], task: str) -> list[list[float]]:
+                # A spent allowance makes knowledge search fall back to keywords (it already does on any embed error).
+                if not self._spend(principal, "embed"):
+                    raise RuntimeError("AI allowance used up")
+                return embed(texts, task)  # type: ignore[no-any-return]
+
+            ctx.embedder, ctx.embed_key = budgeted_embed, getattr(provider, "embed_key", provider.name)
 
         # Tool rounds. Rule-based providers decide once; a multi-step provider (`advance`) sees each round's results
         # and may ask for more, within MAX_ROUNDS rounds and MAX_TOTAL_CALLS calls; its last text is the answer.
@@ -259,6 +296,8 @@ class AgentService:
                 yield _step(step_id, label, "running", tool=call.name)
                 t0 = time.perf_counter()
                 out = self._run_tool(ctx, call)
+                out.index = len(ctx.prior)
+                ctx.prior.append(out)  # `calculate` refers to earlier results of this question by position
                 round_outputs.append(out)
                 rows = sum(len(b.get("rows", [])) for b in out.blocks)
                 ms = round((time.perf_counter() - t0) * 1000)
@@ -273,6 +312,15 @@ class AgentService:
             final = rounds >= MAX_ROUNDS or len(all_calls) >= MAX_TOTAL_CALLS
             step_id = f"think:{rounds}"
             yield _step(step_id, "Reviewing the results", "running")
+            # Past the time limit, or with the allowance spent, the answer is written from the results so far.
+            if time.perf_counter() > deadline:
+                yield done(_step(step_id, "Reviewing the results", "failed", detail="time limit reached"))
+                notice = notice or "The AI took too long, so this answer is written from the results so far."
+                break
+            if not self._spend(principal, "advance"):
+                yield done(_step(step_id, "Reviewing the results", "failed", detail="AI allowance used up"))
+                notice = notice or EXHAUSTED_NOTICE
+                break
             stepped = True
             try:
                 nxt = advance(round_outputs, ctx, final=final)
@@ -290,14 +338,17 @@ class AgentService:
             break
         calls = all_calls
 
-        evidence = collect_numbers(question)
-        for out in outputs:
-            collect_numbers(out.data, evidence)
-            for block in out.blocks:
-                evidence.add(str(len(block.get("rows", []))))
+        evidence = evidence_from(question, outputs)
         template = "\n\n".join(o.answer for o in outputs) if outputs else decision.message
         answer, grounding = template, {"passed": True, "ungrounded": [], "source": "template"}
-        if outputs and provider.external and advance is None and all(o.ok for o in outputs):
+        if (
+            outputs
+            and provider.external
+            and advance is None
+            and all(o.ok for o in outputs)
+            and time.perf_counter() <= deadline
+            and self._spend(principal, "compose")
+        ):
             yield _step("compose", "Writing the answer", "running")
             stepped = True
             try:

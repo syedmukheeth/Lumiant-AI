@@ -40,8 +40,26 @@ describe("toWire / toHistory", () => {
   it("sends questions and tools, never result data", () => {
     const answer = { tool_calls: [{ name: "stock_by", args: { dimension: "warehouse" } }], answer: "USD 123" } as never;
     expect(toHistory([{ question: "value by warehouse", answer }, { question: "pending" }])).toEqual([
-      { question: "value by warehouse", tool: "stock_by", args: { dimension: "warehouse" } },
+      { question: "value by warehouse", tool: "stock_by", args: { dimension: "warehouse" }, answer: "USD 123" },
     ]);
+  });
+
+  it("adds the answer's wording cut to 300 characters, and never its rows", () => {
+    const long = `Warehouse 1100 holds the most value. ${"x".repeat(400)}`;
+    const answer = {
+      tool_calls: [{ name: "stock_by", args: { dimension: "warehouse" } }],
+      answer: long,
+      blocks: [{ type: "table", title: "Value", columns: [], rows: [{ warehouse: "1100", value: "48250000.17" }] }],
+    } as never;
+    const [turn] = toHistory([{ question: "value by warehouse", answer }]);
+    expect(turn).toEqual({ question: "value by warehouse", tool: "stock_by", args: { dimension: "warehouse" }, answer: long.slice(0, 300) });
+    expect(JSON.stringify(turn)).not.toContain("48250000.17");
+    expect(JSON.stringify(turn)).not.toContain("rows");
+
+    // Counted in characters (as the API counts), so an emoji is never cut in half.
+    const [emoji] = toHistory([{ question: "q", answer: { tool_calls: [], answer: "📦".repeat(400) } as never }]);
+    expect(Array.from(emoji.answer ?? "")).toHaveLength(300);
+    expect(emoji.answer).not.toMatch(/[\ud800-\udbff]$/);
   });
 });
 

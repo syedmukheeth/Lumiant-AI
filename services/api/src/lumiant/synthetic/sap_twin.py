@@ -236,6 +236,8 @@ def gamma_tenant_config() -> dict[str, Any]:
                 "warehouses": [STOCK_PLANT],
             },
         ],
+        # Generated values only, so the owner approved external AI for it (S11); the client extract never is.
+        external_ai_approved=True,
     )
 
 

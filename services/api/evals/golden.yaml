@@ -47,3 +47,14 @@
 - {user: alpha.admin, question: "Which lots expire in the next 90 days in warehouse 3100?", tool: expiring_lots, args: {days: 90, warehouse_id: "3100"}}
 - {user: alpha.admin, question: "Dormant stock in warehouse 1110", tool: dormant, args: {warehouse_id: "1110"}}
 - {user: alpha.admin, question: "Which items are below reorder level?", tool: below_reorder}
+# S11: business goals go to the inventory levers (with what the data cannot show); open purchase orders.
+- {user: alpha.admin, question: "What should I do to make 200000 profit next month?", tool: inventory_levers}
+- {user: alpha.admin, question: "How can we free up cash tied in stock?", tool: inventory_levers}
+- {user: alpha.admin, question: "How do we reduce our inventory carrying costs?", tool: inventory_levers}
+- {user: delta.admin, question: "How can we improve margins?", tool: inventory_levers}
+- {user: alpha.admin, question: "كيف نزيد الأرباح؟", tool: inventory_levers}
+- {user: alpha.admin, question: "Which purchase orders are overdue?", tool: open_purchase_orders, args: {overdue_only: true}}
+- {user: alpha.admin, question: "Show open purchase orders", tool: open_purchase_orders}
+- {user: gamma.admin, question: "Show open purchase orders", kind: unsupported}
+- {user: alpha.admin, question: "what i should do so i can make 200000 pofit next month", tool: inventory_levers}
+- {user: alpha.admin, question: "What will our revenue be next month?", tool: inventory_levers}

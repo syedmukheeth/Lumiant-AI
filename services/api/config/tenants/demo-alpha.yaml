@@ -4,6 +4,9 @@ id: demo-alpha
 display_name: "Demo Alpha Manufacturing (synthetic)"
 data_classification: synthetic
 source_system: "Synthetic DuckDB warehouse — SAP-style naming"
+# Synthetic data only: the owner approved external AI for this demo tenant (S11, 2026-11-27).
+ai:
+  external_provider_approved: true
 connection:
   type: duckdb
   path: data/synthetic/demo-alpha.duckdb

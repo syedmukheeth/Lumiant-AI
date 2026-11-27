@@ -35,6 +35,9 @@ class ToolContext:
     # Set only when an approved external provider can embed text (knowledge search); keyword search otherwise.
     embedder: Callable[[list[str], str], list[list[float]]] | None = None
     embed_key: str = "default"
+    # This question's earlier tool results, in call order (`calculate` refers to them as c0, c1, …).
+    prior: list[ToolOutput] = field(default_factory=list)
+    question: str = ""  # the user's question as received (numbers the user typed may be used by `calculate`)
 
 
 @dataclass
@@ -48,6 +51,23 @@ class ToolOutput:
     follow_ups: list[str] = field(default_factory=list)
     data: Any = None  # structured evidence used for grounding and (capped) model context
     ok: bool = True  # False when the tool did not run (denied, bad arguments, failed)
+    index: int | None = None  # position in this question's calls; rows are cited as c<index>.r<row>.<field>
+
+
+def ref_rows(output: ToolOutput) -> list[tuple[dict[str, Any], dict[str, str]]]:
+    """The rows `calculate` can cite, in order: every table block's rows with each row's column kinds; an output
+    with no table (e.g. `stock_by`, which draws bars) offers its bar rows instead, never both (no duplicates)."""
+    out: list[tuple[dict[str, Any], dict[str, str]]] = []
+    tables = [b for b in output.blocks if b.get("type") == "table"]
+    for block in tables:
+        kinds = {c["key"]: c.get("kind", "text") for c in block.get("columns", [])}
+        out += [(row, kinds) for row in block.get("rows", [])]
+    if not tables:
+        for block in output.blocks:
+            if block.get("type") == "bar":
+                kinds = {str(block.get("value_key")): str(block.get("kind", "text"))}
+                out += [(row, kinds) for row in block.get("rows", [])]
+    return out
 
 
 class _Args(BaseModel):
@@ -857,5 +877,8 @@ TOOLS.update({t.name: t for t in PLANNING_TOOLS})  # type: ignore[has-type]
 
 # Data and knowledge tools register themselves into TOOLS when their module finishes loading, whichever of the
 # two modules is imported first; importing them here guarantees they are loaded with the catalog.
+import lumiant.agent.analysis_tools  # noqa: E402
+import lumiant.agent.calc_tools  # noqa: E402
 import lumiant.agent.data_tools  # noqa: E402
-import lumiant.agent.knowledge_tools  # noqa: E402, F401
+import lumiant.agent.knowledge_tools  # noqa: E402
+import lumiant.agent.levers_tools  # noqa: E402, F401
