@@ -1,7 +1,7 @@
 # Current State
 
-_Rewritten at the end of every session. Last update: 2026-11-26, S10 (Product v2 P1–P3, redesign and Obsidian dark
-theme, Product v3 V0 done and V1–V4 partly done; all on `feature/product-v2`, pushed; `main` not changed)._
+_Rewritten at the end of every session. Last update: 2026-11-27, S10 (Product v2 P1–P3, redesign and Obsidian dark
+theme, Product v3 V0 done and V1–V5 partly done; merged to `main` via PR #8 (`ba13b7c`); production on Vercel)._
 
 ## Milestone
 M1–M11 as before (synthetic data; client SAP extract local only). **Product v2** (PRODUCT_V2_PLAN): design system v2,
@@ -9,7 +9,10 @@ chart kit, Analyst v2 (multi-step Gemini loop, knowledge retrieval, fake-client 
 view, demo requests, premium layout redesign, "Obsidian" dark theme. **Product v3** (PRODUCT_V3_PLAN, owner approved):
 V0 correctness and speed **done** (DEC-032); V1 connect, V2 map and trust, V3 use anywhere, V4 command centre
 **partly done** (see the plan's phase table).
-**Branch:** `feature/product-v2` (pushed). Merging to `main` and any deployment need the owner.
+**Branch:** only `main` (feature branch merged and deleted, owner instruction). **Deployment:** Vercel project
+`lumiant-ai` (Vercel Services: web + API), production builds from `main` at https://lumiant-ai.vercel.app. It is
+public with development sign-in on synthetic data; Deployment Protection is off (owner decision). App DB is SQLite in
+/tmp (temporary per instance).
 
 ## What works (verified by automated tests and browser checks)
 
@@ -21,7 +24,7 @@ V0 correctness and speed **done** (DEC-032); V1 connect, V2 map and trust, V3 us
 | V2: mapping suggestions from names (all four demo tenants matched exactly), validation harness (keys, orphans, required values), Admin › Mapping and Validation | `test_mapping_suggest.py`, S10-35 |
 | V3: API keys (hashed, ⊆ creator), public API with keys, MCP server `POST /mcp` with the Analyst's typed tools + `ask_lumiant`, alert rules with signed webhooks and SSRF guard, Admin › Integrations | `test_api_keys_mcp.py`, DEC-033, `06-operations/INTEGRATIONS.md` |
 | V4: 12-month value trend (rebuilt from movements, exact), Material 360 sheet from Inventory, stock ageing buckets on Risks; V5: Settings page; ISSUES #61 fixed | `test_trends.py`, `test_items.py`, `test_ageing.py`, e2e |
-| Gates | API 951 passed + 15 env skips; web unit 90; e2e 53/53 (axe in light and dark on 12 screens, Windows screenshot baselines); bundle budget in CI |
+| Gates | API 953 passed + 15 env skips; web unit 90; e2e 55/55; PR #8 CI green on GitHub (axe in light and dark on 12 screens, Windows screenshot baselines); bundle budget in CI |
 
 ## What is simulated (not evidence of customer readiness)
 - All demo data is synthetic; the client SAP extract is a local one-off.
@@ -32,15 +35,16 @@ V0 correctness and speed **done** (DEC-032); V1 connect, V2 map and trust, V3 us
 
 ## Not built yet
 Tenant config in the database with versioned mapping
-approval; sync worker and scheduler (scheduled syncs and alert sending); embeds; virtualised grid, more visuals, global filters,
-saved views, Analyst inline charts; first-run tour, SSO/SCIM, Helm chart; Teams/Slack/Excel.
+approval; sync worker and scheduled syncs (alerts already send on a schedule via `lumiant-alerts send-due`); embeds;
+virtualised grid, more visuals, global filters, Analyst inline charts; first-run tour, SSO/SCIM, Helm chart; Teams/Slack/Excel.
 
 ## Known limitations
 `../logs/ISSUES.md`: open include #13 (live AI), #16 (real IdP), #37 / #58 (per-process caches), #57 (landing JS above
 budget, being reduced), #59 (data quality 16 queries), #60 (Windows-only screenshot baselines), plus the SAP-extract items #23–#30.
 
 ## Next step
-1. Owner reviews `feature/product-v2` and decides on merging to `main`.
+1. Owner: keep the demo public or turn on Vercel Deployment Protection; a lasting deployment needs a managed
+   PostgreSQL for the app DB and real sign-in.
 2. Owner: paid Gemini key on a synthetic tenant for the first live AI check.
 3. Continue V1 (secret store, config in DB, sync worker), V3 (webhooks, alerts), V4 (visuals, filters).
 4. First customer: Q-001 (their database technology) decides which connector gets a real conformance run.
