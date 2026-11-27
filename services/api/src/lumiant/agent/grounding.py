@@ -44,6 +44,31 @@ def collect_numbers(value: Any, into: set[str] | None = None) -> set[str]:
     return found
 
 
+# Keys whose numbers describe the run, not the data (LA-10): a timing or an id must never vouch for a figure.
+NON_EVIDENCE_KEYS = frozenset({"duration_ms", "ms", "elapsed_ms", "request_id", "sql", "generated_sql", "query_id"})
+
+
+def _strip_run_metadata(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {k: _strip_run_metadata(v) for k, v in value.items() if k not in NON_EVIDENCE_KEYS}
+    if isinstance(value, (list, tuple)):
+        return [_strip_run_metadata(v) for v in value]
+    return value
+
+
+def evidence_from(question: str, outputs: list[Any]) -> set[str]:
+    """Numbers an answer may contain: those the user typed, the results' data and rows (including `calculate`
+    results), and each block's row count. Never the answer text itself, and never run metadata (timings, ids, SQL)."""
+    evidence = collect_numbers(question)
+    for out in outputs:
+        collect_numbers(_strip_run_metadata(out.data), evidence)
+        for block in out.blocks:
+            collect_numbers(_strip_run_metadata(block.get("rows", [])), evidence)
+            collect_numbers([s.get("text", "") for s in block.get("items", [])], evidence)
+            evidence.add(str(len(block.get("rows", []))))
+    return evidence
+
+
 DISPLAY_PLACES = (2, 3)  # money is shown to 2 decimals, quantities to at most 3
 
 

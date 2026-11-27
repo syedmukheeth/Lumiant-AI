@@ -60,6 +60,7 @@ def build_container(settings: Settings) -> Container:
     connectors = ConnectorRegistry(tenants, settings.data_dir, SourceSecretStore(audit.engine))
     query_service = QueryService(tenants, connectors, audit)
     reports = ReportService(query_service)
+    limiter = build_limiter(settings)  # also holds the daily AI allowance (DEC-037)
     return Container(
         settings=settings,
         tenants=tenants,
@@ -67,13 +68,13 @@ def build_container(settings: Settings) -> Container:
         audit=audit,
         query=query_service,
         metrics=MetricsService(query_service),
-        agent=AgentService(query_service, settings),
+        agent=AgentService(query_service, settings, limiter),
         reports=reports,
         admin=AdminService(query_service, reports),
         insights=InsightService(query_service),
         dev_auth=DevAuthProvider(settings, tenants) if settings.dev_auth_enabled else None,
         oidc=oidc,
-        limiter=build_limiter(settings),
+        limiter=limiter,
     )
 
 
