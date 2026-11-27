@@ -1,7 +1,8 @@
 # Current State
 
-_Rewritten at the end of every session. Last update: 2026-11-27, S10 (Product v2 P1–P3, redesign and Obsidian dark
-theme, Product v3 V0 done and V1–V5 partly done; merged to `main` via PR #8 (`ba13b7c`); production on Vercel)._
+_Rewritten at the end of every session. Last update: 2026-11-27, S11 (form-control focus and disabled-button fixes,
+Lumiant favicon, functions moved to `bom1`, plan docs corrected; PR #9 and #10 merged to `main`). S10 before it:
+Product v2 P1–P3, redesign and Obsidian dark theme, Product v3 V0 done and V1–V5 partly done (PR #8)._
 
 ## Milestone
 M1–M11 as before (synthetic data; client SAP extract local only). **Product v2** (PRODUCT_V2_PLAN): design system v2,
@@ -10,7 +11,7 @@ view, demo requests, premium layout redesign, "Obsidian" dark theme. **Product v
 V0 correctness and speed **done** (DEC-032); V1 connect, V2 map and trust, V3 use anywhere, V4 command centre
 **partly done** (see the plan's phase table).
 **Branch:** only `main` (feature branch merged and deleted, owner instruction). **Deployment:** Vercel project
-`lumiant-ai` (Vercel Services: web + API), production builds from `main` at https://lumiant-ai.vercel.app. It is
+`lumiant-ai` (Vercel Services: web + API, functions in `bom1` since S11, DEC-035), production builds from `main` at https://lumiant-ai.vercel.app. It is
 public with development sign-in on synthetic data; Deployment Protection is off (owner decision). App DB is SQLite in
 /tmp (temporary per instance).
 
@@ -45,7 +46,9 @@ budget, being reduced), #59 (data quality 16 queries), #60 (Windows-only screens
 ## Next step
 1. Owner: keep the demo public or turn on Vercel Deployment Protection; a lasting deployment needs a managed
    PostgreSQL for the app DB and real sign-in.
-2. Owner: paid Gemini key on a synthetic tenant for the first live AI check.
+2. Owner: paid Gemini key on a synthetic tenant for the first live AI check. Needs all three: `LUMIANT_AGENT_PROVIDER=gemini`,
+   `LUMIANT_GEMINI_API_KEY` (Vercel env or `services/api/.env`), and `ai.external_provider_approved: true` on that tenant.
+   As of S11 none is set. On the public demo anyone could spend the key: turn on protection or a budget first.
 3. Continue V1 (secret store, config in DB, sync worker), V3 (webhooks, alerts), V4 (visuals, filters).
 4. First customer: Q-001 (their database technology) decides which connector gets a real conformance run.
 
