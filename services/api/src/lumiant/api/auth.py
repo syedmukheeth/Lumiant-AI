@@ -71,7 +71,7 @@ def _dev_auth(container: Container) -> Any:
 
 @router.get("/dev-users")
 def dev_users(container: Container = Depends(get_container)) -> dict[str, Any]:  # noqa: B008
-    return {"users": _dev_auth(container).users(), "notice": "Development authentication — not for production."}
+    return {"users": _dev_auth(container).users(), "notice": "Development authentication, not for production."}
 
 
 @router.post("/dev-login", dependencies=[Depends(require_csrf), Depends(rate_limit_by_ip("login"))])

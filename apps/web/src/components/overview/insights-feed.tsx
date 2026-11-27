@@ -1,9 +1,10 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { clsx } from "clsx";
 import { ArrowUpRight, Info, KeyRound, OctagonAlert, RefreshCw, Sparkles, TriangleAlert } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 
 import { analyzableProps } from "@/components/analyst/analyzable";
 import { analyze } from "@/components/analyst/store";
@@ -29,7 +30,15 @@ type Insight = {
 };
 type Gap = { id: string; message: string; needs: string };
 type FailedCheck = { id: string; label: string; code: string; message: string };
-type Feed = { insights: Insight[]; gaps: Gap[]; failed: FailedCheck[]; complete: boolean; generated_at: string };
+type Feed = {
+  insights: Insight[];
+  gaps: Gap[];
+  failed: FailedCheck[];
+  complete: boolean;
+  generated_at: string;
+  data_as_of: string | null;
+  warnings: { code: string; message: string }[];
+};
 
 const SEVERITY = {
   critical: { icon: OctagonAlert, tone: "text-(--status-critical)", edge: "before:bg-(--status-critical)", label: "Critical" },
@@ -53,20 +62,50 @@ export function useInsights() {
   return useQuery({ queryKey: ["insights"], queryFn: () => api.get<Feed>("/api/insights"), staleTime: 60_000 });
 }
 
+/** Refresh re-runs every rule (`fresh=true`); a plain refetch would be answered from the server's two-minute cache. */
+function useFreshRefresh() {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const refresh = async () => {
+    setBusy(true);
+    try {
+      qc.setQueryData(["insights"], await api.get<Feed>("/api/insights", { fresh: "true" }));
+    } catch {
+      await qc.refetchQueries({ queryKey: ["insights"] });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return { refresh, busy };
+}
+
 /** "What needs attention": ranked findings from the deterministic insight rules, each one a click from the Analyst. */
 export function InsightsFeed() {
   const feed = useInsights();
+  const { refresh, busy } = useFreshRefresh();
   const items = feed.data?.insights ?? [];
   const failed = feed.data?.failed ?? [];
+  const stale = feed.data?.warnings?.find((w) => w.code === "stale_data" || w.code === "unknown_freshness");
   return (
     <section aria-label="Insights" className="rise space-y-3" data-testid="insights-feed">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <h2 className="text-section font-semibold text-ink">What needs attention</h2>
-        <Button variant="ghost" size="sm" onClick={() => void feed.refetch()} aria-label="Refresh insights">
-          <RefreshCw size={12} className={clsx(feed.isFetching && "animate-spin")} aria-hidden />
+        <Button variant="ghost" size="sm" onClick={() => void refresh()} disabled={busy}>
+          <RefreshCw size={12} className={clsx((feed.isFetching || busy) && "animate-spin")} aria-hidden />
+          <span className="sr-only">Refresh insights, </span>
           {feed.data ? `Checked ${new Date(feed.data.generated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Checking…"}
         </Button>
       </div>
+
+      {stale && (
+        <div role="status" className="panel flex items-start gap-2 border-signal/40 p-4 text-sm text-ink" data-testid="insights-stale">
+          <TriangleAlert size={15} className="mt-0.5 shrink-0 text-signal" aria-hidden />
+          <p>
+            <strong className="font-semibold">These findings may be out of date.</strong>{" "}
+            <span className="text-ink-2">{stale.message} They describe the data as it was then, not today.</span>
+          </p>
+        </div>
+      )}
 
       {failed.length > 0 && (
         <div role="alert" className="panel flex items-start gap-2 border-signal/40 p-4 text-sm text-ink" data-testid="insights-incomplete">
@@ -158,7 +197,7 @@ export function InsightsFeed() {
             {feed.data?.gaps.map((g) => (
               <li key={g.id} className="rounded-control border border-dashed border-line-strong px-3 py-2">
                 <span className="font-medium text-ink-2">{humanize(g.id)}</span>
-                <span className="text-ink-3"> — needs {g.needs || "more source data"}</span>
+                <span className="text-ink-3">: needs {g.needs || "more source data"}</span>
               </li>
             ))}
           </ul>

@@ -10,12 +10,19 @@ from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+import sqlalchemy as sa
+
+from lumiant.admin.validation import run_validation
 from lumiant.audit.store import AuditEvent
 from lumiant.auth.principal import Principal
 from lumiant.connectors.base import ConnectorError
 from lumiant.core.errors import AppError
 from lumiant.mapping.resolver import SourceObject, TenantMapping
+from lumiant.mapping.suggest import read_tables, suggest
+from lumiant.query.compiler import condition
+from lumiant.query.plan import Op
 from lumiant.query.service import QueryService
+from lumiant.query.sql_guard import check_sql
 from lumiant.reports.service import ReportService
 
 _NUMERIC_HINTS = ("INT", "DEC", "NUM", "FLOAT", "DOUBLE", "REAL", "MONEY")
@@ -99,13 +106,99 @@ def discover(mapping: TenantMapping, connector: Any) -> dict[str, Any]:
         if entry["problems"]:
             entry["status"] = "drift"
         datasets.append(entry)
+    note = "Unmapped columns are candidates for review; the platform never assumes two similarly named columns mean the same thing."
+    unconfigured: list[str] = []
+    no_warehouse = 0
+    check_failed = False
+    stock = next((d for d in datasets if d["dataset"] == _STOCK), None)
+    column_missing = stock is not None and any(
+        p["kind"] == "missing_column" and p.get("field") == "warehouse_id" for p in stock["problems"]
+    )
+    if stock is not None and stock["status"] in ("ok", "drift") and not column_missing:
+        try:
+            unconfigured, truncated = unconfigured_warehouses(mapping, connector)
+            no_warehouse = rows_without_warehouse(mapping, connector)
+        except ConnectorError as exc:
+            # An unverified check must not read as ok.
+            check_failed = True
+            stock["status"] = "drift"
+            stock["problems"].append({"kind": "warehouse_check_failed", "field": "warehouse_id", "reason": exc.code})
+        else:
+            if truncated:
+                note += f" Only the first {len(unconfigured)} unconfigured warehouses are listed."
+    totals["unconfigured_warehouses"] = len(unconfigured)
+    totals["rows_without_warehouse"] = no_warehouse
     drifted = totals["missing_tables"] + totals["missing_columns"] + totals["type_mismatches"]
+    drifted += len(unconfigured) + no_warehouse + check_failed
     return {
         "healthy": connector.health(),
         "datasets": datasets,
         "totals": totals,
+        "unconfigured_warehouses": unconfigured,
+        "rows_without_warehouse": no_warehouse,
         "verdict": "ok" if drifted == 0 else "drift",
-        "note": "Unmapped columns are candidates for review; the platform never assumes two similarly named columns mean the same thing.",
+        "note": note,
+    }
+
+
+_STOCK = "stock_balance"
+_UNCONFIGURED_LIMIT = 500
+
+
+def _run(mapping: TenantMapping, connector: Any, stmt: sa.Select[Any], fetch_limit: int) -> list[tuple[Any, ...]]:
+    """Execute an admin check read through the same SQL guard and timeout as every other query."""
+    check_sql(QueryService.render(stmt, connector.dialect), connector.dialect_name, mapping.physical_tables())
+    raw = connector.execute(stmt, fetch_limit=fetch_limit, timeout_s=mapping.tenant.policies.query_timeout_s)
+    return [tuple(r) for r in raw.rows]
+
+
+def rows_without_warehouse(mapping: TenantMapping, connector: Any) -> int:
+    """Stock rows with no warehouse id.
+
+    Like an unconfigured warehouse, such a row is counted in every total for users who see all warehouses and is
+    invisible to everyone else, since no warehouse scope can match an empty id.
+    """
+    if mapping.field(_STOCK, "warehouse_id") is None:
+        return 0
+    warehouse = mapping.column_expr(_STOCK, "warehouse_id", mapping.table(_STOCK))
+    stmt = sa.select(sa.func.count().label("rows")).select_from(mapping.table(_STOCK)).where(warehouse.is_(None))
+    rows = _run(mapping, connector, stmt, fetch_limit=1)
+    return int(rows[0][0]) if rows else 0
+
+
+def unconfigured_warehouses(mapping: TenantMapping, connector: Any) -> tuple[list[str], bool]:
+    """Warehouse ids in the source stock data that the tenant configuration does not list.
+
+    Warehouse scope ids come only from the configuration, so such a warehouse is counted in every total for users
+    who see all warehouses and is invisible to everyone else. The condition is the scope filter's own IN test,
+    negated, so "unconfigured" means exactly "unreachable through warehouse scope". Returns the sorted ids (at most
+    `_UNCONFIGURED_LIMIT`) and whether more exist. Rows without a warehouse id are counted by
+    `rows_without_warehouse`.
+    """
+    if mapping.field(_STOCK, "warehouse_id") is None:
+        return [], False
+    configured = sorted({w.id for w in mapping.tenant.warehouses})
+    warehouse = mapping.column_expr(_STOCK, "warehouse_id", mapping.table(_STOCK)).label("warehouse_id")
+    stmt = (
+        sa.select(warehouse).where(condition(warehouse.element, Op.NOT_IN, configured)).distinct().order_by(warehouse)
+    )
+    rows = _run(mapping, connector, stmt, fetch_limit=_UNCONFIGURED_LIMIT + 1)
+    ids = sorted(str(r[0]) for r in rows if r[0] is not None)
+    return ids[:_UNCONFIGURED_LIMIT], len(ids) > _UNCONFIGURED_LIMIT
+
+
+def for_scope(result: dict[str, Any], principal: Principal) -> dict[str, Any]:
+    """Unconfigured warehouse ids are listed only to someone who sees every warehouse.
+
+    An administrator limited to some warehouses still gets the non-ok verdict and the count, never the ids.
+    """
+    if principal.scope.all or not result["unconfigured_warehouses"]:
+        return result
+    return {
+        **result,
+        "unconfigured_warehouses": [],
+        "note": result["note"]
+        + " Warehouses missing from the tenant configuration were found; an administrator who sees all warehouses can list them.",
     }
 
 
@@ -240,9 +333,69 @@ class AdminService:
     def discovery(self, principal: Principal) -> dict[str, Any]:
         mapping = self.query.mapping(principal.tenant_id)
         connector = self.query.connectors.get(principal.tenant_id)
-        result = discover(mapping, connector)
-        self.query.record(principal, "admin:schema_discovery", None, "allow", "ok", rows=len(result["datasets"]))
+        result = for_scope(discover(mapping, connector), principal)
+        self.query.record(
+            principal,
+            "admin:schema_discovery",
+            None,
+            "allow",
+            "ok",
+            fields=(f"{_STOCK}.warehouse_id",),
+            rows=len(result["datasets"]),
+        )
         return result
+
+    def source(self, principal: Principal) -> dict[str, Any]:
+        """The tenant's data source: kind, health, freshness and rows per mapped dataset (admin only, no values)."""
+        tenant = self.query.tenants.get(principal.tenant_id)
+        mapping = self.query.mapping(principal.tenant_id)
+        connector = self.query.connectors.get(principal.tenant_id)
+        meta = self.query.tenant_meta(principal.tenant_id)
+        healthy = connector.health()
+        datasets: list[dict[str, Any]] = []
+        for name in sorted(tenant.datasets):
+            rows: int | None = None
+            if healthy:
+                stmt = sa.select(sa.func.count()).select_from(mapping.table(name))
+                try:
+                    rows = int(_run(mapping, connector, stmt, 1)[0][0])
+                except (ConnectorError, IndexError):
+                    rows = None
+            datasets.append({"dataset": name, "source_object": mapping.source_object(name), "rows": rows})
+        self.query.record(principal, "admin:source", None, "allow", "ok", rows=len(datasets))
+        return {
+            "kind": tenant.connection.type,
+            "engine": connector.dialect.name,
+            "healthy": healthy,
+            "data_as_of": meta.data_as_of.isoformat() if meta.data_as_of else None,
+            "stale": meta.stale,
+            "stale_after_hours": tenant.policies.stale_after_hours,
+            "classification": tenant.data_classification,
+            "datasets": datasets,
+        }
+
+    def suggest_mapping(self, principal: Principal) -> dict[str, Any]:
+        """Suggestions for the current source, compared with the mapping in force (a second opinion, names only)."""
+        tenant = self.query.tenants.get(principal.tenant_id)
+        connector = self.query.connectors.get(principal.tenant_id)
+        result = suggest(read_tables(connector))
+        for row in result["datasets"]:
+            current = tenant.datasets.get(row["dataset"])
+            row["current_source"] = current.source if current else None
+            row["agrees"] = current is not None and (
+                current.source == row["source"]
+                and all(current.fields.get(k) in (None, v) for k, v in row["fields"].items())
+            )
+        self.query.record(principal, "admin:mapping_suggest", None, "allow", "ok", rows=len(result["datasets"]))
+        return result
+
+    def validation(self, principal: Principal) -> dict[str, Any]:
+        """Structural checks a mapping must pass before go-live: unique keys, no orphans, no missing required values."""
+        mapping = self.query.mapping(principal.tenant_id)
+        connector = self.query.connectors.get(principal.tenant_id)
+        checks = run_validation(mapping, connector)
+        self.query.record(principal, "admin:validation", None, "allow", "ok", rows=len(checks))
+        return {"passed": all(c["status"] != "issue" for c in checks), "checks": checks}
 
     def capabilities(self, principal: Principal) -> list[dict[str, Any]]:
         return capability_matrix(self.query.mapping(principal.tenant_id))

@@ -14,6 +14,7 @@ from typing import Any, Literal
 import sqlalchemy as sa
 from sqlalchemy.sql.elements import ColumnElement
 
+from lumiant.analyses.cache import cached
 from lumiant.auth.principal import Principal
 from lumiant.core.errors import AppError, ForbiddenError
 from lumiant.query.compiler import ExactDecimal
@@ -48,7 +49,29 @@ class BelowReorderFilters:
     stages: tuple[str, ...] = ()
 
 
+SHARED_ROWS = 12  # rows the Overview panel shows; the KPI, data quality and insights ask for the same page
+
+
 def run_below_reorder(
+    query: QueryService,
+    principal: Principal,
+    filters: BelowReorderFilters,
+    *,
+    limit: int,
+    offset: int,
+    mode: Literal["below", "excess"] = "below",
+) -> QueryResult:
+    """Below-reorder (or excess) pairs; identical requests in the same scope share one run (`analyses.cache`)."""
+    return cached(
+        query,
+        principal,
+        "below_reorder" if mode == "below" else "excess_stock",
+        (filters, limit, offset),
+        lambda: _run_below_reorder(query, principal, filters, limit=limit, offset=offset, mode=mode),
+    )
+
+
+def _run_below_reorder(
     query: QueryService,
     principal: Principal,
     filters: BelowReorderFilters,

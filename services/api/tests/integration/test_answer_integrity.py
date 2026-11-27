@@ -3,7 +3,9 @@ text a model wrote without running a tool cannot carry numbers to the user."""
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -22,7 +24,7 @@ from lumiant.core.errors import AppError
 from lumiant.insights import engine
 from lumiant.insights.engine import Insight, InsightService
 from lumiant.main import create_app
-from lumiant.query.service import QueryService
+from lumiant.query.service import QueryService, TenantMeta
 from lumiant.tenancy.registry import TenantRegistry
 from tests.helpers import app_db_url, raw_duckdb
 
@@ -47,6 +49,27 @@ def truth(alpha_db: Path, as_of: str, days: int = 60) -> tuple[int, int]:
     return int(row[0]), int(row[1])
 
 
+def truth_lots(alpha_db: Path, as_of: str, days: int = 60) -> tuple[int, int]:
+    """(expired, expiring within `days`) lots, each item and lot once, from independent SQL."""
+    con = raw_duckdb(alpha_db)
+    row = con.execute(
+        """
+        SELECT count(*) FILTER (WHERE VFDAT < ?::DATE),
+               count(*) FILTER (WHERE VFDAT >= ?::DATE AND VFDAT <= ?::DATE + to_days(?))
+        FROM (SELECT DISTINCT s.MATNR, s.CHARG, b.VFDAT
+              FROM ZV_STOCK s JOIN ZV_BATCH b USING (CHARG) WHERE s.LABST > 0)
+        """,
+        [as_of, as_of, as_of, days],
+    ).fetchone()
+    con.close()
+    assert row is not None
+    return int(row[0]), int(row[1])
+
+
+def _plural(n: int, one: str, many: str) -> str:
+    return f"{n} {one if n == 1 else many}"
+
+
 # ------------------------------------------------------------------------------------------- counts survive limits
 @pytest.mark.parametrize("limit", [1, 2, 200])
 def test_expiring_summary_does_not_depend_on_the_row_limit(
@@ -58,6 +81,20 @@ def test_expiring_summary_does_not_depend_on_the_row_limit(
     assert (res.summary or {})["expired"] == expired
     assert (res.summary or {})["expiring"] == expiring
     assert len(res.rows) == min(limit, expired + expiring)
+    expired_lots, expiring_lots = truth_lots(alpha_db, res.provenance["parameters"]["as_of"])
+    assert (res.summary or {})["expired_lots"] == expired_lots
+    assert (res.summary or {})["expiring_lots"] == expiring_lots
+
+
+def test_lots_are_not_stock_lines(
+    query_service: QueryService, principals: dict[str, Principal], alpha_db: Path
+) -> None:
+    """ISSUES #45: one lot held in several places is one lot, so lot counts never exceed line counts."""
+    res = run_expiring(query_service, principals["alpha.admin"], days=3650, limit=1)
+    s = res.summary or {}
+    as_of = res.provenance["parameters"]["as_of"]
+    assert (s["expired_lots"], s["expiring_lots"]) == truth_lots(alpha_db, as_of, 3650)
+    assert s["expired_lots"] + s["expiring_lots"] <= s["expired"] + s["expiring"]
 
 
 def test_expiring_insight_reports_the_true_counts(
@@ -66,8 +103,10 @@ def test_expiring_insight_reports_the_true_counts(
     feed = InsightService(query_service).feed(principals["alpha.admin"], fresh=True)
     card = next(i for i in feed["insights"] if i["id"] == "expiring_lots")
     as_of = run_expiring(query_service, principals["alpha.admin"], days=60, limit=1).provenance["parameters"]["as_of"]
-    expired, expiring = truth(alpha_db, as_of)
+    expired, expiring = truth_lots(alpha_db, as_of)
     assert [m["value"] for m in card["metrics"]] == [expired, expiring]
+    lines = sum(truth(alpha_db, as_of))
+    assert f"{lines} stock line" in card["detail"]
 
 
 def test_expiring_answer_reports_the_true_counts_and_says_the_table_is_partial(
@@ -78,7 +117,12 @@ def test_expiring_answer_reports_the_true_counts_and_says_the_table_is_partial(
     )
     as_of = out["provenance"][0]["parameters"]["as_of"]
     expired, expiring = truth(alpha_db, as_of, 3650)
-    assert out["answer"].startswith(f"{expired} lots on hand have already expired and {expiring} more")
+    expired_lots, expiring_lots = truth_lots(alpha_db, as_of, 3650)
+    has = "has" if expired_lots == 1 else "have"
+    assert out["answer"].startswith(
+        f"{_plural(expired_lots, 'lot', 'lots')} on hand {has} already expired "
+        f"({_plural(expired, 'stock line', 'stock lines')}) and {expiring_lots} more"
+    )
     assert out["grounding"]["passed"]
     if expired + expiring > 15:
         assert "first 15" in out["answer"]
@@ -89,6 +133,7 @@ def test_expiring_scope_applies_to_the_counts(query_service: QueryService, princ
     scoped = run_expiring(query_service, principals["alpha.analyst"], days=3650, limit=1)
     admin, analyst = everyone.summary or {}, scoped.summary or {}
     assert analyst["expired"] + analyst["expiring"] < admin["expired"] + admin["expiring"]
+    assert analyst["expired_lots"] + analyst["expiring_lots"] < admin["expired_lots"] + admin["expiring_lots"]
 
 
 # ------------------------------------------------------------------------------------------- failure is not good news
@@ -230,6 +275,42 @@ def test_built_in_clarifications_keep_their_numbers(
     assert out["grounding"]["passed"] is True
 
 
+# ------------------------------------------------------------------------------------------- stale data is said
+def _with_freshness(query_service: QueryService, monkeypatch: pytest.MonkeyPatch, *, stale: bool) -> None:
+    real = query_service.tenant_meta
+
+    def patched(tenant_id: str) -> TenantMeta:
+        meta = real(tenant_id)
+        as_of = datetime(2026, 1, 1, tzinfo=UTC) if stale else datetime.now(UTC)
+        return dataclasses.replace(meta, data_as_of=as_of, stale=stale)
+
+    monkeypatch.setattr(query_service, "tenant_meta", patched)
+
+
+@pytest.mark.parametrize("stale", [True, False])
+def test_insight_feed_says_when_data_is_stale(
+    query_service: QueryService, principals: dict[str, Principal], monkeypatch: pytest.MonkeyPatch, stale: bool
+) -> None:
+    """ISSUES #47: the feed carries the data timestamp and a stale warning, even when served from its cache."""
+    _with_freshness(query_service, monkeypatch, stale=stale)
+    service = InsightService(query_service)
+    for fresh in (True, False):  # computed, then cached
+        feed = service.feed(principals["alpha.admin"], fresh=fresh)
+        assert feed["data_as_of"] is not None
+        assert [w["code"] for w in feed["warnings"]] == (["stale_data"] if stale else [])
+
+
+def test_answer_says_once_when_data_is_stale(
+    query_service: QueryService, principals: dict[str, Principal], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ISSUES #47: an answer with figures warns about stale data exactly once, also for roles without cost access."""
+    _with_freshness(query_service, monkeypatch, stale=True)
+    for user in ("alpha.admin", "alpha.analyst"):
+        out = AgentService(query_service, SETTINGS).chat(principals[user], "How many items do we have?")
+        assert out["tool_calls"], out["answer"]
+        assert [w["code"] for w in out["warnings"]].count("stale_data") == 1
+
+
 # ------------------------------------------------------------------------------------------- HTTP
 @pytest.fixture(scope="module")
 def client(data_dir: Path, tmp_path_factory: pytest.TempPathFactory) -> Iterator[TestClient]:
@@ -251,3 +332,22 @@ def test_insights_endpoint_states_completeness(client: TestClient) -> None:
     body = client.get("/api/insights?fresh=true").json()
     assert body["complete"] is True
     assert body["failed"] == []
+
+
+# ------------------------------------------------------------------------------------------- ISSUES #61
+def test_a_named_warehouse_narrows_risk_answers(query_service: QueryService, principals: dict[str, Principal]) -> None:
+    whole = run_expiring(query_service, principals["alpha.admin"], days=3650, limit=1)
+    one = run_expiring(query_service, principals["alpha.admin"], days=3650, limit=1, warehouse_id="3100")
+    scoped = run_expiring(query_service, principals["alpha.analyst"], days=3650, limit=1)  # analyst sees only 3100
+    assert one.summary == scoped.summary
+    assert (one.summary or {})["expiring"] + (one.summary or {})["expired"] < (whole.summary or {})["expiring"] + (
+        whole.summary or {}
+    )["expired"]
+    with pytest.raises(AppError) as exc:
+        run_expiring(query_service, principals["alpha.analyst"], days=60, limit=1, warehouse_id="1100")
+    assert exc.value.code == "forbidden_scope"
+    out = AgentService(query_service, SETTINGS).chat(
+        principals["alpha.admin"], "Which lots are expiring in warehouse 3100?"
+    )
+    assert out["tool_calls"][0]["args"].get("warehouse_id") == "3100"
+    assert "in warehouse 3100" in out["answer"]

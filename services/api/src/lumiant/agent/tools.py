@@ -32,6 +32,9 @@ class ToolContext:
     principal: Principal
     context: ChatContext | None = None  # validated screen context (agent/context.py); narrows, never widens
     history: list[HistoryTurn] = field(default_factory=list)
+    # Set only when an approved external provider can embed text (knowledge search); keyword search otherwise.
+    embedder: Callable[[list[str], str], list[list[float]]] | None = None
+    embed_key: str = "default"
 
 
 @dataclass
@@ -95,8 +98,16 @@ class ConcentrationArgs(NarrowArgs):
     target_pct: int = Field(default=80, ge=50, le=95, description="Share of value to explain, in percent")
 
 
-class DaysArgs(_Args):
+class WarehouseArgs(_Args):
+    warehouse_id: FilterCode | None = Field(default=None, description="Only this warehouse (inside the user's scope)")
+
+
+class DaysArgs(WarehouseArgs):
     days: int = Field(default=270, ge=1, le=3650, description="Window in days")
+
+
+def _in_wh(warehouse_id: str | None) -> str:
+    return f" in warehouse {warehouse_id}" if warehouse_id else ""
 
 
 @dataclass(frozen=True)
@@ -306,12 +317,11 @@ def stock_by(ctx: ToolContext, a: StockByArgs) -> ToolOutput:
     else:
         top = rows[0]
         units = sorted({str(r[unit_key]) for r in rows})
-        lead = (
-            f"Of the selected {label.lower()}s{where}, the highest" if a.only else f"The highest {label.lower()}{where}"
-        )
         shown = _money(top[unit_key], top["total"]) if valued else f"{_quantity(top['total'])} {top[unit_key]}"
         name = top.get(label_key) or (top.get("warehouse_id") if a.dimension == "warehouse" else None)
-        answer = f"{lead} is {name or 'not set'} with {shown}."
+        subject = name or f"Stock with no {label.lower()} set"
+        holds = f"holds the most {'value' if valued else 'stock'}{where}: {shown}"
+        answer = f"Of the selected {label.lower()}s, {subject} {holds}." if a.only else f"{subject} {holds}."
         if len(units) > 1:
             answer += f" Results are shown separately per {'currency' if valued else 'unit'} ({', '.join(units)}) and never added together."
     blocks = [
@@ -378,11 +388,12 @@ _ITEM = _col("item_code", "Item")
 _DESC = _col("description", "Description")
 
 
-def below_reorder(ctx: ToolContext, a: NoArgs) -> ToolOutput:
-    res = run_below_reorder(ctx.query, ctx.principal, BelowReorderFilters(), limit=15, offset=0)
+def below_reorder(ctx: ToolContext, a: WarehouseArgs) -> ToolOutput:
+    filters = BelowReorderFilters(warehouses=(a.warehouse_id,) if a.warehouse_id else ())
+    res = run_below_reorder(ctx.query, ctx.principal, filters, limit=15, offset=0)
     s = res.summary or {}
     rows = res.payload()["data"]
-    answer = f"{s['flagged']} item–warehouse pairs are below their reorder level."
+    answer = f"{s['flagged']} item–warehouse pairs{_in_wh(a.warehouse_id)} are below their reorder level."
     if rows:
         r = rows[0]
         answer += (
@@ -404,11 +415,12 @@ def below_reorder(ctx: ToolContext, a: NoArgs) -> ToolOutput:
     )
 
 
-def excess_stock(ctx: ToolContext, a: NoArgs) -> ToolOutput:
-    res = run_below_reorder(ctx.query, ctx.principal, BelowReorderFilters(), limit=15, offset=0, mode="excess")
+def excess_stock(ctx: ToolContext, a: WarehouseArgs) -> ToolOutput:
+    filters = BelowReorderFilters(warehouses=(a.warehouse_id,) if a.warehouse_id else ())
+    res = run_below_reorder(ctx.query, ctx.principal, filters, limit=15, offset=0, mode="excess")
     s = res.summary or {}
     rows = res.payload()["data"]
-    answer = f"{s['flagged']} item–warehouse pairs hold more than their maximum stock policy."
+    answer = f"{s['flagged']} item–warehouse pairs{_in_wh(a.warehouse_id)} hold more than their maximum stock policy."
     if rows:
         answer += (
             f" The largest is {rows[0]['item_code']} in {rows[0]['warehouse_id']}: {_quantity(rows[0]['on_hand'])} on "
@@ -426,11 +438,9 @@ def excess_stock(ctx: ToolContext, a: NoArgs) -> ToolOutput:
 
 
 def dormant(ctx: ToolContext, a: DaysArgs) -> ToolOutput:
-    res = run_dormant(ctx.query, ctx.principal, days=a.days, limit=15, offset=0)
+    res = run_dormant(ctx.query, ctx.principal, days=a.days, limit=15, offset=0, warehouse_id=a.warehouse_id)
     s = res.summary or {}
-    answer = (
-        f"{s['flagged']} item–warehouse pairs have stock but no issue in the last {a.days} days (as of {s['as_of']})."
-    )
+    answer = f"{s['flagged']} item–warehouse pairs{_in_wh(a.warehouse_id)} have stock but no issue in the last {a.days} days (as of {s['as_of']})."
     cols = [
         _ITEM,
         _DESC,
@@ -442,10 +452,22 @@ def dormant(ctx: ToolContext, a: DaysArgs) -> ToolOutput:
     return _analysis_output("dormant", f"Stock with no issue in {a.days} days", res, cols, answer)
 
 
+def _lots(n: int) -> str:
+    return f"{n} lot" if n == 1 else f"{n} lots"
+
+
+def _lines(n: int) -> str:
+    return f"{n} stock line" if n == 1 else f"{n} stock lines"
+
+
 def expiring_lots(ctx: ToolContext, a: DaysArgs) -> ToolOutput:
-    res = run_expiring(ctx.query, ctx.principal, days=min(a.days, 3650), limit=15)
+    res = run_expiring(ctx.query, ctx.principal, days=min(a.days, 3650), limit=15, warehouse_id=a.warehouse_id)
     s = res.summary or {}
-    answer = f"{s['expired']} lots on hand have already expired and {s['expiring']} more expire within {a.days} days."
+    answer = (
+        f"{_lots(s['expired_lots'])} on hand{_in_wh(a.warehouse_id)} {'has' if s['expired_lots'] == 1 else 'have'} already expired "
+        f"({_lines(s['expired'])}) and {s['expiring_lots']} more {'expires' if s['expiring_lots'] == 1 else 'expire'} "
+        f"within {a.days} days ({_lines(s['expiring'])})."
+    )
     if res.truncated:
         answer += f" The table shows the first {len(res.rows)}."
     cols = [
@@ -597,7 +619,7 @@ def inventory_summary(ctx: ToolContext, a: NoArgs) -> ToolOutput:
     items = items_res.rows[0]["items"] if items_res.rows else 0
     lines = lines_res.rows[0]["lines"] if lines_res.rows else 0
     blocks: list[Block] = []
-    warnings: list[dict[str, str]] = []
+    warnings: list[dict[str, str]] = _warn(items_res) + _warn(lines_res)
     data: dict[str, Any] = {"items_in_stock": to_json_value(items), "stock_lines": to_json_value(lines)}
     provenance = items_res.payload()["provenance"]
     counts = f"{_quantity(items)} items in stock across {_quantity(lines)} stock lines"
@@ -607,7 +629,7 @@ def inventory_summary(ctx: ToolContext, a: NoArgs) -> ToolOutput:
         values = [r for r in payload["data"] if r.get("value") is not None]
         data["value"] = values
         provenance = payload["provenance"]
-        warnings = _warn(value_res)
+        warnings += _warn(value_res)
         if values:
             shown = " and ".join(_money(r.get("currency"), r["value"]) for r in values)
             answer = f"Your inventory is worth {shown}, with {counts}."
@@ -761,14 +783,14 @@ TOOLS: dict[str, ToolDef] = {
         ToolDef(
             "below_reorder",
             "Items below their customer-defined reorder level.",
-            NoArgs,
+            WarehouseArgs,
             (Permission.INVENTORY_READ,),
             below_reorder,
         ),
         ToolDef(
             "excess_stock",
             "Items above their customer-defined maximum stock.",
-            NoArgs,
+            WarehouseArgs,
             (Permission.INVENTORY_READ,),
             excess_stock,
         ),
@@ -832,3 +854,8 @@ def decimal_sum(rows: list[dict[str, Any]], key: str) -> Decimal:
 from lumiant.agent.planning_tools import PLANNING_TOOLS  # noqa: E402
 
 TOOLS.update({t.name: t for t in PLANNING_TOOLS})  # type: ignore[has-type]
+
+# Data and knowledge tools register themselves into TOOLS when their module finishes loading, whichever of the
+# two modules is imported first; importing them here guarantees they are loaded with the catalog.
+import lumiant.agent.data_tools  # noqa: E402
+import lumiant.agent.knowledge_tools  # noqa: E402, F401

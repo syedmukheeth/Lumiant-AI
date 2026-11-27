@@ -13,21 +13,28 @@ from lumiant.agent.service import AgentService
 from lumiant.api import (
     admin,
     agent,
+    alerts,
     analyses,
     auth,
     health,
     insights,
     inventory,
+    items,
+    keys,
+    mcp,
     meta,
     metrics,
     planning,
+    public,
     query,
     reports,
+    views,
 )
 from lumiant.audit.store import AuditStore, run_migrations
 from lumiant.auth.oidc import OidcAuthProvider
 from lumiant.auth.provider import DevAuthProvider
 from lumiant.connectors.registry import ConnectorRegistry
+from lumiant.connectors.secret_store import SourceSecretStore
 from lumiant.container import Container
 from lumiant.core.config import AuthMode, Settings, get_settings
 from lumiant.core.errors import install_error_handlers
@@ -50,7 +57,7 @@ def build_container(settings: Settings) -> Container:
     if settings.auto_migrate:
         run_migrations(settings.app_db_url)
     audit = AuditStore(settings.app_db_url)
-    connectors = ConnectorRegistry(tenants, settings.data_dir)
+    connectors = ConnectorRegistry(tenants, settings.data_dir, SourceSecretStore(audit.engine))
     query_service = QueryService(tenants, connectors, audit)
     reports = ReportService(query_service)
     return Container(
@@ -92,6 +99,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.container = container
     app.add_middleware(RequestContextMiddleware)
     install_error_handlers(app)
-    for module in (health, auth, meta, metrics, inventory, analyses, agent, insights, reports, admin, query, planning):
+    for module in (
+        health,
+        auth,
+        meta,
+        metrics,
+        inventory,
+        items,
+        analyses,
+        agent,
+        insights,
+        reports,
+        admin,
+        query,
+        planning,
+        public,
+        views,
+        keys,
+        alerts,
+        mcp,
+    ):
         app.include_router(module.router)
     return app

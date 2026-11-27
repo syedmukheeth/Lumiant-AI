@@ -82,7 +82,7 @@ export function Panel({
 }) {
   return (
     <section
-      className={clsx("rise panel flex min-w-0 flex-col p-4 transition-colors hover:border-line-strong sm:p-5", className)}
+      className={clsx("rise panel flex min-w-0 flex-col p-5 transition-colors hover:border-line-strong sm:p-6", className)}
       style={style}
       aria-label={title}
       {...(analyze ? analyzableProps(analyze) : {})}
@@ -96,7 +96,7 @@ export function Panel({
           : undefined
       }
     >
-      <header className="mb-4 flex items-start justify-between gap-3">
+      <header className="mb-5 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-title font-semibold text-ink">{title}</h2>
           {subtitle && <p className="mt-0.5 text-xs text-ink-3">{subtitle}</p>}

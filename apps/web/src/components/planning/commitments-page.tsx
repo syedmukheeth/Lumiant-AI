@@ -16,7 +16,7 @@ const money = (v: string | null | undefined, cur: string) => (v === null || v ==
 
 function AtRiskList({ rows, selected, onSelect }: { rows: CommitmentAtRisk[]; selected: string | null; onSelect: (key: string) => void }) {
   if (!rows.length) {
-    return <p className="text-sm text-ink-2">Every open order line in your scope can be delivered on time — there is nothing to protect.</p>;
+    return <p className="text-sm text-ink-2">Every open order line in your scope can be delivered on time, so there is nothing to protect.</p>;
   }
   return (
     <DataTable minWidth="52rem">
@@ -125,7 +125,7 @@ function OptionsTable({ a }: { a: CommitmentAnalysis }) {
             <Td align="right">{o.total_cost ? <span className="figure">{formatMoney(o.total_cost, o.currency)}</span> : <span className="text-xs text-ink-3">price unknown</span>}</Td>
             <Td align="right">
               {o.incremental_cost === null ? (
-                <span className="text-ink-3">—</span>
+                <span className="text-ink-3">–</span>
               ) : (
                 <span className={Number(o.incremental_cost) > 0 ? "figure text-signal" : "figure"}>
                   {Number(o.incremental_cost) > 0 ? "+" : ""}{formatMoney(o.incremental_cost, o.currency)}
@@ -150,7 +150,7 @@ function Analysis({ a }: { a: CommitmentAnalysis }) {
         <Stat label="Margin at stake" value={money(e.margin_value, cur) ?? "not provided"} />
         <Stat
           label="Delivery-first premium"
-          value={money(e.premium, cur) ?? "—"}
+          value={money(e.premium, cur) ?? "–"}
           hint={e.premium_pct_of_margin !== null ? `${formatNumber(e.premium_pct_of_margin, { maxFraction: 1 })}% of the margin` : undefined}
           tone={e.premium !== null && Number(e.premium) > 0 ? "signal" : undefined}
         />
@@ -199,7 +199,7 @@ function Analysis({ a }: { a: CommitmentAnalysis }) {
           {e.missing.length > 0 && <p className="text-xs text-signal">Not calculated because data is missing: {e.missing.join("; ")}.</p>}
           {a.limitations.map((l) => <p key={l} className="text-xs text-ink-3">{l}</p>)}
           <PlanningIssues issues={a.issues} />
-          <RecommendationNote>Recommendation for a buyer to approve — no purchase order is created, and no customer date is changed.</RecommendationNote>
+          <RecommendationNote>Recommendation for a buyer to approve: no purchase order is created, and no customer date is changed.</RecommendationNote>
         </div>
       </Panel>
     </div>
@@ -215,10 +215,10 @@ export function CommitmentsPage() {
   const selected = params.get("order") ?? byValue[0]?.key ?? null;
   const detail = useCommitment(list.data ? selected : null);
   return (
-    <div className="mx-auto max-w-[96rem] space-y-5">
+    <div className="mx-auto max-w-[96rem] space-y-8">
       <PageHeader
         title="Commitment protection"
-        description="Delivery-first procurement for late customer orders: which supplier or split still meets the customer date across supplier lead time, receiving, production and shipping — what it costs against the cheapest eligible offer, and the revenue, margin and penalties at stake."
+        description="Delivery-first procurement for late customer orders: which supplier or split still meets the customer date across supplier lead time, receiving, production and shipping: what it costs against the cheapest eligible offer, and the revenue, margin and penalties at stake."
       />
       <Panel title="Customer order lines at risk" subtitle="Open lines the current plan delivers late or cannot date, highest order value first. Select one to compare sourcing options.">
         {list.isPending ? <Skeleton className="h-40 w-full" /> : list.error ? <ErrorState error={list.error} /> : (

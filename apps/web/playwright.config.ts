@@ -1,9 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 
 // The e2e stack is isolated from the dev stack: its own ports, its own freshly generated synthetic data
-// and app DB under services/api/var/e2e, and a production build of the web app.
-const API_PORT = 8100;
-const WEB_PORT = 3100;
+// and app DB under services/api/var/e2e, and a production build of the web app. Set LUMIANT_E2E_API_PORT /
+// LUMIANT_E2E_WEB_PORT when another program already uses 8100 or 3100 on the machine.
+const API_PORT = Number(process.env.LUMIANT_E2E_API_PORT ?? 8100);
+const WEB_PORT = Number(process.env.LUMIANT_E2E_WEB_PORT ?? 3100);
 
 export default defineConfig({
   testDir: "./e2e",

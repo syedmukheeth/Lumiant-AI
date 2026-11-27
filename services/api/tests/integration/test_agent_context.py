@@ -254,7 +254,8 @@ def with_provider(agent: AgentService, provider: Any) -> AgentService:
 
 def test_gemini_declarations_are_clean_json_schema() -> None:
     decl = {d["name"]: d for d in (gemini_declaration(t) for t in TOOLS.values())}
-    assert "parameters_json_schema" not in decl["below_reorder"]  # no-argument tools declare no parameters
+    assert "parameters_json_schema" not in decl["data_quality"]  # no-argument tools declare no parameters
+    assert "parameters_json_schema" in decl["below_reorder"]  # it takes an optional warehouse since ISSUES #61
     schema = decl["stock_by"]["parameters_json_schema"]
     assert "title" not in json.dumps(schema)
     assert "additionalProperties" not in json.dumps(schema)

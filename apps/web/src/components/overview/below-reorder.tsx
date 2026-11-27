@@ -7,9 +7,9 @@ import { Pager } from "@/components/data/pager";
 import { CodeName, DataTable, HeadRow, Td, Th, Tr } from "@/components/ui/table";
 import { enterDelay } from "@/lib/motion";
 import { formatNumber, formatQuantity } from "@/lib/format";
-import { useBelowReorder } from "@/lib/hooks";
+import { OVERVIEW_BELOW_REORDER, useBelowReorder } from "@/lib/hooks";
 
-const PAGE = 12;
+const PAGE = OVERVIEW_BELOW_REORDER.limit;
 
 function Coverage({ pct }: { pct: number }) {
   const width = Math.max(0, Math.min(100, pct));
@@ -64,7 +64,7 @@ export function BelowReorderPanel() {
                     <span className="code text-xs">{r.warehouse_id}</span>
                     <span className="block truncate text-xs text-ink-3">{r.warehouse_name}</span>
                   </Td>
-                  <Td>{r.abc_class ?? "—"}</Td>
+                  <Td>{r.abc_class ?? "–"}</Td>
                   <Td align="right" className="figure">
                     {formatQuantity(r.on_hand as string, String(r.uom ?? ""))}
                   </Td>

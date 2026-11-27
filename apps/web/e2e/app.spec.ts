@@ -3,7 +3,7 @@ import { expect, type Page, test } from "@playwright/test";
 async function signIn(page: Page, username: string) {
   await page.context().clearCookies();
   await page.goto("/login");
-  await expect(page.getByText("Development authentication — not for production")).toBeVisible();
+  await expect(page.getByText("Development authentication, not for production")).toBeVisible();
   await page.getByTestId(`login-${username}`).click();
   await page.waitForURL("**/overview");
   // Wait until the overview has data so the router is settled before the next interaction.
@@ -22,12 +22,26 @@ test("unauthenticated visitors are sent to the login page", async ({ page }) => 
   await expect(page).toHaveURL(/\/login$/);
 });
 
+test("visitors see the public landing page and can reach sign-in", async ({ page }) => {
+  await page.context().clearCookies();
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1, name: /Know every unit/ })).toBeVisible();
+  await expect(page.getByText("Sample data").first()).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+  await page.getByTestId("landing-sign-in").click();
+  await expect(page).toHaveURL(/\/login$/);
+});
+
 test("admin sees labelled synthetic data, values and provenance", async ({ page }) => {
   await signIn(page, "alpha.admin");
   await expect(page.getByTestId("synthetic-badge").first()).toBeVisible();
   await expect(page.getByTestId("data-as-of")).not.toContainText("unknown");
   await expect(page.getByTestId("kpi-value")).toContainText("USD");
   await expect(page.getByTestId("kpi-below")).toContainText(/\d/);
+  // Command centre trend: the "Now" point is today's value, printed exactly as the KPI.
+  const kpiValue = (await page.getByTestId("kpi-value").locator(".figure").first().textContent())?.trim() ?? "";
+  await expect(page.getByTestId("value-trend")).toContainText(kpiValue);
 
   const chart = page.getByRole("region", { name: "Value by warehouse" });
   await expect(chart.locator(".recharts-bar-rectangle").first()).toBeVisible();
@@ -198,7 +212,17 @@ test("a role without export or cost access sees a reduced menu and cannot export
 test("admin: schema check, capability matrix, reconciliation gate and audit log", async ({ page }) => {
   await signIn(page, "alpha.admin");
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Admin" }).click();
+  await expect(page.getByTestId("source-status")).toContainText("Answering");
+  await page.getByTestId("source-url").fill("firebird://reader:secret@host/erp");
+  await page.getByTestId("source-test").click();
+  await expect(page.getByTestId("source-result")).toContainText("Supported databases");
+  await expect(page.getByTestId("source-result")).not.toContainText("secret");
+  await page.getByRole("tab", { name: "Connection and schema" }).click();
   await expect(page.getByTestId("schema-result")).toContainText("Mapping matches the source");
+  await page.getByRole("tab", { name: "Mapping" }).click();
+  await expect(page.getByText(/10 of 10 mapped datasets agree/)).toBeVisible();
+  await page.getByRole("tab", { name: "Validation" }).click();
+  await expect(page.getByTestId("validation-result")).toContainText("All structural checks passed");
   await page.getByRole("tab", { name: "Capabilities" }).click();
   await expect(page.getByTestId("capabilities")).toContainText("Below-reorder analysis");
 
@@ -461,4 +485,87 @@ test("the next user in the same tab sees nothing from the Analyst of the last on
   await expect(dock).toBeVisible();
   await expect(dock).not.toContainText("USD");
   await expect(dock.getByTestId("analyst-answer")).toHaveCount(0);
+});
+
+test("material 360: an item opens with its stock, lots and movements, and closes with Esc", async ({ page }) => {
+  await signIn(page, "alpha.admin");
+  await openInventory(page);
+  await page.getByTestId("open-item").first().click();
+  const sheet = page.getByTestId("item-sheet");
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole("heading", { name: "Stock by warehouse" })).toBeVisible();
+  await expect(sheet.getByRole("heading", { name: "Latest movements" })).toBeVisible();
+  await expect(sheet.locator("tbody tr").first()).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+});
+
+test("risks: stock ageing shows every bucket, with values only for cost roles", async ({ page }) => {
+  await signIn(page, "alpha.admin");
+  await page.goto("/risks");
+  const ageing = page.getByTestId("ageing");
+  await expect(ageing).toContainText("Over 365 days");
+  await expect(ageing).toContainText("Never issued");
+  await expect(ageing).toContainText("USD");
+  await signIn(page, "alpha.analyst");
+  await page.goto("/risks");
+  await expect(page.getByTestId("ageing")).toContainText("pairs");
+  await expect(page.getByTestId("ageing")).not.toContainText("USD");
+});
+
+test("settings: theme choice applies at once and is remembered; account shows roles and scope", async ({ page }) => {
+  await signIn(page, "alpha.analyst");
+  await page.getByTestId("settings-link").click();
+  await page.waitForURL("**/settings");
+  await expect(page.getByTestId("account")).toContainText("3100");
+  await page.getByRole("radio", { name: /Dark/ }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.getByRole("radio", { name: /Dark/ })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("radio", { name: /Light/ }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+});
+
+test("integrations: an API key is shown once and listed; alerts explain a missing master key", async ({ page }) => {
+  await signIn(page, "alpha.admin");
+  await page.goto("/admin");
+  await page.getByRole("tab", { name: "Integrations" }).click();
+  await page.getByTestId("key-name").fill("e2e key");
+  await page.getByTestId("key-create").click();
+  await expect(page.getByTestId("key-created")).toContainText("lmk_");
+  await expect(page.getByTestId("key-list")).toContainText("e2e key");
+  await expect(page.getByText('"url"')).toBeVisible(); // MCP client configuration
+  await page.getByLabel("Rule name").fill("e2e rule");
+  await page.getByLabel("Webhook address").fill("http://127.0.0.1:9/hook");
+  await page.getByRole("button", { name: "Add rule" }).click();
+  await expect(page.getByText(/master key/)).toBeVisible(); // the e2e server has no LUMIANT_SECRET_KEY
+});
+
+test("getting started: shown on a first visit and gone for good once dismissed", async ({ page }) => {
+  await signIn(page, "alpha.admin");
+  await page.evaluate(() => localStorage.removeItem("lumiant-welcome-dismissed"));
+  await page.reload();
+  await expect(page.getByTestId("welcome")).toBeVisible();
+  await page.getByRole("button", { name: "Dismiss getting started" }).click();
+  await expect(page.getByTestId("welcome")).toBeHidden();
+  await page.reload();
+  await expect(page.getByTestId("kpi-items")).toContainText(/\d/);
+  await expect(page.getByTestId("welcome")).toBeHidden();
+});
+
+test("saved views: name the current filters and reopen them later", async ({ page }) => {
+  await signIn(page, "alpha.admin");
+  await openInventory(page);
+  await page.getByLabel("Warehouse").selectOption("1100");
+  await page.waitForURL(/warehouse=1100/);
+  await page.getByRole("button", { name: "Save view" }).click();
+  await page.getByLabel("View name").fill("North plant 1100");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.goto("/inventory");
+  await expect(page).not.toHaveURL(/warehouse=/);
+  await page.getByLabel("Saved views").selectOption({ label: "North plant 1100" });
+  await page.waitForURL(/warehouse=1100/);
+  await page.getByRole("button", { name: "Delete this saved view" }).click();
+  await expect(page.getByLabel("Saved views")).toHaveCount(0);
 });

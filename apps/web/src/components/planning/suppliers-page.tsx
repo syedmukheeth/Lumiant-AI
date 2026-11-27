@@ -43,7 +43,7 @@ function OfferRow({ o, best }: { o: SupplierOfferView; best: boolean }) {
         </div>
       </Td>
       <Td align="right">
-        {o.effective_unit_cost ? <span className="figure">{formatMoney(o.effective_unit_cost, o.currency)}</span> : <span className="text-ink-3">—</span>}
+        {o.effective_unit_cost ? <span className="figure">{formatMoney(o.effective_unit_cost, o.currency)}</span> : <span className="text-ink-3">–</span>}
         {o.unit_price && o.landed_unit_cost !== o.unit_price && (
           <span className="block text-xs text-ink-3">price {formatMoney(o.unit_price, o.currency)}</span>
         )}
@@ -60,7 +60,7 @@ function OfferRow({ o, best }: { o: SupplierOfferView; best: boolean }) {
       <Td align="right">{pct(o.rejection_pct, o.evidence_lots)}</Td>
       <Td align="right">{pct(o.on_time_pct, o.evidence_lots)}</Td>
       <Td align="right">
-        {o.price_vs_last_pct === null ? <span className="text-ink-3">—</span> : (
+        {o.price_vs_last_pct === null ? <span className="text-ink-3">–</span> : (
           <span className={Number(o.price_vs_last_pct) > 0 ? "figure text-signal" : "figure"}>{Number(o.price_vs_last_pct) > 0 ? "+" : ""}{o.price_vs_last_pct}%</span>
         )}
       </Td>
@@ -86,10 +86,10 @@ export function SuppliersPage() {
   const { data, error, isFetching } = useSupplierComparison(query);
   const policy = POLICIES.find((p) => p.id === draft.policy)!;
   return (
-    <div className="mx-auto max-w-[96rem] space-y-5">
+    <div className="mx-auto max-w-[96rem] space-y-8">
       <PageHeader
         title="Supplier comparison"
-        description="Before a purchase order: is this supplier offering the right item at a reasonable landed cost, with an acceptable quality and delivery record, in time? Ranked by your policy — there is no universal winner."
+        description="Before a purchase order: is this supplier offering the right item at a reasonable landed cost, with an acceptable quality and delivery record, in time? Ranked by your policy: there is no universal winner."
       />
       <Panel title="What do you need?">
         <form
@@ -166,7 +166,7 @@ export function SuppliersPage() {
               Quality and on-time figures come from received deliveries of this item; fewer than 3 deliveries is shown as insufficient evidence, never a guessed score. Unknown freight or duty is listed, never treated as zero.
             </p>
             <PlanningIssues issues={data.issues} />
-            <RecommendationNote>Recommendation for review — no purchase order is created or approved, and no supplier sees another supplier&apos;s quote.</RecommendationNote>
+            <RecommendationNote>Recommendation for review: no purchase order is created or approved, and no supplier sees another supplier&apos;s quote.</RecommendationNote>
           </div>
         </Panel>
       ) : null)}

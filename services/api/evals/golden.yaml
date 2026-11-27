@@ -26,3 +26,24 @@
 - {user: alpha.admin, question: "Show me all A-category inventory items", tool: top_value_items, args: {abc_class: A, limit: 20}}
 - {user: alpha.admin, question: "Which items have the highest inventory value?", tool: top_value_items}
 - {user: alpha.admin, question: "Compare warehouses 1100 and 2100", tool: stock_by, args: {dimension: warehouse, only: ["1100", "2100"]}}
+# ISSUES #44: the grouping comes from "by X"; every other value the question names narrows the answer.
+- {user: alpha.admin, question: "Show inventory value by item group in warehouse 1100", tool: stock_by, args: {dimension: item_group, measure: value, warehouse_id: "1100"}}
+- {user: alpha.admin, question: "Inventory value by warehouse for item group FASTENERS", tool: stock_by, args: {dimension: warehouse, measure: value, item_group: FASTENERS}}
+- {user: alpha.admin, question: "Total inventory value in warehouse 1100", tool: stock_by, args: {dimension: warehouse, measure: value, warehouse_id: "1100"}}
+- {user: alpha.admin, question: "Value of raw materials by warehouse", tool: stock_by, args: {dimension: warehouse, measure: value, stage: RAW}}
+- {user: alpha.admin, question: "Show inventory value by storage location in warehouse 2100", tool: stock_by, args: {dimension: location, measure: value, warehouse_id: "2100"}}
+- {user: alpha.admin, question: "Highest value items in warehouse 1100", tool: top_value_items, args: {warehouse_id: "1100"}}
+- {user: alpha.admin, question: "A-category items in warehouse 2100", tool: top_value_items, args: {abc_class: A, warehouse_id: "2100"}}
+- {user: alpha.admin, question: "Which warehouse has the highest value?", tool: stock_by, args: {dimension: warehouse, measure: value}}
+- {user: alpha.admin, question: "Stock of 1111000004 in warehouse 1100", tool: stock_position, args: {item_id: "1111000004"}}
+- {user: alpha.admin, question: "Show blocked stock in warehouse 1100", kind: unsupported}
+- {user: delta.admin, question: "Stock of RM-IMPELLER by warehouse", tool: stock_position, args: {item_id: RM-IMPELLER}}
+- {user: delta.admin, question: "Inventory value by warehouse for item group PUMPS", tool: stock_by, args: {dimension: warehouse, measure: value, item_group: PUMPS}}
+- {user: delta.admin, question: "Show blocked stock in warehouse RYD1", tool: stock_by, args: {stock_status: blocked, warehouse_id: RYD1}}
+- {user: gamma.admin, question: "Show me all A-category items", kind: unsupported}
+# ISSUES #61: a named warehouse narrows the risk analyses too.
+- {user: alpha.admin, question: "Which items are below reorder level in warehouse 1100?", tool: below_reorder, args: {warehouse_id: "1100"}}
+- {user: alpha.admin, question: "Show excess stock in warehouse 2100", tool: excess_stock, args: {warehouse_id: "2100"}}
+- {user: alpha.admin, question: "Which lots expire in the next 90 days in warehouse 3100?", tool: expiring_lots, args: {days: 90, warehouse_id: "3100"}}
+- {user: alpha.admin, question: "Dormant stock in warehouse 1110", tool: dormant, args: {warehouse_id: "1110"}}
+- {user: alpha.admin, question: "Which items are below reorder level?", tool: below_reorder}

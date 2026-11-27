@@ -13,6 +13,7 @@ from pathlib import Path
 from lumiant.core.config import get_settings
 from lumiant.ingest.sap_exports import IntakeError, import_sap_exports
 from lumiant.synthetic import manufacturing
+from lumiant.synthetic.copy import copy_duckdb
 from lumiant.synthetic.generator import Generator
 from lumiant.synthetic.profiles import PROFILES
 from lumiant.synthetic.sap_twin import SAP_TWINS, write_twin_exports
@@ -80,10 +81,24 @@ def main(argv: list[str] | None = None) -> int:
     gen.add_argument("--as-of", type=date.fromisoformat, help="reference date (default: today, UTC)")
     gen.add_argument("--items", type=int)
     gen.add_argument("--months", type=int)
+    cp = sub.add_parser("copy", help="copy a generated warehouse into another SQL database (tests and demos only)")
+    cp.add_argument("--tenant", required=True)
+    cp.add_argument("--to", required=True, help="SQLAlchemy URL of the target database (it is overwritten)")
     args = parser.parse_args(argv)
 
     settings = get_settings()
     registry = TenantRegistry.load(settings.tenant_config_dir)
+    if args.command == "copy":
+        tenant = registry.get(args.tenant)
+        if not tenant.synthetic or tenant.connection.path is None:
+            print("only generated synthetic warehouses can be copied", file=sys.stderr)
+            return 2
+        source = settings.data_dir / tenant.connection.path
+        if not source.is_file():
+            print(f"generate {tenant.id} first: {source} is missing", file=sys.stderr)
+            return 2
+        print(json.dumps({"tenant": tenant.id, "rows": copy_duckdb(source, args.to)}, indent=2))
+        return 0
     as_of = args.as_of or datetime.now(UTC).date()
     known = PROFILES.keys() | SAP_TWINS.keys() | MANUFACTURING.keys()
     tenant_ids = [t.id for t in registry if t.synthetic and t.id in known] if args.all else [args.tenant]

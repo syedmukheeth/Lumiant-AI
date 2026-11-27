@@ -11,6 +11,7 @@ import type { SelectionKind } from "@/lib/agent";
 import { formatMoney, humanize, toChartNumber } from "@/lib/format";
 import { useMetric } from "@/lib/hooks";
 import { enterDelay } from "@/lib/motion";
+import { Treemap } from "@/components/viz/treemap";
 
 type Props = {
   metricId: string;
@@ -24,6 +25,8 @@ type Props = {
   index?: number;
   /** What a bar stands for; clicking it (or picking it in Lens mode) points the Analyst at that category. */
   selectKind?: SelectionKind;
+  /** `treemap` shows share of the whole (many categories); `bars` (default) ranks them. */
+  variant?: "bars" | "treemap";
 };
 
 type Datum = { label: string; value: number; exact: string; id: string };
@@ -43,7 +46,7 @@ function CategoryTick({ x, y, payload }: { x?: number | string; y?: number | str
  * Horizontal bars of a value metric. Amounts in different currencies are shown one currency at a time;
  * bar lengths use numbers for geometry only — every printed amount is the exact decimal string.
  */
-export function ValueBars({ metricId, title, labelField, codeField, humanizeLabels, index = 0, selectKind }: Props) {
+export function ValueBars({ metricId, title, labelField, codeField, humanizeLabels, index = 0, selectKind, variant = "bars" }: Props) {
   const [hover, setHover] = useState<number | null>(null);
   const { data, error, isPending } = useMetric(metricId);
   const currencies = useMemo(
@@ -99,6 +102,13 @@ export function ValueBars({ metricId, title, labelField, codeField, humanizeLabe
         <ErrorState error={error} />
       ) : rows.length === 0 ? (
         <p className="text-sm text-ink-3">No stock in your scope.</p>
+      ) : variant === "treemap" ? (
+        <Treemap
+          label={`${title}, ${currency ?? ""}: larger blocks hold more value`}
+          height={Math.min(340, Math.max(220, rows.length * 28))}
+          items={rows.map((r) => ({ id: r.id, label: r.label, value: r.value, exact: formatMoney(r.exact, currency) }))}
+          onSelect={selectKind ? (it) => it.id && analyze({ kind: selectKind, id: it.id, label: it.label }) : undefined}
+        />
       ) : (
         <div
           style={{ height: Math.max(140, rows.length * 34 + 24) }}

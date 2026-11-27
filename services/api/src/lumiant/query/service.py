@@ -134,7 +134,8 @@ class QueryService:
     ) -> QueryResult:
         vp = self.validate(plan, principal, action=action)
         mapping = self.mapping(principal.tenant_id)
-        stmt = compile_plan(vp, mapping)
+        dialect = self.connectors.get(principal.tenant_id).dialect.name
+        stmt = compile_plan(vp, mapping, dialect=dialect)
         fields = tuple(r.ref for r in vp.referenced_fields())
         raw = self.execute_select(
             principal, stmt, action=action, dataset=plan.dataset, fields=fields, fetch_limit=vp.limit + 1
@@ -143,7 +144,7 @@ class QueryService:
         if with_total:
             count = self.execute_select(
                 principal,
-                compile_plan(vp, mapping, count_only=True),
+                compile_plan(vp, mapping, count_only=True, dialect=dialect),
                 action=action,
                 dataset=plan.dataset,
                 fields=fields,

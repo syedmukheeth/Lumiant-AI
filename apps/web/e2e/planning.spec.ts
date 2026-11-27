@@ -6,7 +6,7 @@ import { expect, type Page, test } from "@playwright/test";
 async function signIn(page: Page, username: string) {
   await page.context().clearCookies();
   await page.goto("/login");
-  await expect(page.getByText("Development authentication — not for production")).toBeVisible();
+  await expect(page.getByText("Development authentication, not for production")).toBeVisible();
   await page.getByTestId(`login-${username}`).click();
   await page.waitForURL("**/overview");
 }

@@ -13,8 +13,9 @@ import yaml
 from fastapi.testclient import TestClient
 
 from lumiant.agent.grounding import ungrounded_numbers
-from lumiant.agent.providers import AnthropicProvider, build_provider, model_view
+from lumiant.agent.providers import AnthropicProvider, _by_dimension, build_provider, model_view
 from lumiant.agent.service import WITHHELD_ANSWER, AgentService
+from lumiant.agent.terminology import expand
 from lumiant.agent.tools import TOOLS, ToolDef, ToolOutput, _quantity, tools_for
 from lumiant.auth.principal import Principal
 from lumiant.core.config import BASE_DIR, Settings
@@ -92,6 +93,53 @@ def test_terminology_questions(agent: AgentService, principals: dict[str, Princi
     for key, value in case.get("args", {}).items():
         assert out["tool_calls"][0]["args"][key] == value, out["tool_calls"]
     assert out["answer"]
+
+
+@pytest.mark.parametrize(
+    ("question", "grouping"),
+    [
+        ("Show inventory value by item group in warehouse 1100", "item_group"),
+        ("Inventory value by warehouse for item group PUMPS", "warehouse"),
+        ("Value of raw materials by warehouse", "warehouse"),
+        ("Show stock in quality inspection by plant", "warehouse"),
+        ("Show stock by LGORT", "location"),
+        ("Show stock per stock status", "stock_status"),
+        ("Show stock for each material type", "stage"),
+        ("Show stock by ABC indicator", "abc"),
+        ("Rank the items by value", None),
+        ("Show blocked stock in warehouse 1100", None),
+        ("اعرض قيمة المخزون حسب المستودع", "warehouse"),
+    ],
+)
+def test_grouping_comes_from_the_by_phrase(question: str, grouping: str | None) -> None:
+    """ISSUES #44: "by X" names the grouping; other dimension words in the question are values that narrow it."""
+    assert _by_dimension(expand(question)) == grouping
+
+
+@pytest.mark.parametrize(
+    ("user", "question", "mentions"),
+    [
+        ("alpha.admin", "Total inventory value in warehouse 9999", "9999"),
+        ("alpha.admin", "Inventory value by warehouse for item group WIDGETS", "WIDGETS"),
+        ("alpha.admin", "Highest value items by warehouse", "within one warehouse"),
+        ("alpha.admin", "How many items do we have in warehouse 1100?", "warehouse 1100"),
+        ("alpha.admin", "Show inventory value by item group in warehouses 1100 and 2100", "one warehouse at a time"),
+        ("delta.admin", "Blocked stock of RM-IMPELLER", "RM-IMPELLER"),
+        ("delta.admin", "Stock of impeller by warehouse", "impeller"),
+    ],
+)
+def test_named_values_a_tool_cannot_apply_get_a_question_not_a_broader_answer(
+    agent: AgentService, principals: dict[str, Principal], user: str, question: str, mentions: str
+) -> None:
+    out = ask(agent, principals, user, question)
+    assert out["kind"] == "clarify", out["tool_calls"]
+    assert out["tool_calls"] == []
+    assert out["blocks"] == []
+    assert mentions in out["answer"]
+    assert "—" not in out["answer"]
+    for choice in out["choices"]:
+        assert set(choice) <= {"label", "item_id", "warehouse_id"}  # what the answer view can turn into a question
+        assert choice["item_id"].startswith("RM-IMPELLER")
 
 
 @pytest.mark.parametrize("message", ["hey", "Hello!", "thanks", "who are you?", "مرحبا", "السلام عليكم"])

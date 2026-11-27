@@ -86,6 +86,9 @@ export const useBalances = (query: BalanceQuery) =>
     placeholderData: keepPreviousData,
   });
 
+/** The Overview's below-reorder page: the KPI, the area board and the panel all use this key, so it is fetched once. */
+export const OVERVIEW_BELOW_REORDER = { offset: 0, limit: 12 } as const;
+
 export const useBelowReorder = (query: { offset: number; limit: number }) =>
   useQuery({
     queryKey: ["below-reorder", query],

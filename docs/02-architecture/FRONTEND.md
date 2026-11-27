@@ -139,6 +139,14 @@ What is analyzable: KPI tiles (`metric`), every value panel (`metric`), each bar
 
 Single-key shortcuts never fire while typing in an input, textarea, select or editable element, or with a modifier held. Links and buttons carry `aria-keyshortcuts`.
 
+## Public landing page and chart kit (Product v2, S10)
+- `/` is the public landing page (`components/landing/`), server-rendered with sample visuals labelled "Sample data"; a visitor with the development session cookie is sent to `/overview`. `src/proxy.ts` treats only `/` and `/login` as public. The demo form posts to `POST /api/public/demo-requests`.
+- `/design` (signed in) shows every token, type size, control and chart in the current theme.
+- `components/viz/` is the chart kit: `ChartFrame` (accessible label + hidden data table; `sr-only` sits on a wrapper div because a `<table>` ignores the 1 px width), `Sparkline`, `KpiCard`/`DeltaChip`, `TrendArea`, `ParetoChart`, `Treemap`, `StackedBars`, `RiskMatrix`, `Waterfall`, `HeatCalendar`, `Gauge`, `RadarChart`, `Timeline`. Numbers drive geometry only; printed values are the API's exact strings. Recharts animation stays off (ISSUES #10). Dates use fixed month names (`MONTHS`, `shortDate`) so server and browser render the same text.
+- Tokens added: `--seq-1…5` with `--seq-ink-1…5`, `--div-neg/mid/pos`, `--font-display` (Newsreader). The `--ai` tint and page wash were removed at the owner's request (DEC-028).
+- Palette and type pairing (DEC-029, dark planes replaced by DEC-031): dark "Obsidian" = warm charcoal planes, ivory ink, champagne actions; light = navy on ivory; Newsreader for `PageHeader` titles and landing headlines (`font-display`), Inter for everything else.
+- `BrandLogo` draws a `--logo-plate` behind the artwork by default (navy `#101a2e` in dark, white in light: each logo file's own background), so the logo is a deliberate tile on any plane; pass `plate={false}` only where the parent already has that colour.
+
 ## Testing
 
 Vitest (`tests/unit`: formatters, API client, CSP, provenance, command palette, shortcuts, theme/rail state, `theme-init.js` visibility handling, SSE parsing, selection limits, Analyzable/Lens behaviour) and Playwright (`e2e/`: flows on an isolated production build, including the palette, shortcuts and rail, background-tab and reduced-motion entrances). See `06-operations/TESTING.md`.

@@ -38,13 +38,13 @@ export function RecommendationNote({ children }: { children?: React.ReactNode })
   return (
     <p className="flex items-center gap-1.5 text-xs text-ink-3">
       <ShieldCheck size={13} aria-hidden />
-      {children ?? "Recommendation only — nothing is ordered, booked or changed in your source system."}
+      {children ?? "Recommendation only: nothing is ordered, booked or changed in your source system."}
     </p>
   );
 }
 
 export function Qty({ value, uom }: { value: string | null | undefined; uom?: string }) {
-  if (value === null || value === undefined) return <span className="text-ink-3">—</span>;
+  if (value === null || value === undefined) return <span className="text-ink-3">–</span>;
   return <span className="figure">{formatQuantity(value, uom)}</span>;
 }
 

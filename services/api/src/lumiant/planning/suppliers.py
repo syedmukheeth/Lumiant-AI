@@ -381,7 +381,7 @@ def _recommend(
         parts = ", ".join(f"{e.supplier_name} {e.allocated.normalize():f}" for e in split if e.supplier_id != "-")
         return (
             f"No single eligible supplier can supply {qty.normalize():f}; consider splitting: {parts}. "
-            "Recommendation only — no order is created."
+            "Recommendation only: no order is created."
         )
     why = {
         "weighted": f"best weighted score {best.score}"

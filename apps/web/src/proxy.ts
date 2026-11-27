@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { buildCsp } from "@/lib/csp";
 
 const SESSION_COOKIE = "lumiant_session";
+/** Pages anyone may open: the public landing page and the sign-in page. Neither reads tenant data. */
+const PUBLIC_PAGES = new Set(["/", "/login"]);
 
 /**
  * Whether a page request should be sent to the development sign-in page.
@@ -15,7 +17,7 @@ const SESSION_COOKIE = "lumiant_session";
  */
 export function needsDevLogin(pathname: string, hasSessionCookie: boolean, authMode: string | undefined): boolean {
   if ((authMode ?? "dev").toLowerCase() === "oidc") return false;
-  return pathname !== "/login" && !hasSessionCookie;
+  return !PUBLIC_PAGES.has(pathname) && !hasSessionCookie;
 }
 
 /**

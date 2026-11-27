@@ -1,23 +1,9 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MotionConfig, MotionGlobalConfig } from "motion/react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { ApiError } from "@/lib/api";
-import { DUR, EASE } from "@/lib/motion";
-
-/** ISSUES #10, Motion side: animations never start in a hidden tab (no frames there); they jump to their end state. */
-function useSkipAnimationsWhileHidden() {
-  useEffect(() => {
-    const sync = () => {
-      MotionGlobalConfig.skipAnimations = document.visibilityState === "hidden";
-    };
-    sync();
-    document.addEventListener("visibilitychange", sync);
-    return () => document.removeEventListener("visibilitychange", sync);
-  }, []);
-}
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [client] = useState(
@@ -33,13 +19,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
       }),
   );
-  useSkipAnimationsWhileHidden();
-  return (
-    <QueryClientProvider client={client}>
-      {/* reducedMotion="user": with the OS preference set, transform and layout animations are dropped, opacity stays. */}
-      <MotionConfig reducedMotion="user" transition={{ duration: DUR.base, ease: EASE.out }}>
-        {children}
-      </MotionConfig>
-    </QueryClientProvider>
-  );
+  // Motion settings live in the signed-in app (components/shell/motion-provider.tsx), not on public pages.
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }

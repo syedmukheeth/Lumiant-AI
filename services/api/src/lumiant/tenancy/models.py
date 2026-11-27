@@ -27,13 +27,20 @@ class StrictModel(BaseModel):
 
 
 class ConnectionConfig(StrictModel):
-    type: Literal["duckdb"]
-    # Relative to the API base directory. Customer databases use secret_ref instead of inline values.
+    # duckdb: a file under the API directory (synthetic demos, local extracts).
+    # sql: any database SQLAlchemy reaches (connectors/sql_connector.py); its URL, with credentials, is read from the
+    # environment variable named by `secret_ref` and never appears in config, logs or responses.
+    type: Literal["duckdb", "sql"]
     path: str | None = None
-    secret_ref: str | None = Field(default=None, pattern=r"^env:[A-Z][A-Z0-9_]*$")
+    # env:NAME (URL in that environment variable) or store (URL saved encrypted from Admin > Data source)
+    secret_ref: str | None = Field(default=None, pattern=r"^(env:[A-Z][A-Z0-9_]*|store)$")
 
     @model_validator(mode="after")
     def _check(self) -> ConnectionConfig:
+        if self.type == "sql":
+            if not self.secret_ref or self.path:
+                raise ValueError("sql connections need a 'secret_ref' (env:NAME holding the URL) and no 'path'")
+            return self
         if self.type == "duckdb":
             if not self.path:
                 raise ValueError("duckdb connections need a 'path'")

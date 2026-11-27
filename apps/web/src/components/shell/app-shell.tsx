@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { clsx } from "clsx";
-import { Clock, Lock, LogOut, PanelLeftClose, PanelLeftOpen, Search, Sparkles } from "lucide-react";
+import { Clock, Lock, LogOut, PanelLeftClose, PanelLeftOpen, Search, Settings, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -74,7 +74,7 @@ function RailLink({ item, active, collapsed }: { item: NavItem; active: boolean;
           aria-current={active ? "page" : undefined}
           aria-keyshortcuts={`G ${item.key.toUpperCase()}`}
           className={clsx(
-            "relative flex shrink-0 flex-col items-center gap-1 rounded-control px-3 py-1.5 text-caption font-medium transition-colors md:flex-row md:gap-3 md:py-2 md:text-sm",
+            "relative flex shrink-0 flex-col items-center gap-1 rounded-control px-3 py-1.5 text-caption font-medium transition-colors md:flex-row md:gap-3 md:py-2.5 md:text-sm",
             "md:rail-collapsed:justify-center md:rail-collapsed:px-0",
             active ? "text-ink" : "text-ink-2 hover:bg-surface-2/70 hover:text-ink",
           )}
@@ -84,7 +84,7 @@ function RailLink({ item, active, collapsed }: { item: NavItem; active: boolean;
               layoutId="rail-active"
               transition={LAYOUT_SPRING}
               aria-hidden
-              className="absolute inset-0 rounded-control bg-surface-2 before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-brand-gold max-md:before:hidden"
+              className="absolute inset-0 rounded-control bg-surface shadow-e1 ring-1 ring-line before:absolute before:inset-y-2.5 before:left-0 before:w-0.5 before:rounded-full before:bg-brand-gold max-md:before:hidden"
             />
           )}
           <Icon size={18} aria-hidden className={clsx("relative shrink-0", active ? "text-accent" : "text-ink-3")} />
@@ -179,13 +179,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <aside
           className={clsx(
             "fixed inset-x-0 bottom-0 z-(--z-nav) border-t border-line bg-surface pb-[env(safe-area-inset-bottom)]",
-            "md:sticky md:top-0 md:bottom-auto md:flex md:h-dvh md:flex-col md:border-t-0 md:border-r md:pb-0",
+            "md:sticky md:top-0 md:bottom-auto md:flex md:h-dvh md:flex-col md:border-t-0 md:bg-transparent md:pb-0",
           )}
         >
-          <div className="hidden h-20 items-center px-5 md:flex md:rail-collapsed:h-14 md:rail-collapsed:justify-center md:rail-collapsed:px-0">
+          <div className="hidden h-20 items-center px-4 md:flex md:rail-collapsed:h-14 md:rail-collapsed:justify-center md:rail-collapsed:px-0">
             <Link href="/overview" aria-label="Lumiant home" className="flex items-center">
               <span className="md:rail-collapsed:hidden">
-                <BrandLogo width={160} />
+                <BrandLogo width={150} plate />
               </span>
               <span className="hidden md:rail-collapsed:block">
                 <BrandLogo height={17} />
@@ -200,7 +200,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     {item.group !== nav[i - 1]?.group && (
                       <p
                         aria-hidden
-                        className={clsx("hidden px-3 pb-1.5 text-caption font-medium text-ink-3 md:block md:rail-collapsed:hidden", i > 0 && "mt-5")}
+                        className={clsx("eyebrow hidden px-3 pb-2 md:block md:rail-collapsed:hidden", i > 0 && "mt-6")}
                       >
                         {item.group}
                       </p>
@@ -214,7 +214,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               : [0, 1, 2, 3].map((i) => <span key={i} aria-hidden className="skeleton mx-1 h-8 w-16 shrink-0 rounded-control md:w-auto" />)}
           </nav>
 
-          <div className="mt-auto hidden border-t border-line p-3 md:block" data-testid="user-card">
+          <div className="mx-3 mt-auto mb-3 hidden rounded-panel border border-line bg-surface p-3 shadow-e1 md:block md:rail-collapsed:mx-2 md:rail-collapsed:p-2" data-testid="user-card">
             {user ? (
               <div className="flex items-center gap-3 md:rail-collapsed:justify-center">
                 <span
@@ -239,6 +239,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Button variant="ghost" size="sm" onClick={signOut}>
                 <LogOut size={14} aria-hidden /> <span className="md:rail-collapsed:sr-only">Sign out</span>
               </Button>
+              <Link
+                href="/settings"
+                aria-label="Settings"
+                title="Settings"
+                className="grid size-8 place-items-center rounded-control text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+                data-testid="settings-link"
+              >
+                <Settings size={15} aria-hidden />
+              </Link>
               <IconButton
                 onClick={toggleRail}
                 aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
@@ -251,9 +260,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </aside>
 
-        <div className="min-w-0">
-          <header className="glass sticky top-0 z-(--z-sticky) border-b border-line">
-            <div className="flex min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2 sm:px-6 xl:flex-nowrap">
+        <div className="min-w-0 md:my-2 md:mr-2 md:min-h-[calc(100dvh-1rem)] md:rounded-[1.25rem] md:border md:border-line md:bg-canvas md:shadow-e2">
+          <header className="sticky top-0 z-(--z-sticky) border-b border-line bg-canvas/85 backdrop-blur-xl md:rounded-t-[1.25rem]">
+            <div className="flex min-h-16 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2.5 sm:px-6 lg:px-10 xl:flex-nowrap">
               <div className="flex min-w-0 shrink items-center gap-3">
                 <Link href="/overview" aria-label="Lumiant home" className="md:hidden">
                   <BrandLogo height={26} plate />
@@ -312,10 +321,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             </div>
           </header>
-          <main className="app-main px-4 pt-6 pb-28 transition-[padding] duration-(--dur-slow) sm:px-6 md:pb-10 lg:px-8">
+          <main className="app-main px-4 pt-8 pb-28 transition-[padding] duration-(--dur-slow) sm:px-6 md:pb-12 lg:px-10">
             {unreachable && (
               <p role="alert" className="mb-4 rounded-control border border-signal/40 bg-signal-soft p-3 text-sm text-ink">
-                The service could not be reached. {me.error instanceof ApiError ? me.error.message : ""}
+                {/* The client's network message already says "could not be reached"; never print it twice. */}
+                {me.error instanceof ApiError && me.error.message ? me.error.message : "The service could not be reached."}
               </p>
             )}
             {/* Route transition: a short fade on every page change (opacity only, so reduced motion keeps it). */}

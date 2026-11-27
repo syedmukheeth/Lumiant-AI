@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from lumiant.analyses.cache import cached
 from lumiant.auth.principal import Principal
 from lumiant.core.errors import ForbiddenError, NotFoundError
 from lumiant.metrics.catalog import METRICS, MetricDef
@@ -34,7 +35,14 @@ class MetricsService:
             ]
         result = self.query.run_plan(QueryPlan.model_validate(plan), principal, action=action, metric=ref)
         if metric.gap_plan is not None:
-            gap = self.query.run_plan(QueryPlan.model_validate(metric.gap_plan), principal, action=f"{action}:gaps")
+            gap_plan = metric.gap_plan
+            gap = cached(  # the same count backs every value metric on a page
+                self.query,
+                principal,
+                "metric_gaps",
+                repr(gap_plan),
+                lambda: self.query.run_plan(QueryPlan.model_validate(gap_plan), principal, action=f"{action}:gaps"),
+            )
             excluded = int(gap.rows[0]["lines"]) if gap.rows else 0
             if excluded:
                 result.warnings.append(

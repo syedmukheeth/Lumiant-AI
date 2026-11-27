@@ -7,6 +7,8 @@ import { AreaBoard } from "@/components/overview/area-board";
 import { BelowReorderPanel } from "@/components/overview/below-reorder";
 import { InsightsFeed } from "@/components/overview/insights-feed";
 import { KpiStrip } from "@/components/overview/kpi-strip";
+import { ValueTrend } from "@/components/overview/value-trend";
+import { Welcome } from "@/components/overview/welcome";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { useMetricList, usePageMe } from "@/lib/hooks";
@@ -19,7 +21,7 @@ export default function OverviewPage() {
   const scope = me?.scope;
 
   return (
-    <div className="@container mx-auto max-w-[96rem] space-y-6">
+    <div className="@container mx-auto max-w-[96rem] space-y-8">
       <PageHeader
         title="Inventory position"
         actions={
@@ -30,16 +32,20 @@ export default function OverviewPage() {
         }
       />
 
+      <Welcome />
+
       {metrics.isSuccess && <KpiStrip canSeeValue={canSeeValue} />}
 
       {metrics.isSuccess && me && <AreaBoard me={me} canSeeValue={canSeeValue} />}
+
+      {metrics.isSuccess && canSeeValue && <ValueTrend />}
 
       <InsightsFeed />
 
       {metrics.isSuccess && canSeeValue ? (
         <div className="grid grid-cols-1 gap-4 @5xl:grid-cols-2">
           <ValueBars metricId="inventory_value_by_warehouse" selectKind="warehouse" title="Value by warehouse" labelField="warehouse.name" codeField="warehouse_id" index={0} />
-          <ValueBars metricId="inventory_value_by_item_group" selectKind="item_group" title="Value by item group" labelField="item.item_group" humanizeLabels index={1} />
+          <ValueBars metricId="inventory_value_by_item_group" selectKind="item_group" title="Value by item group" labelField="item.item_group" humanizeLabels index={1} variant="treemap" />
           <ValueBars metricId="inventory_value_by_abc" selectKind="abc" title="Value by ABC class (as assigned in source)" labelField="item.abc_class" index={2} />
           <ValueBars metricId="inventory_value_by_stage" selectKind="stage" title="Value by inventory stage" labelField="item.inventory_stage" humanizeLabels index={3} />
         </div>

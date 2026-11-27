@@ -16,6 +16,8 @@ import { formatCount, formatNumber, formatQuantity, formatTimestamp, humanize } 
 import { type RiskKind, useDataQuality, useRisk } from "@/lib/hooks";
 import { enterDelay } from "@/lib/motion";
 
+import { AgeingPanel } from "./ageing-panel";
+
 const PAGE = 25;
 
 const TABS = [
@@ -41,7 +43,7 @@ const DORMANT: SimpleColumn[] = [
   { key: "wh", label: "Warehouse", render: (r) => <span className="code text-xs">{r.warehouse_id}</span> },
   { key: "oh", label: "On hand", align: "right", render: (r) => <span className="figure">{formatQuantity(r.on_hand as string, r.uom as string)}</span> },
   { key: "last", label: "Last issue", render: (r) => <span className="figure text-xs">{(r.last_issue as string) ?? "never in history"}</span> },
-  { key: "days", label: "Days idle", align: "right", render: (r) => <span className="figure">{r.days_since_issue === null ? "—" : formatCount(r.days_since_issue as number)}</span> },
+  { key: "days", label: "Days idle", align: "right", render: (r) => <span className="figure">{r.days_since_issue === null ? "–" : formatCount(r.days_since_issue as number)}</span> },
 ];
 
 const EXPIRING: SimpleColumn[] = [
@@ -74,7 +76,7 @@ function RiskTable({ kind, columns, days, empty }: { kind: RiskKind; columns: Si
         summary?.flagged !== undefined
           ? `${formatCount(summary.flagged)} flagged`
           : kind === "expiring-lots" && summary
-            ? `${formatCount(summary.expired)} expired · ${formatCount(summary.expiring)} expiring within ${summary.days} days`
+            ? `${formatCount(summary.expired_lots)} lots expired · ${formatCount(summary.expiring_lots)} expiring within ${summary.days} days · ${formatCount(Number(summary.expired) + Number(summary.expiring))} stock lines`
             : undefined
       }
       provenance={data?.provenance}
@@ -103,8 +105,8 @@ function RiskTable({ kind, columns, days, empty }: { kind: RiskKind; columns: Si
 const STATUS_ICON: Record<DataQualityCheck["status"], { icon: typeof CheckCircle2; className: string; label: string }> = {
   ok: { icon: CheckCircle2, className: "text-ok", label: "No gaps found" },
   issue: { icon: CircleAlert, className: "text-signal", label: "Needs attention" },
-  info: { icon: Info, className: "text-ink-2", label: "For information — not necessarily a defect" },
-  not_mapped: { icon: MinusCircle, className: "text-ink-3", label: "Field not mapped for this tenant — cannot be checked" },
+  info: { icon: Info, className: "text-ink-2", label: "For information: not necessarily a defect" },
+  not_mapped: { icon: MinusCircle, className: "text-ink-3", label: "Field not mapped for this tenant: cannot be checked" },
   restricted: { icon: Lock, className: "text-ink-3", label: "Hidden: your role cannot view cost information" },
   no_rules: { icon: MinusCircle, className: "text-ink-3", label: "No item-code rules configured for this tenant" },
 };
@@ -145,7 +147,7 @@ function DataQualityPanel() {
                   {c.share != null && <p className="figure mt-1 text-xs text-ink-2">{c.share}% of the records checked</p>}
                 </div>
                 <span className={clsx("figure text-section font-semibold", c.status === "issue" ? "text-signal" : "text-ink")}>
-                  {c.count === null ? "—" : formatCount(c.count)}
+                  {c.count === null ? "–" : formatCount(c.count)}
                 </span>
               </li>
             );
@@ -163,11 +165,13 @@ export function RisksPage() {
   const [expiryDays, setExpiryDays] = useState(60);
   const current = TABS.find((t) => t.id === tab)!;
   return (
-    <div className="mx-auto max-w-[96rem] space-y-5">
+    <div className="mx-auto max-w-[96rem] space-y-8">
       <PageHeader
         title="Inventory risks"
         description="Every flag explains why it was raised and which data it used. Definitions are drafts until your organisation approves them."
       />
+
+      <AgeingPanel />
 
       <Tabs label="Risk views" tabs={TABS} value={tab} onChange={setTab} className="rise" style={enterDelay(1)} />
       <p className="text-sm text-ink-2">{current.blurb}</p>

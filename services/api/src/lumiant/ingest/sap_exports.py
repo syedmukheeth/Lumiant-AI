@@ -155,7 +155,7 @@ def parse_cell(value: object, kind: Kind) -> object:
     match kind:
         case Kind.CODE:
             if not isinstance(value, str):
-                raise ValueError("a code arrived as a number, so leading zeros may be lost — export codes as text")
+                raise ValueError("a code arrived as a number, so leading zeros may be lost; export codes as text")
             return value.strip()
         case Kind.TEXT:
             if isinstance(value, bool) or not isinstance(value, (str, int)):
@@ -622,7 +622,7 @@ def import_sap_exports(
         os.replace(tmp_db, target)
     except PermissionError as exc:
         tmp_db.unlink(missing_ok=True)
-        raise IntakeError(str(target), ["file is in use — stop the API before importing"]) from exc
+        raise IntakeError(str(target), ["file is in use; stop the API before importing"]) from exc
     if manifest_path is not None:
         _atomic_write(manifest_path, json.dumps(manifest, indent=2, sort_keys=True) + "\n")
     return ImportResult(target, manifest, plants)

@@ -58,7 +58,12 @@ Output: `ValidatedPlan` — immutable, includes the injected filters separately 
 - every value is a **bound parameter**; `contains` uses `ILIKE` with escaped pattern and `ESCAPE '\'`,
 - fetch `limit + 1` rows to detect truncation,
 - decimal output columns use `ExactDecimal` (no SQLAlchemy result processing): `Numeric(18,4)` processing was found to round aggregates to 4 dp (ISSUES #7),
-- `count_only=True` builds `SELECT count(*) FROM (<same filtered query>)` for pagination totals.
+- `count_only=True` builds `SELECT count(*) FROM (<same filtered query>)` for pagination totals,
+- dialect-aware (V0, ISSUES #49): `OFFSET` is emitted only when paging (`offset > 0`), so SQL Server can use `TOP`
+  for single-number plans; null ordering is `NULLS LAST` everywhere except SQL Server, which gets a
+  `CASE WHEN x IS NULL THEN 1 ELSE 0 END` sort key first. The validator refuses `offset > 0` without an ordering.
+  `tests/unit/test_dialect_matrix.py` compiles representative plans for DuckDB, PostgreSQL, SQL Server and Oracle
+  and runs each through the guard (compile-only; real engines need the V1 conformance suite).
 
 ## 4. SQL guard (defense in depth)
 
@@ -67,7 +72,7 @@ Compiled SQL is parsed with **sqlglot** (dialect of the tenant connector) and re
 - every table referenced is one of the tenant's mapped physical tables;
 - no `information_schema`, `pg_catalog`, `sys.`, `duckdb_*` or other system objects;
 - no DDL/DML/`COPY`/`ATTACH`/`PRAGMA`/`INSTALL`/`LOAD` nodes,
-- every function node is on an allowlist (`AND`, `OR`, `SUM`, `COUNT`, `MIN`, `MAX`, `AVG`, `COALESCE`, `CAST`, `NULLIF`, and since M8 `CASE` with its `IF` branches for value maps). sqlglot models `AND`/`OR` as functions; anything else (`read_csv`, `getenv`, `duckdb_settings()`) is refused,
+- every function node is on an allowlist (`AND`, `OR`, `SUM`, `COUNT`, `MIN`, `MAX`, `AVG`, `COALESCE`, `CAST`, `NULLIF`, since M8 `CASE` with its `IF` branches for value maps, and since V0 `LOWER` for `contains` on dialects without `ILIKE`). Window aggregates (`SUM(...) OVER (...)`) pass because `SUM` is allowed; ranking functions (`ROW_NUMBER`, `RANK`, `LAG`) do not. sqlglot models `AND`/`OR` as functions; anything else (`read_csv`, `getenv`, `duckdb_settings()`) is refused,
 - the SQL is rendered with the connector's own dialect and `render_postcompile`, so IN-lists are expanded before parsing.
 
 Clients only ever see `query_rejected`; the specific reason goes to server logs and the audit trail.
@@ -107,3 +112,12 @@ One `audit_event` per data request (allowed **and** denied): request_id, timesta
 ## 8. Named analyses
 
 Analyses that need SQL shapes the generic plan cannot express (e.g. below-reorder needs `reorder_policy LEFT JOIN aggregated stock` so zero-stock items appear) are hand-written SQLAlchemy Core queries in `analyses/`, but they **must** use the same building blocks: mapping resolver, scope injection helper, sql_guard, executor, provenance, audit.
+
+Since V0:
+- **ABC** is computed in the source with window sums (cumulative share before each item, ties by item id), so it
+  has no item cap; it matches `costing.abc.classify` on the full data (`test_scale_limits.py`).
+- Analyses that need every row (cost comparison movements and purchases, the item-code check) read them in pages
+  of `max_rows` (`risks._paged`, up to 50 pages) and refuse or report `partial` only beyond that.
+- Results of below-reorder, excess, dormant, expiry, data quality and the metric gap count are shared for 60 s
+  between callers with the same tenant, warehouse scope, permissions and data timestamp (`analyses/cache.py`);
+  hits are audited with reason `cache`; the insight feed's `fresh=true` bypasses it.

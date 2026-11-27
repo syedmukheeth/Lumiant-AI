@@ -26,7 +26,9 @@ export type HistoryTurn = { question: string; tool?: string; args?: Record<strin
 export type ColumnKind = "text" | "qty" | "money" | "int" | "date" | "pct";
 export type TableBlock = { type: "table"; title: string; columns: { key: string; label: string; kind: ColumnKind }[]; rows: Row[] };
 export type BarBlock = { type: "bar"; title: string; label_key: string; value_key: string; kind: "money" | "qty"; unit_key: string; rows: Row[] };
-export type Block = TableBlock | BarBlock;
+export type SourceItem = { id: string; source: string; heading: string; text: string };
+export type SourcesBlock = { type: "sources"; title: string; items: SourceItem[] };
+export type Block = TableBlock | BarBlock | SourcesBlock;
 export type Choice = { label: string; item_id?: string; warehouse_id?: string };
 
 export type Step = {

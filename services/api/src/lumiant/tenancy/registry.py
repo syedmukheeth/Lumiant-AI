@@ -166,6 +166,9 @@ class TenantRegistry:
     def get(self, tenant_id: str) -> TenantConfig:
         return self._tenants[tenant_id]
 
+    def has(self, tenant_id: str) -> bool:
+        return tenant_id in self._tenants
+
     def __iter__(self) -> Iterator[TenantConfig]:
         return iter(self._tenants.values())
 

@@ -10,7 +10,7 @@ import { ErrorState, Skeleton } from "@/components/data/widget";
 import type { Selection } from "@/lib/agent";
 import type { Envelope, Provenance, ResultWarning } from "@/lib/api";
 import { formatCount, formatMoney } from "@/lib/format";
-import { useBelowReorder, useMetric } from "@/lib/hooks";
+import { OVERVIEW_BELOW_REORDER, useBelowReorder, useMetric } from "@/lib/hooks";
 import { enterDelay } from "@/lib/motion";
 
 type CellProps = {
@@ -34,7 +34,7 @@ function Cell({ label, footnote, provenance, warnings, pending, error, tone = "d
   return (
     <div
       className={clsx(
-"rise panel relative flex min-w-0 flex-col gap-2.5 p-4 transition-colors hover:border-line-strong sm:p-5")}
+"rise panel relative flex min-w-0 flex-col gap-3 p-5 transition-colors hover:border-line-strong sm:p-6")}
       style={enterDelay(index)}
       data-testid={testId}
       {...(sel ? analyzableProps(sel) : {})}
@@ -49,7 +49,7 @@ function Cell({ label, footnote, provenance, warnings, pending, error, tone = "d
       }
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="text-dense font-medium text-ink-2">{label}</span>
+        <span className="eyebrow">{label}</span>
         <span className="flex items-center">
           {sel && <AnalyzeButton sel={sel} />}
           <ProvenanceButton provenance={provenance} label="" />
@@ -85,10 +85,10 @@ export function KpiStrip({ canSeeValue }: { canSeeValue: boolean }) {
   const value = useMetric("inventory_value_total", canSeeValue);
   const items = useMetric("items_in_stock");
   const lines = useMetric("stock_lines");
-  const below = useBelowReorder({ offset: 0, limit: 1 });
+  const below = useBelowReorder(OVERVIEW_BELOW_REORDER); // same request as the below-reorder panel, sent once
 
   return (
-    <div className="grid grid-cols-1 gap-3 @lg:grid-cols-2 @5xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-4 @lg:grid-cols-2 @5xl:grid-cols-4">
       <Cell
         label="Inventory value"
         provenance={value.data?.provenance}
@@ -108,7 +108,7 @@ export function KpiStrip({ canSeeValue }: { canSeeValue: boolean }) {
               </li>
             ))}
             {value.data && value.data.data.length > 1 && (
-              <li className="text-xs text-ink-3">Shown per currency — not converted or added.</li>
+              <li className="text-xs text-ink-3">Shown per currency, not converted or added.</li>
             )}
           </ul>
         ) : (

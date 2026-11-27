@@ -2,17 +2,24 @@
 
 from __future__ import annotations
 
+import logging
+import os
 import threading
 from pathlib import Path
 
-from lumiant.connectors.base import Connector
+from lumiant.connectors.base import Connector, ConnectorError, UnavailableConnector
 from lumiant.connectors.duckdb_connector import DuckDBConnector
+from lumiant.connectors.secret_store import SourceSecretStore
+from lumiant.connectors.sql_connector import SqlConnector
 from lumiant.tenancy.registry import TenantRegistry
+
+log = logging.getLogger("lumiant.connectors")
 
 
 class ConnectorRegistry:
-    def __init__(self, tenants: TenantRegistry, data_dir: Path) -> None:
+    def __init__(self, tenants: TenantRegistry, data_dir: Path, secrets: SourceSecretStore | None = None) -> None:
         self._tenants = tenants
+        self._secrets = secrets
         self._data_dir = data_dir
         self._connectors: dict[str, Connector] = {}
         self._lock = threading.Lock()
@@ -29,7 +36,27 @@ class ConnectorRegistry:
         conn = self._tenants.get(tenant_id).connection
         if conn.type == "duckdb" and conn.path:
             return DuckDBConnector(self._data_dir / conn.path)
+        if conn.type == "sql" and conn.secret_ref:
+            if conn.secret_ref == "store":  # saved and encrypted from Admin > Data source  # noqa: S105 (a reference name, not a secret)
+                url = (self._secrets.url(tenant_id) if self._secrets else None) or ""
+            else:
+                url = os.environ.get(conn.secret_ref.removeprefix("env:"), "")
+            if not url:
+                log.warning("source_not_configured", extra={"tenant": tenant_id, "secret_ref": conn.secret_ref})
+                return UnavailableConnector()
+            try:
+                return SqlConnector(url)
+            except ConnectorError as exc:
+                log.warning("source_rejected", extra={"tenant": tenant_id, "code": exc.code})
+                return UnavailableConnector()
         raise NotImplementedError(f"connector type '{conn.type}' is not implemented")
+
+    def forget(self, tenant_id: str) -> None:
+        """Drop a tenant's connector so the next use opens the source again (after its connection changed)."""
+        with self._lock:
+            connector = self._connectors.pop(tenant_id, None)
+        if connector is not None:
+            connector.dispose()
 
     def dispose_all(self) -> None:
         with self._lock:

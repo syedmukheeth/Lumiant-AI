@@ -33,4 +33,25 @@ The first benchmark run of the planning engine **did not finish in 10 minutes** 
 - **No HTTP load test or concurrency test has been run.** A k6 or Locust run against staging (concurrent planners, mixed read load, rate limits on) is still required.
 - The query engine's own limits (row caps, timeouts, read-only pooled connections) are unchanged and covered by existing tests.
 
-**Reproduce:** the benchmark script used is `bench_planning.py` (session scratchpad); it builds the synthetic data with a fixed seed and times `run_mrp`, `compare_suppliers` and `find_duplicates`. Adding it to the repository as `services/api/benchmarks/` is a follow-up.
+**Reproduce:** the benchmark script used is `bench_planning.py` (session scratchpad); it builds the synthetic data with a fixed seed and times `run_mrp`, `compare_suppliers` and `find_duplicates`. Adding it to `services/api/benchmarks/` is a follow-up.
+
+## Overview load (V0, 26 Nov 2026)
+
+**Method.** `services/api/benchmarks/overview_load.py` runs the API in-process against a freshly generated full-size
+demo-alpha (600 items, about 82,000 movements), signs in as `alpha.admin`, replays the requests a cold Overview sends,
+and counts every statement the DuckDB connector executes. Query counts do not depend on the machine; timings are this
+Windows laptop. Web bundle sizes come from `apps/web/scripts/bundle-report.mjs` on a production build.
+
+| | Before V0 (TEST_RUNS S10-25) | After V0 (TEST_RUNS S10-28) |
+|---|---|---|
+| Overview requests | 17 | 16 (the KPI, area board and panel share one below-reorder request) |
+| Source queries, cold Overview | 79 | 41 |
+| Sum of cold request times | 1,959 ms | 1,184 ms |
+
+What changed: below-reorder runs once per scope instead of five times, the missing-valuation count once instead of
+five, and the insight feed reuses the Overview's analyses (`analyses/cache.py`: 60 s, keyed by tenant, scope,
+permissions and the data timestamp; never shared across scope). `tests/integration/test_overview_budget.py` fails if a
+cold Overview on the test tenant needs more than 45 source queries.
+
+**Budgets still unmet:** landing page first-load JS 193 KB gzip against a 100 KB target (ISSUES #57). LCP and route
+change times have not been measured in a browser yet.

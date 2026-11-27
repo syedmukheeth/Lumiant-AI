@@ -13,7 +13,12 @@ Testing is part of every step (brief §18). Every run is recorded in `../logs/TE
 | API on PostgreSQL / Redis | same suites | `uv sync --frozen --extra postgres --extra redis`, then `LUMIANT_TEST_PG_ADMIN_URL=postgresql+psycopg://user:pw@host/postgres LUMIANT_TEST_REDIS_URL=redis://host:6379/0 uv run pytest -q` (each test app gets a fresh database; role needs CREATEDB; without the variables SQLite is used and those tests skip) | 275 (default 269 + 6 skipped) |
 | Web unit (Vitest + Testing Library) | `apps/web/tests/unit` | `pnpm test` | 74 |
 | Web lint / types | | `pnpm lint` · `pnpm typecheck` | clean |
-| End-to-end (Playwright, Chromium) | `apps/web/e2e` | `pnpm exec playwright install chromium` once, then `pnpm e2e` | 26 |
+| End-to-end (Playwright, Chromium) | `apps/web/e2e` | `pnpm exec playwright install chromium` once, then `pnpm e2e` | 37 + accessibility + screenshots (V0) |
+| Accessibility (axe) | `apps/web/e2e/a11y.spec.ts` | part of `pnpm e2e` | 0 serious/critical on landing, sign-in and 8 app screens, light and dark |
+| Screenshots | `apps/web/e2e/visual.spec.ts` | part of `pnpm e2e`; after an intended visual change: `pnpm exec playwright test e2e/visual.spec.ts --update-snapshots` and review the new PNGs | landing, sign-in, `/design` × 2 themes; Windows baselines only, skipped on CI (ISSUES #60) |
+| Bundle size budget | `apps/web/scripts/bundle-report.mjs` | after `pnpm build`: `node scripts/bundle-report.mjs --budget` (CI e2e job); `--write-budget` records new sizes after an accepted change | gzip first-load JS per route within `bundle-budget.json` + 10 % |
+| Overview query budget | `services/api/tests/integration/test_overview_budget.py` | part of the API suite | a cold Overview runs at most 45 source queries on the test tenant |
+| Overview benchmark | `services/api/benchmarks/overview_load.py` | `uv run python benchmarks/overview_load.py --warm-runs 5` | prints source queries and cold / warm p50 / p95 per Overview request; record in TEST_RUNS |
 | Dependency audit | | `pnpm audit` (web) · `uv export --no-hashes --format requirements-txt --no-emit-project > req.txt && uvx pip-audit -r req.txt` (API) | 0 known vulns |
 | Everything except e2e | repo root | `pnpm run check` | |
 
@@ -38,9 +43,9 @@ Testing is part of every step (brief §18). Every run is recorded in `../logs/TE
 
 ## The e2e stack
 
-`playwright.config.ts` starts an isolated stack: API on **8100** with freshly generated data and its own app DB in `services/api/var/e2e/`, and a **production build** of the web app on **3100**. It does not touch the dev stack on 8000/3000.
+`playwright.config.ts` starts an isolated stack: API on **8100** with freshly generated data and its own app DB in `services/api/var/e2e/`, and a **production build** of the web app on **3100**. It does not touch the dev stack on 8000/3000. If another program already listens on one of those ports, set `LUMIANT_E2E_API_PORT` / `LUMIANT_E2E_WEB_PORT` (for example `LUMIANT_E2E_WEB_PORT=3200 pnpm e2e`).
 
-Run the unit suite on its own: with a dev server or a build running on the same machine the Vitest workers time out before they start (`pnpm exec vitest run --maxWorkers=2` is the reliable form here; TEST_RUNS S06-1, S07-3). The e2e suite runs in Playwright's default light colour scheme, so it exercises the light theme; dark is covered by the theme unit tests and by a screenshot pass when the look changes.
+Run the unit suite on its own: with a dev server or a build running on the same machine the Vitest workers time out before they start (`pnpm exec vitest run --maxWorkers=2` is the reliable form here; TEST_RUNS S06-1, S07-3). The functional e2e specs run in Playwright's default light colour scheme; the accessibility and screenshot specs run every screen they cover in both themes (theme set through the `lumiant-theme` key before the page loads).
 
 Before a local build that serves as evidence, delete `apps/web/.next/cache`: Turbopack's persistent build cache once produced CSS without the latest `globals.css` change (ISSUES #33). On a memory-starved machine the web server's build can exceed Playwright's 300 s start-up timeout; then build first (`LUMIANT_API_ORIGIN=http://127.0.0.1:8100 pnpm build`) and run the same suite against `pnpm start --port 3100` with a local, uncommitted config that only raises the timeouts (TEST_RUNS D2-4).
 
@@ -54,4 +59,4 @@ Before a local build that serves as evidence, delete `apps/web/.next/cache`: Tur
 - PostgreSQL app DB: verified on PostgreSQL 16 only (see above); managed services untested.
 - AI agent tests and eval harness (M3).
 - Costing/financial fixtures (M2).
-- Load/performance tests (M6/M7).
+- HTTP load and concurrency tests (only the in-process Overview benchmark exists; `../PERFORMANCE_AND_LOAD_TESTING.md`).

@@ -2,11 +2,12 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { clsx } from "clsx";
-import { CheckCircle2, CircleAlert, MinusCircle } from "lucide-react";
+import { CheckCircle2, CircleAlert, MinusCircle, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
 import { SimpleTable, type SimpleColumn } from "@/components/data/simple-table";
 import { ErrorState, Panel, Skeleton } from "@/components/data/widget";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { PageHeader } from "@/components/ui/page-header";
@@ -15,10 +16,18 @@ import { api, ApiError, type Me, type Row } from "@/lib/api";
 import { formatNumber, formatTimestamp } from "@/lib/format";
 import { useMe } from "@/lib/hooks";
 
+import { IntegrationsPanel } from "./integrations-panel";
+import { MappingPanel, ValidationPanel } from "./mapping-panel";
+import { SourcePanel } from "./source-panel";
+
 type SchemaResult = {
   healthy: boolean;
   verdict: "ok" | "drift";
   totals: Record<string, number>;
+  /** Warehouse ids in the source stock data that the tenant configuration does not list. */
+  unconfigured_warehouses: string[];
+  /** Stock rows with no warehouse id. */
+  rows_without_warehouse: number;
   note: string;
   datasets: {
     dataset: string;
@@ -28,6 +37,9 @@ type SchemaResult = {
     unmapped: { column: string; type: string }[];
   }[];
 };
+/** A source id with stray spaces must not look like a configured one: quote it, and name a blank one. */
+const warehouseLabel = (id: string) => (id.trim() === "" ? "(blank)" : id === id.trim() ? id : JSON.stringify(id));
+
 type Capability = { id: string; title: string; available: boolean; explanation: string | null };
 /** Reconciliation compares exact amounts: group the digits but keep every decimal the source sent (up to 8). */
 const exact = (v: unknown) => formatNumber(typeof v === "string" || typeof v === "number" ? v : null, { minFraction: 2, maxFraction: 8 });
@@ -36,17 +48,25 @@ type ReconLine = { warehouse_id: string; currency: string; platform: string | nu
 type Recon = { passed: boolean; counts: Record<string, number>; lines: ReconLine[]; tolerance: string; note: string };
 
 const TABS = [
+  { id: "source", label: "Data source" },
   { id: "schema", label: "Connection and schema" },
+  { id: "mapping", label: "Mapping" },
+  { id: "validation", label: "Validation" },
+  { id: "integrations", label: "Integrations" },
   { id: "capabilities", label: "Capabilities" },
   { id: "reconciliation", label: "Reconciliation" },
   { id: "audit", label: "Audit log" },
+  { id: "demo", label: "Demo requests" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
 
 function SchemaPanel() {
   const q = useQuery({ queryKey: ["admin-schema"], queryFn: () => api.get<SchemaResult>("/api/admin/schema"), retry: false });
   return (
-    <Panel title="Source connection and mapping check" subtitle="Compares what the mapping expects with what the source exposes (metadata only; no data is read)">
+    <Panel
+      title="Source connection and mapping check"
+      subtitle="Compares what the mapping expects with what the source exposes, and checks that every warehouse in the stock data is configured (reads warehouse ids only)"
+    >
       {q.isPending ? (
         <Skeleton className="h-48 w-full" />
       ) : q.error ? (
@@ -57,6 +77,37 @@ function SchemaPanel() {
             {q.data.verdict === "ok" ? <CheckCircle2 size={16} aria-hidden /> : <CircleAlert size={16} aria-hidden />}
             {q.data.verdict === "ok" ? "Mapping matches the source" : "The source has drifted from the mapping"} · connection {q.data.healthy ? "healthy" : "unavailable"}
           </p>
+          {q.data.unconfigured_warehouses.length > 0 && (
+            <div className="rounded-panel border border-signal/35 bg-signal-soft p-3 text-sm" data-testid="unconfigured-warehouses">
+              <p className="flex items-center gap-2 font-semibold text-signal">
+                <TriangleAlert size={16} aria-hidden />
+                {q.data.unconfigured_warehouses.length === 1 ? "1 warehouse is" : `${q.data.unconfigured_warehouses.length} warehouses are`} missing from the tenant configuration
+              </p>
+              <p className="mt-1 text-xs text-ink-2">
+                They are counted in totals for users who see all warehouses and are invisible to everyone else. Add them to the tenant configuration or exclude them from the source.
+              </p>
+              <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Unconfigured warehouses">
+                {q.data.unconfigured_warehouses.map((id) => (
+                  <li key={id}>
+                    <Badge tone="signal" className="code">
+                      {warehouseLabel(id)}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {q.data.rows_without_warehouse > 0 && (
+            <div className="rounded-panel border border-signal/35 bg-signal-soft p-3 text-sm" data-testid="rows-without-warehouse">
+              <p className="flex items-center gap-2 font-semibold text-signal">
+                <TriangleAlert size={16} aria-hidden />
+                {q.data.rows_without_warehouse === 1 ? "1 stock row has" : `${formatNumber(q.data.rows_without_warehouse)} stock rows have`} no warehouse
+              </p>
+              <p className="mt-1 text-xs text-ink-2">
+                They are counted in totals for users who see all warehouses and are invisible to everyone else. Fill in the warehouse in the source or exclude those rows.
+              </p>
+            </div>
+          )}
           <ul className="divide-y divide-line">
             {q.data.datasets.map((d) => (
               <li key={d.dataset} className="py-2.5 text-sm">
@@ -186,8 +237,8 @@ function AuditPanel({ me }: { me?: Me }) {
     { key: "u", label: "User", render: (r) => <span className="code text-xs">{r.user_id}</span> },
     { key: "a", label: "Action", render: (r) => <span className="code text-xs">{r.action}</span> },
     { key: "d", label: "Decision", render: (r) => <span className={clsx("text-xs font-semibold", r.decision === "deny" ? "text-signal" : "text-ink-2")}>{r.decision}{r.reason ? ` (${r.reason})` : ""}</span> },
-    { key: "n", label: "Rows", align: "right", render: (r) => <span className="figure">{r.rows ?? "—"}</span> },
-    { key: "m", label: "ms", align: "right", render: (r) => <span className="figure">{r.duration_ms ?? "—"}</span> },
+    { key: "n", label: "Rows", align: "right", render: (r) => <span className="figure">{r.rows ?? "–"}</span> },
+    { key: "m", label: "ms", align: "right", render: (r) => <span className="figure">{r.duration_ms ?? "–"}</span> },
   ];
   return (
     <Panel title="Audit log" subtitle="Who asked for what, and whether it was allowed. Result values and filter values are never stored.">
@@ -212,20 +263,59 @@ function AuditPanel({ me }: { me?: Me }) {
   );
 }
 
+type DemoRequestRow = { id: number; received_at: string; name: string; email: string; company: string; role: string | null; systems: string | null; message: string | null };
+
+/** Demo requests from the public landing page. Platform data: shown to platform administrators only. */
+function DemoRequestsPanel({ me }: { me?: Me }) {
+  const allowed = !!me?.roles.includes("super_admin");
+  const q = useQuery({
+    queryKey: ["admin-demo-requests"],
+    queryFn: () => api.get<{ requests: DemoRequestRow[] }>("/api/admin/demo-requests"),
+    enabled: allowed,
+    retry: false,
+  });
+  const cols: SimpleColumn[] = [
+    { key: "t", label: "Received", render: (r) => <span className="figure text-xs">{formatTimestamp(String(r.received_at))}</span> },
+    { key: "n", label: "Name", render: (r) => String(r.name) },
+    { key: "c", label: "Company", render: (r) => String(r.company) },
+    { key: "e", label: "Email", render: (r) => <span className="code text-xs">{String(r.email)}</span> },
+    { key: "s", label: "Systems", render: (r) => (r.systems ? String(r.systems) : <span className="text-ink-3">–</span>) },
+    { key: "m", label: "Message", render: (r) => (r.message ? <span className="block max-w-80 truncate" title={String(r.message)}>{String(r.message)}</span> : <span className="text-ink-3">–</span>) },
+  ];
+  return (
+    <Panel title="Demo requests" subtitle="Sent from the public landing page. Personal details: use them only to arrange the demo.">
+      {!allowed ? (
+        <p className="text-sm text-ink-3">Only platform administrators can view demo requests.</p>
+      ) : q.isPending ? (
+        <Skeleton className="h-32 w-full" />
+      ) : q.error ? (
+        <ErrorState error={q.error} />
+      ) : (
+        <SimpleTable columns={cols} rows={q.data.requests as unknown as Row[]} empty="No demo requests yet." rowKey={(r) => String(r.id)} minWidth="48rem" />
+      )}
+    </Panel>
+  );
+}
+
 export function AdminPage() {
   const me = useMe();
-  const [tab, setTab] = useState<Tab>("schema");
+  const [tab, setTab] = useState<Tab>("source");
   return (
-    <div className="mx-auto max-w-[96rem] space-y-5">
+    <div className="mx-auto max-w-[96rem] space-y-8">
       <PageHeader
         title="Onboarding and oversight"
         description="Check a data source against its mapping, see what is unlocked, prove numbers against the customer's own reports, and review access."
       />
       <Tabs label="Administration" tabs={TABS} value={tab} onChange={setTab} />
+      {tab === "source" && <SourcePanel />}
       {tab === "schema" && <SchemaPanel />}
+      {tab === "mapping" && <MappingPanel />}
+      {tab === "validation" && <ValidationPanel />}
+      {tab === "integrations" && <IntegrationsPanel />}
       {tab === "capabilities" && <CapabilitiesPanel />}
       {tab === "reconciliation" && <ReconciliationPanel />}
       {tab === "audit" && <AuditPanel me={me.data} />}
+      {tab === "demo" && <DemoRequestsPanel me={me.data} />}
     </div>
   );
 }

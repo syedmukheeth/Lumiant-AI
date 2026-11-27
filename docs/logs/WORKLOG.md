@@ -292,3 +292,117 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
 - **Local verification (owner: "Run tests"):** API 787 passed + 6 env-gated skips, ruff/format/mypy clean; web lint/typecheck clean, unit 80; e2e 36/36 (29 existing + 7 planning) on a clean build cache. First e2e attempt was cut off mid-build by a session restart and rerun. Four "socket hang up" proxy lines during e2e (requests aborted by navigation); no test affected.
 - **Commands + results:** TEST_RUNS S09-1…S09-5.
 - **Not done:** topic docs, CURRENT_STATE and IMPLEMENTATION_PLAN not yet updated for the planning module; log changes not committed.
+
+## 2026-11-25 · S10 · Product v2 plan (UI/UX, landing page, Analyst v2 on Gemini)
+- **Goal:** owner: make Lumiant "next level": premium custom colours, far more visuals, easy and fast UX, a proper landing page, a fully working Gemini assistant with RAG over the data; "a product, not a prototype". Plan first.
+- **Done:** read the worklog, `UI_UX_AUDIT.md`, `UI_UX_IMPLEMENTATION_STATUS.md`, web source and `agent/` source. Wrote `05-plan/PRODUCT_V2_PLAN.md`: honest gap table, design principles, visual identity v2 on the official palette, a chart kit (12 components), screen-by-screen plan incl. a public landing page, Analyst v2 (Gemini multi-step tool loop, `query_inventory(QueryPlan)` tool within ADR-0002, tenant-scoped knowledge index for definitions/policies/item text, chart blocks, streaming, threads, live eval gate), speed/accessibility budgets, productisation items, phases P1–P7 and decisions D1–D7. M12 added to `IMPLEMENTATION_PLAN.md` as proposed; docs map updated.
+- **Findings:** Recharts is used in one component only; `/` redirects to `/overview` (no landing page); the model picks tools once per question (no chaining); `query_inventory` is allowed by ADR-0002 but not exposed to the model; `QueryPlan` has no time bucket, so trend charts need a new tested op.
+- **Not done:** live look at the app this session: `api` and `web` dev servers stayed at "starting" for several minutes on this machine and were stopped (same class as ISSUES #33); the plan relies on earlier live reviews. No code changed. Nothing committed.
+- **Next:** owner approves the plan and decisions D1–D7; owner puts the Gemini key in `services/api/.env` (never in chat); start P1 + P2.
+
+## 2026-11-25 · S10 · P1 + P2 (owner: "Approve, start P1+P2"; then "loop until the session limit, find bugs, upgrade UI/UX, test and push")
+- **P2 (API):** `GeminiProvider.advance` multi-step loop with limits in `AgentService` (think steps streamed as `think:N`); `agent/data_tools.py` (`query_inventory`, `catalog_note`); `lumiant.knowledge` (curated content, BM25 + optional Gemini embedding fusion) and `agent/knowledge_tools.py` (`search_knowledge`, `sources` block); offline matcher routes definition questions to it; `model_view` carries passages and failure status. ADR-0012, DEC-026.
+- **P1 (web):** tokens v2 (`--ai`, sequential + diverging ramps with label colours, display sizes, page wash); chart kit `components/viz/` (ChartFrame + hidden data table, Sparkline, KpiCard/DeltaChip, TrendArea, ParetoChart, Treemap, StackedBars, RiskMatrix, Waterfall, HeatCalendar, Gauge, RadarChart, Timeline); `/design` showcase with labelled sample values; Analyst renders cited sources. DEC-027.
+- **Bugs found and fixed:** circular import when `data_tools` loaded first (tools now self-register); hydration mismatch from locale month names; treemap labels unreadable on bright cells; waterfall changes invisible from a zero baseline; clipped timeline labels.
+- **Commands + results:** TEST_RUNS S10-1…S10-5. API 804 passed + 6 skips; web unit 89; lint/types clean.
+- **Not done:** live Gemini (ISSUES #56/#13); e2e not re-run for this chunk; light theme of `/design` not looked at yet.
+
+## 2026-11-25 · S10 · P3 landing page + demo requests (loop chunk 2)
+- **Done:** public landing page at `/` (server-rendered; signed-in users go to the app; hero with a self-typing sample Analyst exchange, principles strip, problems, feature tour with sample visuals, how it works, trust and security, FAQ, demo form, footer; skip link; every visual labelled "Sample data"). Proxy: `/` and `/login` are the only public pages. Demo requests (decision D3): `lumiant.leads` store, Alembic `0002_demo_request`, `POST /api/public/demo-requests` (CSRF, IP rate limit, consent, honeypot, control-character stripping, no personal details in logs), `GET /api/admin/demo-requests` for `super_admin` only.
+- **Bugs fixed:** hidden chart tables widened pages (sr-only on `<table>`); duplicated "could not be reached" sentence in the app shell; landing grid columns now shrink (`min-w-0`).
+- **Commands + results:** TEST_RUNS S10-6…S10-8.
+- **Not done:** admin screen listing demo requests (API only); sign-in page redesign; no email notification for new requests.
+
+## 2026-11-25 · S10 · Owner feedback pass + agent bug hunt (loop chunk 3)
+- **Owner:** "no em dash and no AI-ish colours". Removed every em dash from visible text: web UI copy (commas, colons, "·"), empty-value placeholder now "–", Analyst answer text and choice labels, synthetic warehouse names ("North Plant: Raw Materials Store"), dev-login notice, planning notes; S10 docs too. Removed the gold `--ai` tint and its classes, the page wash, the hero radial glow, sparkle badges in new pages and the purple series from the chart kit; AI work now uses neutral surfaces and the brand teal/navy. DEC-028.
+- **Agent bug hunt:** a 16-question offline batch found three routing/wording bugs (TEST_RUNS S10-9), fixed with tests: "how many items" now gives the inventory summary; the definition fallback only fires on "what is / mean / explain / define" questions without codes or numbers; grouped answers read "X holds the most stock: N".
+- **Commands + results:** TEST_RUNS S10-9…S10-12.
+
+## 2026-11-25 · S10 · Overview treemap, sign-in, admin list (loop chunk 4)
+- **Done:** `ValueBars` gains `variant="treemap"`; Overview shows value by item group as a treemap on real data (click → Analyst). Sign-in page is a split view: user list left, sticky product panel right (sample KPI labelled), link back to the landing page. Admin gains a "Demo requests" tab (platform administrators only). Definition answers no longer repeat their heading.
+- **Commands + results:** TEST_RUNS S10-14, S10-15; e2e rerun pending at the time of writing (S10-16).
+
+## 2026-11-25 · S10 · Premium palette and type pairing (loop chunk 5)
+- **Owner:** "use premium UI/UX colour and font combination". Built "Navy & Brass" from the logo colours (DEC-029): ink-navy and warm ivory in dark with champagne actions; ivory paper with navy ink and actions in light; brass only for brand marks; chart grid lines warmed to match. Added Newsreader (variable serif, self-hosted from npm, SIL OFL) as `font-display` for page titles, landing headlines and the sign-in panel; Inter stays for UI and numbers.
+- **Also fixed:** logo box on the landing header; regenerated local demo data so warehouse names carry no em dash.
+- **Commands + results:** TEST_RUNS S10-17, S10-18; e2e S10-19 pending at the time of writing.
+- **Known:** a visitor whose session cookie expired lands on sign-in rather than the landing page (the app clears the cookie on the 401); sign-in links back to the landing page.
+
+## 2026-11-25 · S10 · Layout redesign (loop chunk 6)
+- **Owner:** "full redesign … colours, design, layout fully premium". Shared building blocks changed so every screen follows (DEC-030): floating-canvas shell, logo tile, raised active nav pill, card-style user block, 10/16/16 px radii, panel and table padding 20–24 px, eyebrow KPI labels with 32 px figures, `space-y-8` page rhythm. No route, wording, permission or test id changed.
+- **Checks:** typecheck, lint, unit 90 green; looked at Overview at 1440 px (light) while the owner was using the pane; e2e S10-20 was interrupted; rerun with chunk 7 (S10-24).
+
+## 2026-11-26 · S10 · Dark theme fix (loop chunk 7)
+- **Owner:** "the dark mode colours are not at all good, fix them and complete the work". Cause: blue navy planes made every panel, line and chart read cold and muddy against warm ivory text. Replaced with warm-neutral charcoal "Obsidian" (DEC-031); chart grid, axis and diverging midpoint follow; light theme unchanged.
+- **Logo:** the dark logo file has a navy background baked in, so `BrandLogo` now draws a `--logo-plate` (navy in dark, white in light) by default: a deliberate brand tile in the sidebar, mobile header, sign-in and landing header/footer. `/design` lists `--canvas` and `--logo-plate`.
+- **Docs:** FRONTEND.md, BRAND_IMPLEMENTATION.md, PRODUCT_V2_PLAN.md §3 updated.
+- **Commands + results:** TEST_RUNS S10-20 (interrupted earlier run), S10-21…S10-24: contrast AA on every plane, typecheck/lint clean, unit 90, browser check dark and light, e2e 37/37.
+
+## 2026-11-26 · S10 · Product v3 plan (proposed)
+- **Owner:** "plan it so businesses can use it as a plugin or the best way to connect their database; improve UI/UX and all visuals; act as a senior engineer and find what can be improved".
+- **Audit (verified in code):** only a DuckDB connector (`connectors/registry.py`, `tenancy/models.py:30`); tenants and mappings are YAML; no jobs or scheduler; scale limits in `analyses/risks.py` still present; open correctness bugs #44–#47, #49; Overview has no time series; live Gemini never run.
+- **Wrote** `05-plan/PRODUCT_V3_PLAN.md`: three data doors (direct read-only SQL, ERP extract to snapshot, files; self-hosted now, gateway later), connector contract v2 with a container conformance suite, Connect wizard and Mapping Studio with approval and reconciliation, tenant config into the DB, secret store, worker; "plugin" surfaces on the same typed tools (public API, MCP server, webhooks, embeds, Teams/Slack, Excel); new screens and visuals; senior-engineer fix list; phases V0–V6; owner decisions E1–E8.
+- **Not done:** nothing built; waiting for the owner's approval of E1–E8 and the start order.
+
+## 2026-11-26 · S10 · V0 correctness and speed (PRODUCT_V3_PLAN, owner approved)
+- **Bugs fixed (each with a regression test):** #44 Analyst kept dropping filters named in a question (grouping now from "by X", named values become filters, clarifying question when a value cannot be applied); #45 expiry counts lots as lots, with stock lines alongside; #46 Admin schema check lists warehouses in the data but not in the configuration (and stock rows without a warehouse id); #47 stale-data warning in the insight feed (banner) and in every answer with figures; #49 / LA-09 governed plans compile and pass the guard for DuckDB, PostgreSQL, SQL Server and Oracle (TOP without OFFSET, null ordering without NULLS LAST on T-SQL, `LOWER` allowed).
+- **Scale:** ABC in SQL with window sums (no 1,000-item cap, matches the Python reference on full data); cost comparison and the item-code check read every row in pages; filter lists sorted, up to `max_rows`, with `truncated` flags and a UI note; the Overview's largest-group share uses the value total.
+- **Speed:** shared result cache (`analyses/cache.py`, 60 s, scope + permissions + data timestamp; DEC-032); the KPI, area board and panel share one below-reorder request; Refresh on the insight feed really re-runs (`fresh=true`). Query budget test and an in-process Overview benchmark (`services/api/benchmarks/overview_load.py`); bundle report and CI budget (`apps/web/scripts/bundle-report.mjs`, `bundle-budget.json`).
+- **Gates:** axe in e2e (light + dark, 12 screens, 0 serious/critical) found and fixed: unfocusable scroll regions (tables, timeline), the Refresh button's name not containing its visible text, red delta text on a red tint in dark (new `--status-critical-ink`); screenshot spec for landing, sign-in and `/design` in both themes (Windows baselines); CI uploads Playwright traces on failure. e2e ports configurable (`LUMIANT_E2E_WEB_PORT`) because another local project uses 3100.
+- **How:** steps #44, #46 and #49 ran in three parallel sessions in this checkout; the rest here. **Commands + results:** TEST_RUNS S10-25 … S10-31.
+- **Open:** ISSUES #57 (landing JS above budget), #58 (cache per process), #59 (data quality 16 queries), #60 (no Linux screenshot baselines), #61 (risk tools ignore a named warehouse).
+
+## 2026-11-26 · S10 · V1 connect (part 1): SQL connector and Data source
+- **Done:** generic read-only `SqlConnector` (PostgreSQL, SQL Server, MySQL, Oracle; SQLite as a dev stand-in) behind the same contract as DuckDB; tenant `connection: {type: sql, secret_ref: env:NAME}`; unset URL fails safe (503); `lumiant-synthetic copy` loads a generated warehouse into any engine; conformance suite (SQLite every run, PostgreSQL in CI); `POST /api/admin/source/test` probe (connect, privilege check, catalog) that never stores or echoes the URL; `GET /api/admin/source`; Admin › Data source tab (status, rows per dataset, test a connection).
+- **Commands + results:** TEST_RUNS S10-32 … S10-34.
+- **Not done (next):** encrypted credential store and saving a source from the UI, mapping studio (V2), sync jobs.
+
+## 2026-11-26 · S10 · V2 map and trust: suggestions and validation
+- **Done:** `mapping/suggest.py` suggests the table and columns for each canonical dataset from names only (SAP field names, common ERP names, canonical names, table-name hints with specific vs generic words, exact-name bonus for prepared views), with confidence, reasons, alternatives and a YAML draft; `admin/validation.py` checks key uniqueness, orphans and missing required values (counts only). API: `GET /api/admin/mapping/suggest` (second opinion on the mapping in force), `POST /api/admin/source/suggest` (for a URL, used once), `GET /api/admin/validation`. Admin gains Mapping and Validation tabs; the connection test offers "Suggest a mapping".
+- **Approval** stays config-as-code (ADR-0006): the draft is reviewed and committed like code, then the schema check, validation and reconciliation gate go-live. A stored, versioned approval in the app needs the tenant config in the database (PRODUCT_V3_PLAN E3), still open.
+- **Commands + results:** TEST_RUNS S10-35, S10-36.
+
+## 2026-11-26 · S10 · V3 integrations and V4 value trend
+- **V3:** API keys for service accounts (`apikeys/store.py`, Alembic 0003, Admin › Integrations: create once-shown keys, list, revoke); any read endpoint accepts `Bearer lmk_...`; MCP server at `POST /mcp` exposing the Analyst's typed tools plus `ask_lumiant` within the key's rights and scope (DEC-033, `06-operations/INTEGRATIONS.md`).
+- **V4 (start):** `GET /api/analyses/value-trend`: month-end inventory value for 12 months rebuilt from signed movements at current prices, with monthly receipts and issues, summed in the source; Overview shows it above the insight feed.
+- **Commands + results:** TEST_RUNS S10-37 … S10-39.
+
+## 2026-11-26 · S10 · V4 Material 360
+- **Done:** `GET /api/items/{item_id}` (master, stock by warehouse with value for cost roles, lots on hand, latest movements, reorder rules, purchase orders; each section a validated, scoped plan with provenance, unavailable sections say why); Inventory rows open a Material 360 side sheet (native modal dialog, Esc closes).
+- **Commands + results:** TEST_RUNS S10-40.
+
+## 2026-11-26 · S10 · ISSUES #61 and stock ageing
+- **#61 fixed:** a single named warehouse narrows below-reorder, excess, dormant and expiry answers (scope-checked narrowing).
+- **V4 visual:** `GET /api/analyses/ageing` (on-hand stock by days since last issue, pairs for everyone, value per currency for cost roles, one statement in the source); Risks page shows it above the tabs.
+- **Commands + results:** TEST_RUNS S10-42, S10-43.
+
+## 2026-11-26 · S10 · V5 Settings
+- **Done:** `/settings` for every user (linked from the user card): theme Light / Dark / System, navigation Expanded / Compact, account (name, workspace, roles, warehouses), keyboard shortcuts. Browser-local preferences; nothing new on the server.
+- **Commands + results:** TEST_RUNS S10-44.
+
+## 2026-11-26 · S10 · V1 encrypted connection store
+- **Done:** `connectors/secret_store.py` (Fernet under `LUMIANT_SECRET_KEY`, Alembic 0004), `secret_ref: store` for tenants, `POST /api/admin/source/save` (probe first, refuse writable accounts, connector cache and result cache reset), `GET /api/admin/source/saved`; Data source tab gains "Save this connection" and the saved status. `cryptography` is now a direct dependency (was already present through PyJWT). `.env.example` documents the key.
+- **Commands + results:** TEST_RUNS S10-45.
+
+## 2026-11-26 · S10 · V3 alert rules and signed webhooks
+- **Done:** `alerts/service.py` + Alembic 0005: rules (name, https target, minimum severity) with an encrypted signing secret shown once; "Send now" computes the insight feed for the sender's scope and POSTs the matching findings with `X-Lumiant-Signature` (HMAC-SHA256) and a timestamp; SSRF guard (https only, no private, loopback, link-local or reserved addresses) in production; last delivery status kept. Admin › Integrations gains Alert rules. `06-operations/INTEGRATIONS.md` explains verification.
+- **Not done:** scheduled sending (needs the V1 worker); today a rule sends on "Send now" or through the API.
+- **Commands + results:** TEST_RUNS S10-46.
+
+## 2026-11-26 · S10 · V5 first-run welcome
+- **Done:** a dismissible "Getting started" card on the Overview (four areas, ask about anything with right-click or L, Ctrl K, how each number was calculated), remembered per browser. TEST_RUNS S10-47.
+
+## 2026-11-26 · S10 · Scheduled alert rules
+- **Done:** rules can repeat every hour, day or week (Alembic 0006 adds the interval and the creator's rights snapshot); `lumiant-alerts send-due` sends due rules with that snapshot (cron or Kubernetes CronJob); the alert form offers the schedule. No resident worker process needed. TEST_RUNS S10-49.
+
+## 2026-11-26 · S10 · Saved views API (session ended at the usage limit)
+- **Done:** `/api/views` (list, save, delete; per user, only the page's known query keys kept; Alembic 0007), `test_views.py` passes.
+- **Not done:** the Inventory "Save view" UI; full API and e2e suites were not re-run after this last step.
+
+## 2026-11-26 · S10 · Saved views UI
+- **Done:** Inventory header "Save view" (name the current filters, search and sort), a saved-views picker that reopens them, delete. Private per user; only known query keys are stored. TEST_RUNS S10-50.
+
+## 2026-11-26 · S10 · Vercel deployment (owner authorized in chat; see sessions/2026-11-26-session-10.md)
+- **Done:** Vercel project `lumiant-ai` (account `syedmukheeth`), linked to the GitHub repo, one deployment with two services (Vercel Services, Beta): Next.js web and the FastAPI API (`services/api/vercel_app.py`), `/api/*` and `/mcp` routed to the API. The API build generates the synthetic tenants (`lumiant-synthetic generate --all`); the client extract and `.env` files are never in git or the upload. `LUMIANT_DEV_JWT_SECRET` set for Preview and Production.
+- **Result:** the project's first deployment went to **production** (Vercel makes the first deployment production): https://lumiant-ai.vercel.app, public, development sign-in on synthetic data. Smoke test: landing 200, `/api/health` 200, demo sign-in 200, `items_in_stock` 585 on three calls, tenant meta synthetic and fresh.
+- **Open:** that deployment was built before the production secret existed; a production redeploy was blocked by the session's permission guard, so it should be redeployed from the Vercel dashboard. Deployment Protection is not enabled: the owner decides whether the demo stays public. The app database is SQLite in /tmp (temporary per instance).

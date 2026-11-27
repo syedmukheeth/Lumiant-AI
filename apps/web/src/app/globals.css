@@ -10,10 +10,10 @@
  * of ADR-0011).
  *
  * Brand colours are sampled from the official logos: navy #101a2e (dark-logo background), navy #112545 (wordmark),
- * gold #c4872f (tagline and dot), teal #045b62. Dark theme: navy planes whose panel colour equals the dark logo's
- * background, teal as the working accent. Light theme: white panels (= the light logo's background), navy ink and navy
- * as the working accent. Gold is a restrained brand accent for non-text marks only (active indicator, recommendation
- * mark). Amber stays reserved for things that need attention. :root is the dark theme; [data-theme="light"] is set
+ * gold #c4872f (tagline and dot), teal #045b62. Dark theme: warm charcoal planes, ivory ink, champagne as the working
+ * accent; the navy logo sits on a navy --logo-plate. Light theme: white panels (= the light logo's background), navy ink
+ * and navy as the working accent. Gold is a restrained brand accent for non-text marks only (active indicator,
+ * recommendation mark). Amber stays reserved for things that need attention. :root is the dark theme; [data-theme="light"] is set
  * before first paint from the saved choice or the OS setting. Data colors (--viz-*, --status-*) are a separate,
  * validated set. Every text pair is WCAG AA and control boundaries are ≥ 3:1 (checked 23 Nov 2026).
  */
@@ -25,28 +25,35 @@
   --brand-teal: #045b62;
 
   /* planes: page → panel → raised (hover, inputs) → floating (popovers, palette) */
-  --bg: #0a1222;
-  --surface: #101a2e;
-  --surface-2: #16223a;
-  --surface-3: #1c2945;
-  --ink: #eef2f7;
-  --ink-2: #b7c1d1;
-  --ink-3: #8f9bb0;
-  --line: #1e2b45;
-  --line-strong: #2b3a58;
+  /* "Obsidian" (owner, 26 Nov 2026; replaces the navy planes of DEC-029): warm-neutral charcoal planes, warm ivory
+   * text, champagne as the working accent; brass (--brand-gold) only for small brand marks. The navy logo sits on its
+   * own --logo-plate. Every text pair AA, controls >= 3:1 (TEST_RUNS S10-21). */
+  --bg: #0b0b0d;
+  --surface: #151518;
+  /* the app canvas: one step between the page and a panel (floating-canvas shell) */
+  --canvas: #101012;
+  --surface-2: #1c1c20;
+  --surface-3: #232328;
+  --ink: #f5f3ef;
+  --ink-2: #c9c6c0;
+  --ink-3: #96938c;
+  --line: #26262b;
+  --line-strong: #36363d;
   /* form-control boundary, ≥ 3:1 on every plane (WCAG 1.4.11) */
-  --control-line: #6e7c95;
-  --accent: #3cc2b6;
-  --accent-strong: #62d3c9;
-  --accent-ink: #03201e;
-  --accent-soft: #0b2c35;
+  --control-line: #6f6d75;
+  --accent: #efe8da;
+  --accent-strong: #ffffff;
+  --accent-ink: #141416;
+  --accent-soft: #26252a;
   --signal: #f0a04b;
-  --signal-soft: #2e2214;
+  --signal-soft: #2a2015;
   --ok: #5fd38d;
+  /* the plate behind the logo artwork: the exact background colour baked into each logo file */
+  --logo-plate: var(--brand-navy);
 
   /* glass is only for chrome that floats over scrolling content (command bar, palette, dock) */
-  --glass: rgb(10 18 34 / 0.8);
-  --glass-strong: rgb(16 26 46 / 0.95);
+  --glass: rgb(11 11 13 / 0.8);
+  --glass-strong: rgb(21 21 24 / 0.95);
   --glass-line: rgb(255 255 255 / 0.07);
   --highlight: rgb(255 255 255 / 0.04);
   --elev-1: inset 0 1px 0 0 var(--highlight), 0 1px 2px 0 rgb(0 0 0 / 0.4);
@@ -54,7 +61,7 @@
   --elev-3: inset 0 1px 0 0 var(--highlight), 0 0 0 1px var(--glass-line), 0 28px 64px -20px rgb(0 0 0 / 0.75);
   /* the accent edge of an active or selected thing: a hairline, never a glow */
   --ring-accent: 0 0 0 1px color-mix(in oklab, var(--accent) 50%, transparent);
-  --scrim: rgb(4 8 16 / 0.6);
+  --scrim: rgb(0 0 0 / 0.6);
 
   /* data viz (dataviz reference palette, dark steps; fixed order, never cycled) */
   --viz-1: #3987e5;
@@ -65,19 +72,40 @@
   --viz-6: #008300;
   --viz-7: #9085e9;
   --viz-8: #e66767;
-  --viz-grid: #1e2b45;
-  --viz-axis: #34445f;
-  --viz-cursor: rgb(238 242 247 / 0.05);
+  --viz-grid: #26262b;
+  --viz-axis: #3a3a42;
+  --viz-cursor: rgb(245 243 239 / 0.05);
   /* status: reserved meaning, always shown with an icon + label */
   --status-good: #0ca30c;
   --status-warning: #fab219;
   --status-serious: #ec835a;
   --status-critical: #e05252;
+  /* critical text on a critical tint (delta chips): #e05252 reaches only ~4:1 there, this 5.9:1 (axe, V0) */
+  --status-critical-ink: #f08080;
+
+  /* Product v2 (docs/05-plan/PRODUCT_V2_PLAN.md §3): data ramps. No separate AI colour: AI work uses the same
+   * neutral surfaces and brand accent as everything else (owner, 2026-11-25). */
+  /* sequential ramp (one hue, teal; low → high) for heatmaps and treemaps */
+  --seq-1: #12313d;
+  --seq-2: #165258;
+  --seq-3: #1d7a76;
+  --seq-4: #2ea79c;
+  --seq-5: #62d3c9;
+  /* label colour on each sequential step (≥ 4.5:1) */
+  --seq-ink-1: #eef2f7;
+  --seq-ink-2: #eef2f7;
+  --seq-ink-3: #eef2f7;
+  --seq-ink-4: #03201e;
+  --seq-ink-5: #03201e;
+  /* diverging ramp (amber ↔ teal around a neutral) for variance, over/under */
+  --div-neg: #e0884a;
+  --div-mid: #3a3a42;
+  --div-pos: #3cc2b6;
 
   /* shape: controls, panels, floating layers; pills use rounded-full */
-  --r-control: 0.5rem;
-  --r-panel: 0.75rem;
-  --r-float: 0.875rem;
+  --r-control: 0.625rem;
+  --r-panel: 1rem;
+  --r-float: 1rem;
 
   /* motion (mirrors src/lib/motion.ts — change both together) */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -109,27 +137,30 @@
 
 :root[data-theme="light"] {
   --brand-gold: #c4872f;
-  --bg: #f5f7fa;
+  /* ivory paper, navy ink and navy actions */
+  --bg: #f7f4ee;
   --surface: #ffffff;
-  --surface-2: #eef1f5;
+  --canvas: #fbf9f5;
+  --surface-2: #f1ede5;
   --surface-3: #ffffff;
-  --ink: #0f1d33;
-  --ink-2: #3a4760;
-  --ink-3: #5a6780;
-  --line: #e1e6ee;
-  --line-strong: #c9d1dd;
-  --control-line: #7a8598;
+  --ink: #0f1b2d;
+  --ink-2: #3b4658;
+  --ink-3: #5d6779;
+  --line: #e5dfd3;
+  --line-strong: #d3cbbb;
+  --control-line: #7c8494;
   --accent: #112545;
   --accent-strong: #0b1a33;
   --accent-ink: #ffffff;
-  --accent-soft: #e4e9f2;
+  --accent-soft: #ebe8e0;
   --signal: #a8480c;
   --signal-soft: #fbe9d9;
   --ok: #1f7440;
+  --logo-plate: #ffffff;
 
-  --glass: rgb(255 255 255 / 0.82);
+  --glass: rgb(247 244 238 / 0.85);
   --glass-strong: rgb(255 255 255 / 0.96);
-  --glass-line: rgb(15 29 51 / 0.08);
+  --glass-line: rgb(15 27 45 / 0.08);
   --highlight: rgb(255 255 255 / 0.9);
   --elev-1: 0 1px 2px 0 rgb(15 29 51 / 0.05), 0 0 0 1px rgb(15 29 51 / 0.02);
   --elev-2: 0 12px 28px -14px rgb(15 29 51 / 0.18);
@@ -144,16 +175,32 @@
   --viz-6: #008300;
   --viz-7: #6250d6;
   --viz-8: #e34948;
-  --viz-grid: #e1e6ee;
-  --viz-axis: #c9d1dd;
+  --viz-grid: #e9e4da;
+  --viz-axis: #d3cbbb;
   --viz-cursor: rgb(15 29 51 / 0.04);
   --status-critical: #c93030;
+  --status-critical-ink: #c93030;
+  --seq-1: #e2f1ef;
+  --seq-2: #b2dcd7;
+  --seq-3: #6cbab2;
+  --seq-4: #23786f;
+  --seq-5: #12564f;
+  --seq-ink-1: #0f1d33;
+  --seq-ink-2: #0f1d33;
+  --seq-ink-3: #0f1d33;
+  --seq-ink-4: #ffffff;
+  --seq-ink-5: #ffffff;
+  --div-neg: #c25e1c;
+  --div-mid: #d5dce6;
+  --div-pos: #1f7f77;
   color-scheme: light;
 }
 
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
+  --color-canvas: var(--canvas);
+  --color-logo-plate: var(--logo-plate);
   --color-surface-2: var(--surface-2);
   --color-surface-3: var(--surface-3);
   --color-ink: var(--ink);
@@ -187,6 +234,20 @@
   --color-status-warning: var(--status-warning);
   --color-status-serious: var(--status-serious);
   --color-status-critical: var(--status-critical);
+  --color-status-critical-ink: var(--status-critical-ink);
+  --color-seq-1: var(--seq-1);
+  --color-seq-2: var(--seq-2);
+  --color-seq-3: var(--seq-3);
+  --color-seq-4: var(--seq-4);
+  --color-seq-5: var(--seq-5);
+  --color-seq-ink-1: var(--seq-ink-1);
+  --color-seq-ink-2: var(--seq-ink-2);
+  --color-seq-ink-3: var(--seq-ink-3);
+  --color-seq-ink-4: var(--seq-ink-4);
+  --color-seq-ink-5: var(--seq-ink-5);
+  --color-div-neg: var(--div-neg);
+  --color-div-mid: var(--div-mid);
+  --color-div-pos: var(--div-pos);
   --shadow-e1: var(--elev-1);
   --shadow-e2: var(--elev-2);
   --shadow-e3: var(--elev-3);
@@ -209,15 +270,24 @@
   --text-page: 1.625rem;
   --text-page--line-height: 2rem;
   --text-page--letter-spacing: -0.022em;
-  --text-kpi: 1.75rem;
-  --text-kpi--line-height: 2.125rem;
+  --text-kpi: 2rem;
+  --text-kpi--line-height: 2.375rem;
   --text-kpi--letter-spacing: -0.02em;
+  /* display sizes: landing hero and hero KPIs only */
+  --text-display: 2.75rem;
+  --text-display--line-height: 1.08;
+  --text-display--letter-spacing: -0.032em;
+  --text-hero: 3.75rem;
+  --text-hero--line-height: 1.02;
+  --text-hero--letter-spacing: -0.04em;
   --ease-out: var(--ease-out-expo);
   --ease-in-out: var(--ease-in-out-smooth);
   --default-transition-duration: var(--dur-fast);
   --default-transition-timing-function: var(--ease-out-expo);
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  /* Newsreader (editorial serif) for page titles and marketing headlines only; never for numbers or controls */
+  --font-display: var(--font-newsreader), ui-serif, Georgia, serif;
 }
 
 html,

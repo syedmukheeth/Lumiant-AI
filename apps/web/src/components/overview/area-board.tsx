@@ -8,7 +8,7 @@ import { ErrorState, Skeleton } from "@/components/data/widget";
 import { Chip } from "@/components/ui/badge";
 import { ApiError, type Me } from "@/lib/api";
 import { formatCount, formatMoney, formatNumber, humanize } from "@/lib/format";
-import { useBelowReorder, useDataQuality, useMetric, useRisk } from "@/lib/hooks";
+import { OVERVIEW_BELOW_REORDER, useBelowReorder, useDataQuality, useMetric, useRisk } from "@/lib/hooks";
 import { enterDelay } from "@/lib/motion";
 
 /**
@@ -20,6 +20,13 @@ const DORMANT_DAYS = 180;
 const EXPIRY_DAYS = 60;
 
 type Figure = { label: string; value?: React.ReactNode; pending?: boolean; error?: unknown; testId?: string };
+
+/** Expired + expiring stock lines (one lot can sit in several lines); undefined until both counts are known. */
+function stockLines(summary?: Record<string, string | number | null>): number | undefined {
+  const expired = Number(summary?.expired);
+  const expiring = Number(summary?.expiring);
+  return Number.isFinite(expired) && Number.isFinite(expiring) && summary ? expired + expiring : undefined;
+}
 
 function Area({
   index,
@@ -122,11 +129,16 @@ function FigureError({ error }: { error: unknown }) {
   return <ErrorState error={error} />;
 }
 
-/** The largest category by value, in the first currency; amounts in other currencies are never added in. */
-function largest(rows: Record<string, unknown>[], labelField: string, nice = false) {
+/**
+ * The largest category by value, in the first currency; amounts in other currencies are never added in. The share is
+ * taken against the inventory value total for that currency when it is known, because a grouped list can be cut at
+ * its row limit and its own sum would then overstate the share.
+ */
+function largest(rows: Record<string, unknown>[], labelField: string, nice = false, totals: Record<string, unknown>[] = []) {
   const currency = [...new Set(rows.map((r) => String(r.currency ?? "")))].filter(Boolean).sort()[0];
   const same = rows.filter((r) => r.currency === currency);
-  const total = same.reduce((s, r) => s + Number(r.value ?? 0), 0);
+  const known = totals.find((t) => t.currency === currency)?.value;
+  const total = known != null ? Number(known) : same.reduce((s, r) => s + Number(r.value ?? 0), 0);
   const top = same.reduce<Record<string, unknown> | null>((best, r) => (!best || Number(r.value) > Number(best.value) ? r : best), null);
   if (!top || total <= 0) return null;
   const label = String(top[labelField] || top.warehouse_id || "Not set");
@@ -135,8 +147,9 @@ function largest(rows: Record<string, unknown>[], labelField: string, nice = fal
 
 function useLargest(label: string, metric: string, labelField: string, canSeeValue: boolean, nice = false): Figure {
   const { data, isPending, error } = useMetric(metric, canSeeValue);
+  const totals = useMetric("inventory_value_total", canSeeValue); // same request as the KPI strip, sent once
   if (!canSeeValue) return { label, value: <Small>Your role cannot view values</Small> };
-  const top = largest(data?.data ?? [], labelField, nice);
+  const top = largest(data?.data ?? [], labelField, nice, totals.data?.data ?? []);
   return {
     label,
     pending: isPending,
@@ -163,7 +176,7 @@ export function AreaBoard({ me, canSeeValue }: { me: Me; canSeeValue: boolean })
 
   const topWarehouse = useLargest("Largest warehouse", "inventory_value_by_warehouse", "warehouse.name", canSeeValue);
   const topGroup = useLargest("Largest item group", "inventory_value_by_item_group", "item.item_group", canSeeValue, true);
-  const below = useBelowReorder({ offset: 0, limit: 1 });
+  const below = useBelowReorder(OVERVIEW_BELOW_REORDER); // same request as the below-reorder panel, sent once
   // Risk analyses belong to the Risks section: a role without it is not asked for them at all.
   const excess = useRisk("excess-stock", { limit: 1, offset: 0 }, seesRisks);
   const dormant = useRisk("dormant", { limit: 1, offset: 0, days: DORMANT_DAYS }, seesRisks);
@@ -262,9 +275,10 @@ export function AreaBoard({ me, canSeeValue }: { me: Me; canSeeValue: boolean })
               error: expiring.error,
               value: (
                 <>
-                  <Big tone="signal">{formatCount(exp?.expired)}</Big>
+                  <Big tone="signal">{formatCount(exp?.expired_lots)}</Big>
                   <Small>
-                    {formatCount(exp?.expiring)} more expire within {EXPIRY_DAYS} days
+                    {formatCount(exp?.expiring_lots)} more expire within {EXPIRY_DAYS} days
+                    {stockLines(exp) !== undefined && <> · {formatCount(stockLines(exp))} stock lines</>}
                   </Small>
                 </>
               ),

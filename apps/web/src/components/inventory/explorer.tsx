@@ -16,6 +16,9 @@ import { formatMoney, formatNumber, humanize } from "@/lib/format";
 import { type BalanceQuery, useBalances, useInventoryFilters, usePageMe } from "@/lib/hooks";
 import { enterDelay } from "@/lib/motion";
 
+import { ItemSheet } from "./item-sheet";
+import { SavedViews } from "./saved-views";
+
 const LIMIT = 50;
 
 type Col = {
@@ -37,7 +40,7 @@ const COLUMNS: Col[] = [
     render: (r) => <CodeName code={r["item.item_code"] ?? r.item_id} name={r["item.description"] as string | null} max="max-w-80" />,
   },
   { key: "group", label: "Group", sort: "item_group", render: (r) => humanize(r["item.item_group"] as string) },
-  { key: "abc", label: "ABC", sort: "abc_class", field: "item.abc_class", render: (r) => r["item.abc_class"] ?? "—" },
+  { key: "abc", label: "ABC", sort: "abc_class", field: "item.abc_class", render: (r) => r["item.abc_class"] ?? "–" },
   {
     key: "warehouse",
     label: "Warehouse",
@@ -47,11 +50,11 @@ const COLUMNS: Col[] = [
         <span className="code block text-xs text-ink-3">
           {r.warehouse_id} · {r.location_id}
         </span>
-        <span className="block max-w-56 truncate">{r["warehouse.name"] ?? "—"}</span>
+        <span className="block max-w-56 truncate">{r["warehouse.name"] ?? "–"}</span>
       </>
     ),
   },
-  { key: "lot", label: "Lot", field: "lot_id", render: (r) => <span className="code text-xs">{r.lot_id ?? "—"}</span> },
+  { key: "lot", label: "Lot", field: "lot_id", render: (r) => <span className="code text-xs">{r.lot_id ?? "–"}</span> },
   {
     key: "status",
     label: "Stock status",
@@ -159,6 +162,7 @@ export function InventoryExplorer() {
   };
 
   const [term, setTerm] = useState(query.q ?? "");
+  const [openItem, setOpenItem] = useState<string | null>(null);
   // When the URL's search changes from outside this box (command palette, back button), show it in the box. A change
   // this box made itself is skipped, so typing during the round trip is never overwritten.
   const [pushedQ, setPushedQ] = useState(query.q);
@@ -191,7 +195,7 @@ export function InventoryExplorer() {
 
   const f = filters.data;
   return (
-    <div className="mx-auto max-w-[96rem] space-y-5">
+    <div className="mx-auto max-w-[96rem] space-y-8">
       <PageHeader
         title="Stock on hand"
         description={
@@ -199,6 +203,18 @@ export function InventoryExplorer() {
             Every stock line in your scope, item × warehouse × location × lot.
             {!canSeeCost && " Cost columns are hidden for your role."}
           </>
+        }
+        actions={
+          <SavedViews
+            page="inventory"
+            current={params.toString()}
+            onOpen={(qs) => {
+              const next = new URLSearchParams(qs);
+              setTerm(next.get("q") ?? "");
+              pendingQs.current = next.toString();
+              router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+            }}
+          />
         }
       />
 
@@ -237,6 +253,13 @@ export function InventoryExplorer() {
             options={(f?.stock_statuses ?? []).map((g) => ({ value: g, label: humanize(g) }))}
             onChange={(v) => update({ status: v })}
           />
+        )}
+        {(f?.truncated?.length ?? 0) > 0 && (
+          <p className="col-span-full text-xs text-ink-3" role="note" data-testid="filters-truncated">
+            Only the first {formatNumber(f?.limit)} choices are listed for{" "}
+            {(f?.truncated ?? []).map((k) => humanize(k).toLowerCase()).join(", ")}. Search by item code or description to
+            reach the rest.
+          </p>
         )}
       </div>
 
@@ -292,7 +315,15 @@ export function InventoryExplorer() {
                         <Td key={c.key} align={c.align}>
                           {ci === 0 ? (
                             <div className="flex items-start gap-1">
-                              <div className="min-w-0 flex-1">{c.render(r)}</div>
+                              <button
+                                type="button"
+                                className="min-w-0 flex-1 rounded-control text-left hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
+                                onClick={() => setOpenItem(String(r.item_id))}
+                                data-testid="open-item"
+                              >
+                                {c.render(r)}
+                                <span className="sr-only">, open item details</span>
+                              </button>
                               <AnalyzeButton sel={sel} className="-mt-0.5 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100" />
                             </div>
                           ) : (
@@ -306,6 +337,7 @@ export function InventoryExplorer() {
               </tbody>
             </DataTable>
             {balances.data?.page && <Pager page={balances.data.page} onChange={(offset) => update({ offset })} />}
+            {openItem && <ItemSheet itemId={openItem} onClose={() => setOpenItem(null)} />}
           </>
         )}
       </Panel>

@@ -1,49 +1,50 @@
 # Current State
 
-_Rewritten at the end of every session. Last update: 2026-11-11, S07 (M11 visual refresh of the web app: graphite + emerald, Inter, theme follows the device, shared control layer; web only; committed and pushed to `main` at the owner's request)._
+_Rewritten at the end of every session. Last update: 2026-11-26, S10 (Product v2 P1–P3, redesign and Obsidian dark
+theme, Product v3 V0 done and V1–V4 partly done; all on `feature/product-v2`, pushed; `main` not changed)._
 
 ## Milestone
-**M1–M6 complete on synthetic data; M8 (client SAP extract, local only), M9 (Gemini-ready agent with screen context, streaming and insights) and M10 D1–D3 + part of D4 (command-center UI, Analyst Lens, four overview areas) done; **M11 visual refresh done and pushed** (ADR-0011).** Code is on GitHub (`syedmukheeth/Lumiant-AI`, `main`), all PRs merged, none open. CI green on all five jobs at `9d5c843` (TEST_RUNS S07-11).
-**Next:** the owner looks at the new look on their own screen (ISSUES #51); a live Gemini check with the owner's key on a synthetic tenant; the rest of D4 (inventory grid, Material 360, Data sources); decide whether `lumiant.nomap` (prototype, not wired in) informs ADR-0002; the client's answers and further SAP files (Q-019…Q-026). M7 still needs `../07-customer/OPEN_QUESTIONS.md`.
+M1–M11 as before (synthetic data; client SAP extract local only). **Product v2** (PRODUCT_V2_PLAN): design system v2,
+chart kit, Analyst v2 (multi-step Gemini loop, knowledge retrieval, fake-client tested), landing page, sign-in split
+view, demo requests, premium layout redesign, "Obsidian" dark theme. **Product v3** (PRODUCT_V3_PLAN, owner approved):
+V0 correctness and speed **done** (DEC-032); V1 connect, V2 map and trust, V3 use anywhere, V4 command centre
+**partly done** (see the plan's phase table).
+**Branch:** `feature/product-v2` (pushed). Merging to `main` and any deployment need the owner.
 
-## What works (verified by automated tests and manual browser checks)
+## What works (verified by automated tests and browser checks)
 
 | Capability | Evidence |
 |---|---|
-| Three synthetic tenants (alpha SAP-style USD; beta EUR+GBP; gamma = twin of the client's SAP exports, SAR) | `test_synthetic.py`, `test_sap_ingest.py`, `test_sap_extract.py` |
-| Tenant config + canonical model + mapping + value maps, validated at startup | `test_tenancy.py`, `test_mapping.py` |
-| Query engine: plan validation, scope injection, cost-field control, currency/UoM rails, parameterized SQL, sqlglot guard, read-only DuckDB, timeouts, provenance, audit; totals equal independent raw SQL | `test_validator.py`, `test_compiler_and_guard.py`, `test_query_service.py`, `*_matches_independent_sql` |
-| Dev-only auth, RBAC, warehouse scope, tenant isolation, CSRF, safe errors; OIDC with local keys; rate limits (optional Redis); nonce CSP | `test_api.py`, `test_oidc.py`, `test_hardening.py`, e2e CSP test |
-| M2 costing, ABC, risk analyses; M4 reports/exports/guided menu; M5 drift check, capability matrix, reconciliation, audit explorer | `test_costing.py`, `test_m2_analyses.py`, `test_reports.py`, `test_admin.py`, e2e |
-| **M8** client SAP extract: `lumiant-ingest sap` → git-ignored DuckDB with a hard control-total gate (real import passed, nothing tracked), `customer_extract` class (ADR-0008), stock statuses, source-vs-computed value check, SAP data-quality checks | `07-customer/CLIENT_DATA_INTAKE.md`, `test_private_data_guard.py`, session log S03 |
-| **M9** agent: 12 typed tools incl. `concentration` and `insights`; screen context + follow-ups (validated, scope-checked, narrowing only); SSE streaming; insight feed with capability gaps; Gemini + Anthropic adapters behind tenant approval (fake-client tested) | `test_agent.py` (golden/adversarial incl. 8 new), `test_agent_context.py` (24), ADR-0009/0010 |
-| **M10** UI: dark-first command-center design system, rail + command bar, ⌘K palette, shortcuts; Overview with insight feed; **Analyst Lens** (right-click / ✦ / `L` on KPIs, panels, bars, rows, insights), persistent dock with streamed trace, pins; assistant page on the same renderer | web unit 50 (`analyst.test.tsx` …), e2e 23/23, browser check S04-9 |
-| **M11** visual refresh: graphite + emerald tokens in dark and light, Inter for text and numbers, Geist Mono for identifiers, theme follows the device, one primitive layer (`components/ui/`) under every page | ADR-0011; contrast and palette gates (TEST_RUNS S07-1, S07-2); `ui.test.tsx`; headless screenshot review S07-6; live check in the in-app browser S07-9 |
-| Checks (S07, Windows, working tree, web only) | lint/tsc clean · token lint 0 literals · unit 74 · e2e 26/26 (one earlier run: 2 timeouts, passed on rerun) · API 465 passed + 6 skips on a fresh clone (S07-8) |
-| Checks (S06, Windows, on the merged tree) | API 465 passed + 6 env-gated skips · ruff/format/mypy strict clean · web lint/tsc clean · unit 61 · e2e not re-run this session · GitHub Actions not re-checked since `647ef7b` |
-| Linux / containers / PostgreSQL 16 / Redis 7 | cloud verification CV-1…CV-6; CI `docker` and `api-postgres-redis` jobs |
+| Everything in the M1–M11 table of the previous state (query engine, scope, auth, analyses, agent, M8 extract, M10/M11 UI) | API suite, e2e |
+| V0: five wrong-figure bugs fixed (#44–#47, #49); ABC in SQL with no item cap; paged analyses; filter truncation flags; shared scoped result cache; Overview 79 → 41 source queries | `test_scale_limits.py`, `test_overview_budget.py`, `test_dialect_matrix.py`, TEST_RUNS S10-25…S10-31 |
+| V1: read-only `SqlConnector` for PostgreSQL / SQL Server / MySQL / Oracle (SQLite as dev stand-in), `connection: {type: sql, secret_ref}`, safe failure, `lumiant-synthetic copy`, Admin › Data source with a connection test; tested connections can be saved encrypted (`LUMIANT_SECRET_KEY`, `secret_ref: store`, DEC-034) | `test_sql_connector.py` (SQLite every run, PostgreSQL in CI), S10-32…S10-34 |
+| V2: mapping suggestions from names (all four demo tenants matched exactly), validation harness (keys, orphans, required values), Admin › Mapping and Validation | `test_mapping_suggest.py`, S10-35 |
+| V3: API keys (hashed, ⊆ creator), public API with keys, MCP server `POST /mcp` with the Analyst's typed tools + `ask_lumiant`, alert rules with signed webhooks and SSRF guard, Admin › Integrations | `test_api_keys_mcp.py`, DEC-033, `06-operations/INTEGRATIONS.md` |
+| V4: 12-month value trend (rebuilt from movements, exact), Material 360 sheet from Inventory, stock ageing buckets on Risks; V5: Settings page; ISSUES #61 fixed | `test_trends.py`, `test_items.py`, `test_ageing.py`, e2e |
+| Gates | API 951 passed + 15 env skips; web unit 90; e2e 53/53 (axe in light and dark on 12 screens, Windows screenshot baselines); bundle budget in CI |
 
 ## What is simulated (not evidence of customer readiness)
-- **Demo data is synthetic** (alpha, beta, gamma). The **client extract** is real but a one-off local snapshot (no system connection), visible only on the owner's machine with the dev flags.
-- **External AI has never been called.** Anthropic and Gemini adapters are tested with fake clients (ISSUES #13); external AI is off for the client extract until the client approves a provider (Q-013).
-- **Authentication is development-only in practice**; OIDC never ran against a real IdP (Q-010).
-- **The only connector is DuckDB** (plus the XLSX importer for SAP list exports). `lumiant.nomap` (PR #3) adds a no-mapping, AI-written-SQL prototype tested against PostgreSQL and a real Odoo 18; it is **not wired into the API or UI**, and letting the AI write SQL reverses ADR-0002 — bringing it into the product is the owner's decision.
+- All demo data is synthetic; the client SAP extract is a local one-off.
+- **External AI has never been called** (Gemini paths tested with fake clients; ISSUES #13, #56).
+- PostgreSQL connector conformance runs only in CI; SQL Server, MySQL and Oracle compile and pass the guard but were
+  never run against a real engine. No customer system has been connected.
+- Authentication is development-only in practice (OIDC never ran against a real IdP).
 
 ## Not built yet
-D4 rest: virtualized inventory grid + Material 360, Admin › Data sources (ISSUES #39) · axe run · LIFO, ageing buckets, price-movement alerts · editable query chips, glossary, drill-through, saved views (server-side), background reports · mapping editor/approval, profiling · real IdP, managed PostgreSQL/Redis · M7.
+Tenant config in the database with versioned mapping
+approval; sync worker and scheduler (scheduled syncs and alert sending); embeds; virtualised grid, more visuals, global filters,
+saved views, Analyst inline charts; first-run tour, SSO/SCIM, Helm chart; Teams/Slack/Excel.
 
 ## Known limitations
-`../logs/ISSUES.md` — open: #1, #2, #5, #6, #8, #13 (live AI), #14, #15, #16, #23–#30 (SAP extract), #31–#33 (dev tooling), #36 (SSE through production proxies not measured), #37 (per-process insight cache), #38 (touch Lens, per-browser pins), #39 (D4 rest), #50 (no-JS theme is dark), #51 (owner's own screen), #52 (exact numbers in answer sentences, by design), #53 (one flaky e2e run).
-
-## Blocked on the customer
-`../07-customer/OPEN_QUESTIONS.md` — Q-001, Q-003, Q-006–Q-008, Q-010, Q-012, Q-013 (AI provider approval, now incl. Gemini), Q-019…Q-026 (SAP code meanings, stock statuses, next files: MB51/MSEG, MARC, MCHB/MCH1, T001W/T001L, EKPO).
+`../logs/ISSUES.md`: open include #13 (live AI), #16 (real IdP), #37 / #58 (per-process caches), #57 (landing JS above
+budget, being reduced), #59 (data quality 16 queries), #60 (Windows-only screenshot baselines), plus the SAP-extract items #23–#30.
 
 ## Next step
-0. Owner opens the app on their own screen (ISSUES #51).
-1. Owner: put a **paid** Gemini key in `services/api/.env` (`LUMIANT_AGENT_PROVIDER=gemini`, `LUMIANT_GEMINI_API_KEY=…`), set `ai.external_provider_approved: true` on a synthetic tenant only, and run a live check (closes part of ISSUES #13).
-2. Build D4 rest (ISSUES #39) on the same design system.
-3. Send Q-019…Q-026 and the file list to the client; load MB51/MARC/MCHB when they arrive to unlock dormant, reorder and expiry insights on real data.
-4. Re-run e2e and confirm GitHub Actions is green on the new `main` tip (`155610f`); owner to decide on `lumiant.nomap` / ADR-0002.
+1. Owner reviews `feature/product-v2` and decides on merging to `main`.
+2. Owner: paid Gemini key on a synthetic tenant for the first live AI check.
+3. Continue V1 (secret store, config in DB, sync worker), V3 (webhooks, alerts), V4 (visuals, filters).
+4. First customer: Q-001 (their database technology) decides which connector gets a real conformance run.
 
 ## How to run
-`docs/06-operations/DEV_SETUP.md` (setup) · `docs/06-operations/TESTING.md` (tests). After large CSS changes clear `apps/web/.next/dev` and `.next/cache` (ISSUES #33).
+`06-operations/DEV_SETUP.md`, `06-operations/TESTING.md`, `06-operations/INTEGRATIONS.md`. If ports 3000/3100 are taken
+by another local project, the dev web server moves to 3001 and e2e takes `LUMIANT_E2E_WEB_PORT=3200`.

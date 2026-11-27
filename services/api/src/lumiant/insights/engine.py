@@ -12,11 +12,13 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Callable
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_EVEN, Decimal
 from typing import Any, Literal
 
-from lumiant.analyses.below_reorder import BelowReorderFilters, run_below_reorder
+from lumiant.analyses.below_reorder import SHARED_ROWS, BelowReorderFilters, run_below_reorder
+from lumiant.analyses.cache import fresh_results
 from lumiant.analyses.concentration import run_concentration
 from lumiant.analyses.risks import run_data_quality, run_dormant, run_expiring
 from lumiant.auth.permissions import Permission
@@ -25,7 +27,7 @@ from lumiant.core.errors import AppError
 from lumiant.costing.engine import present
 from lumiant.query.plan import QueryPlan
 from lumiant.query.results import to_json_value
-from lumiant.query.service import QueryService
+from lumiant.query.service import QueryService, meta_warnings
 
 log = logging.getLogger("lumiant.insights")
 Severity = Literal["critical", "warning", "info"]
@@ -213,7 +215,7 @@ def _stock_status(q: QueryService, p: Principal) -> list[Insight]:
 
 
 def _below_reorder(q: QueryService, p: Principal) -> list[Insight]:
-    res = run_below_reorder(q, p, BelowReorderFilters(), limit=1, offset=0)
+    res = run_below_reorder(q, p, BelowReorderFilters(), limit=SHARED_ROWS, offset=0)
     s = res.summary or {}
     n = int(s.get("flagged") or 0)
     if not n:
@@ -282,7 +284,8 @@ def _dormant(q: QueryService, p: Principal) -> list[Insight]:
 def _expiring(q: QueryService, p: Principal) -> list[Insight]:
     res = run_expiring(q, p, days=60, limit=1)
     s = res.summary or {}
-    expired, soon = int(s.get("expired") or 0), int(s.get("expiring") or 0)
+    expired, soon = int(s.get("expired_lots") or 0), int(s.get("expiring_lots") or 0)
+    lines = int(s.get("expired") or 0) + int(s.get("expiring") or 0)
     if not (expired or soon):
         return []
     return [
@@ -294,11 +297,14 @@ def _expiring(q: QueryService, p: Principal) -> list[Insight]:
                 f"{_n(expired, 'lot on hand is', 'lots on hand are')} expired and {soon} more "
                 f"{'expires' if soon == 1 else 'expire'} within 60 days"
             ),
-            detail="Quarantine expired lots and use the expiring ones first.",
+            detail=(
+                f"They sit in {lines} stock {'line' if lines == 1 else 'lines'}. "
+                "Quarantine expired lots and use the expiring ones first."
+            ),
             ask="Which lots are nearing expiry?",
             metrics=[
-                {"kind": "count", "label": "Expired", "value": expired},
-                {"kind": "count", "label": "Within 60 days", "value": soon},
+                {"kind": "count", "label": "Expired lots", "value": expired},
+                {"kind": "count", "label": "Lots within 60 days", "value": soon},
             ],
             link={"page": "risks"},
             provenance=res.provenance,
@@ -356,7 +362,11 @@ class InsightService:
         hit = self._cache.get(key)
         if hit and not fresh and time.monotonic() - hit[0] < CACHE_TTL_S:
             self.query.record(principal, "insight:feed", None, "allow", "ok", reason="cache")
-            return hit[1]
+            return {**hit[1], **self._freshness(principal)}
+        with fresh_results() if fresh else nullcontext():
+            return self._compute(principal, key)
+
+    def _compute(self, principal: Principal, key: tuple[str, ...]) -> dict[str, Any]:
         insights: list[Insight] = []
         gaps: list[dict[str, str]] = []
         failed: list[dict[str, str]] = []
@@ -382,7 +392,15 @@ class InsightService:
         }
         if not failed:  # an unfinished feed must not stand in for a real one once the source is back
             self._cache[key] = (time.monotonic(), body)
-        return body
+        return {**body, **self._freshness(principal)}
+
+    def _freshness(self, principal: Principal) -> dict[str, Any]:
+        """How old the data behind the feed is, read fresh on every call so a cached feed never hides staleness."""
+        meta = self.query.tenant_meta(principal.tenant_id)
+        return {
+            "data_as_of": meta.data_as_of.isoformat() if meta.data_as_of else None,
+            "warnings": [{"code": w.code, "message": w.message} for w in meta_warnings(meta)],
+        }
 
 
 __all__ = ["Insight", "InsightService"]

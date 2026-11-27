@@ -17,7 +17,7 @@ function isNumeric(value: Numeric): value is string | number {
 }
 
 export function formatNumber(value: Numeric, opts: { maxFraction?: number; minFraction?: number; locale?: string } = {}) {
-  if (!isNumeric(value)) return "—";
+  if (!isNumeric(value)) return "–";
   return new Intl.NumberFormat(opts.locale, {
     minimumFractionDigits: opts.minFraction ?? 0,
     maximumFractionDigits: opts.maxFraction ?? 2,
@@ -26,7 +26,7 @@ export function formatNumber(value: Numeric, opts: { maxFraction?: number; minFr
 }
 
 export function formatMoney(value: Numeric, currency: string | null | undefined, opts: { compact?: boolean; locale?: string } = {}) {
-  if (!isNumeric(value)) return "—";
+  if (!isNumeric(value)) return "–";
   if (!currency) return `${formatNumber(value, { locale: opts.locale })} (no currency)`;
   return new Intl.NumberFormat(opts.locale, {
     style: "currency",
@@ -41,7 +41,7 @@ export function formatMoney(value: Numeric, currency: string | null | undefined,
 
 export function formatQuantity(value: Numeric, uom?: string | null, locale?: string) {
   const n = formatNumber(value, { maxFraction: 3, locale });
-  return uom && n !== "—" ? `${n} ${uom}` : n;
+  return uom && n !== "–" ? `${n} ${uom}` : n;
 }
 
 export function formatCount(value: Numeric, locale?: string) {
@@ -61,7 +61,7 @@ export function toChartNumber(value: Numeric): number {
 }
 
 export function humanize(code: string | null | undefined): string {
-  if (!code) return "—";
+  if (!code) return "–";
   return code
     .toLowerCase()
     .split("_")

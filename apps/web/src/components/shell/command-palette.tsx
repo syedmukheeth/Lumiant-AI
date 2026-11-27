@@ -220,7 +220,7 @@ export function CommandPalette({ open, onOpenChange, nav, canSearchMaterials, ca
                               onSelect={() => run(() => onNavigate(`/inventory?q=${encodeURIComponent(m.code)}`))}
                             >
                               <span className="code shrink-0 text-xs text-ink-3">{m.code}</span>
-                              <span className="truncate">{m.description ?? "—"}</span>
+                              <span className="truncate">{m.description ?? "–"}</span>
                               <span className="ml-auto shrink-0 text-xs text-ink-3">View stock</span>
                             </Item>
                           ))}
