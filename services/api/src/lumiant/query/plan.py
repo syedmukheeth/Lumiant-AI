@@ -43,6 +43,17 @@ class Op(StrEnum):
 COMPARISON_OPS = frozenset({Op.EQ, Op.NE, Op.LT, Op.LTE, Op.GT, Op.GTE})
 
 
+class Grain(StrEnum):
+    DAY = "day"
+    MONTH = "month"
+    QUARTER = "quarter"
+    YEAR = "year"
+
+
+# Output column of a time bucket. ISO text per grain: 2026-11-27, 2026-11, 2026-Q4, 2026 (sorts as text).
+PERIOD = "period"
+
+
 class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -75,6 +86,13 @@ class Having(_Strict):
     value: ScalarStr | StrictInt
 
 
+class TimeBucket(_Strict):
+    """Group a date field into periods; the result has a `period` column (see PERIOD)."""
+
+    field: FieldRefStr
+    grain: Grain
+
+
 class OrderBy(_Strict):
     field: Annotated[str, StringConstraints(max_length=80)]
     direction: Literal["asc", "desc"] = "asc"
@@ -83,6 +101,7 @@ class OrderBy(_Strict):
 class QueryPlan(_Strict):
     dataset: Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]{0,40}$")]
     dimensions: Annotated[list[FieldRefStr], Field(max_length=20)] = []
+    time_bucket: TimeBucket | None = None
     measures: Annotated[list[Measure], Field(max_length=20)] = []
     filters: Annotated[list[Filter | AnyOf], Field(max_length=30)] = []
     having: Annotated[list[Having], Field(max_length=10)] = []
@@ -92,7 +111,7 @@ class QueryPlan(_Strict):
 
     @model_validator(mode="after")
     def _shape(self) -> QueryPlan:
-        if not self.dimensions and not self.measures:
+        if not self.dimensions and not self.measures and self.time_bucket is None:
             raise ValueError("a plan needs at least one dimension or measure")
         names = [m.name for m in self.measures]
         if len(names) != len(set(names)):
@@ -101,6 +120,8 @@ class QueryPlan(_Strict):
             raise ValueError("measure aliases must not collide with dimensions")
         if len(self.dimensions) != len(set(self.dimensions)):
             raise ValueError("dimensions must be unique")
+        if self.time_bucket is not None and PERIOD in {*names, *self.dimensions}:
+            raise ValueError(f"'{PERIOD}' is the time bucket's column and cannot be another output name")
         if self.having and not self.measures:
             raise ValueError("'having' needs measures")
         return self

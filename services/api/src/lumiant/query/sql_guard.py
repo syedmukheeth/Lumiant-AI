@@ -28,6 +28,19 @@ ALLOWED_FUNCTIONS: tuple[type[exp.Expression], ...] = (
     exp.Case,  # value maps (mapping/resolver.py); sqlglot models each WHEN branch as If
     exp.If,
 )
+# Time buckets (compiler.DateBucket): one date-formatting function per dialect. Matched by exact type, so a subclass
+# (CONCAT_WS under Concat) is not allowed along with its parent.
+TIME_BUCKET_FUNCTIONS: frozenset[type[exp.Func]] = frozenset(
+    {
+        exp.TimeToStr,  # strftime (DuckDB, SQLite), to_char (PostgreSQL), DATE_FORMAT (MySQL)
+        exp.ToChar,  # TO_CHAR (Oracle)
+        exp.Convert,  # CONVERT(char(n), x, 126) (SQL Server)
+        exp.Extract,  # quarter number: EXTRACT(QUARTER FROM x), DATEPART(quarter, x) on SQL Server
+        exp.Concat,  # quarter label on MySQL, where || means OR
+    }
+)
+# sqlglot wraps the date argument of SQLite strftime and MySQL DATE_FORMAT in this node; allowed only right there.
+_PARSER_WRAPPERS: dict[type[exp.Func], type[exp.Func]] = {exp.TsOrDsToTimestamp: exp.TimeToStr}
 SYSTEM_SCHEMAS = {"information_schema", "pg_catalog", "sys", "system", "temp"}
 
 
@@ -56,7 +69,7 @@ def check_sql(sql: str, dialect: str, allowed_tables: set[str]) -> None:
             raise SqlGuardError("set_operation")
         if isinstance(node, (exp.Insert, exp.Update, exp.Delete, exp.Create, exp.Drop, exp.Command)):
             raise SqlGuardError(f"forbidden_node:{type(node).__name__}")
-        if isinstance(node, exp.Func) and not isinstance(node, ALLOWED_FUNCTIONS):
+        if isinstance(node, exp.Func) and not _function_allowed(node):
             raise SqlGuardError(f"function_not_allowed:{node.sql_name()}")
     for node in nodes:
         if isinstance(node, exp.Table):
@@ -67,3 +80,10 @@ def check_sql(sql: str, dialect: str, allowed_tables: set[str]) -> None:
             qualified = f"{schema}.{name}" if schema else name
             if qualified not in allowed_tables and not (not schema and name in cte_names):
                 raise SqlGuardError(f"table_not_allowed:{qualified}")
+
+
+def _function_allowed(node: exp.Func) -> bool:
+    if isinstance(node, ALLOWED_FUNCTIONS) or type(node) in TIME_BUCKET_FUNCTIONS:
+        return True
+    parent = _PARSER_WRAPPERS.get(type(node))
+    return parent is not None and type(node.parent) is parent and node.arg_key == "this"

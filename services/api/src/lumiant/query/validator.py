@@ -16,7 +16,7 @@ from lumiant.auth.principal import Principal
 from lumiant.canonical.catalog import CATALOG, DatasetDef, FieldDef, FieldRole, FieldType, Sensitivity
 from lumiant.core.errors import AppError
 from lumiant.mapping.resolver import TenantMapping
-from lumiant.query.plan import COMPARISON_OPS, Agg, AnyOf, Filter, Op, QueryPlan
+from lumiant.query.plan import COMPARISON_OPS, PERIOD, Agg, AnyOf, Filter, Grain, Op, QueryPlan
 from lumiant.tenancy.models import Policies
 
 
@@ -58,6 +58,15 @@ class MeasureSpec:
 
 
 @dataclass(frozen=True)
+class TimeBucketSpec:
+    """A date field grouped into periods; its output column is always `period` (ISO text, see plan.PERIOD)."""
+
+    field: FieldRef
+    grain: Grain
+    name: str = PERIOD
+
+
+@dataclass(frozen=True)
 class HavingSpec:
     measure: MeasureSpec
     op: Op
@@ -67,7 +76,7 @@ class HavingSpec:
 @dataclass(frozen=True)
 class OrderSpec:
     name: str
-    target: FieldRef | MeasureSpec
+    target: FieldRef | MeasureSpec | TimeBucketSpec
     descending: bool
 
 
@@ -91,6 +100,7 @@ class ValidatedPlan:
     offset: int
     joins: tuple[str, ...]
     auto_grouped: tuple[str, ...]
+    time_bucket: TimeBucketSpec | None = None
 
     @property
     def aggregate(self) -> bool:
@@ -98,12 +108,19 @@ class ValidatedPlan:
 
     @property
     def columns(self) -> list[OutputColumn]:
-        cols = [OutputColumn(d.ref, d.fdef.type, "dimension", d.fdef.sensitivity) for d in self.dimensions]
+        """Output columns in SELECT order: the period (if any), dimensions, measures."""
+        cols = []
+        if self.time_bucket is not None:
+            tb = self.time_bucket
+            cols.append(OutputColumn(tb.name, FieldType.STRING, "dimension", tb.field.fdef.sensitivity))
+        cols += [OutputColumn(d.ref, d.fdef.type, "dimension", d.fdef.sensitivity) for d in self.dimensions]
         cols += [OutputColumn(m.alias, m.out_type, "measure", m.field.fdef.sensitivity) for m in self.measures]
         return cols
 
     def referenced_fields(self) -> list[FieldRef]:
         refs = [*self.dimensions, *(m.field for m in self.measures)]
+        if self.time_bucket is not None:
+            refs.append(self.time_bucket.field)
         for f in self.filters:
             refs += [g.field for g in f.any_of] if isinstance(f, FilterGroup) else [f.field]
         seen: dict[str, FieldRef] = {}
@@ -135,6 +152,8 @@ class PlanValidator:
             return fref
 
         dims = [resolve(d) for d in plan.dimensions]
+        tb = plan.time_bucket
+        bucket = self._time_bucket(resolve(tb.field), tb.grain) if tb is not None else None
         measures = [self._measure(resolve(m.field), m.agg, m.name) for m in plan.measures]
         aggregate = bool(measures)
         if aggregate:
@@ -178,14 +197,14 @@ class PlanValidator:
                 companion(d, d.fdef.currency_field)
                 companion(d, d.fdef.unit_field)
 
-        used = [*dims, *(m.field for m in measures)]
+        used = [*dims, *(m.field for m in measures), *([bucket.field] if bucket else [])]
         for applied in filters:
             used += [g.field for g in applied.any_of] if isinstance(applied, FilterGroup) else [applied.field]
         self._check_sensitive(used, principal)
 
         scope_filters = self._scope(dataset, principal)
         having = [self._having(h.measure, h.op, h.value, measures) for h in plan.having]
-        order = self._order(plan, dims, measures)
+        order = self._order(plan, dims, measures, bucket)
         if plan.offset > 0 and not order:
             # Without an ordering, "skip N rows" is undefined, and SQL Server cannot compile it (OFFSET needs ORDER BY).
             raise reject("invalid_offset", "Paging needs a sort order; add a grouping or an order_by.")
@@ -204,6 +223,7 @@ class PlanValidator:
             offset=plan.offset,
             joins=tuple(joins),
             auto_grouped=tuple(auto),
+            time_bucket=bucket,
         )
 
     # ---------------------------------------------------------------------------------- resolution
@@ -246,6 +266,11 @@ class PlanValidator:
         else:
             out = FieldType.INTEGER
         return MeasureSpec(fref, agg, alias, out)
+
+    def _time_bucket(self, fref: FieldRef, grain: Grain) -> TimeBucketSpec:
+        if fref.fdef.type not in (FieldType.DATE, FieldType.DATETIME):
+            raise reject("invalid_time_bucket", f"'{fref.ref}' is not a date field and cannot be grouped by period.")
+        return TimeBucketSpec(fref, grain)
 
     # ---------------------------------------------------------------------------------- filters
     def _filter(self, fref: FieldRef, f: Filter, principal: Principal) -> AppliedFilter:
@@ -304,20 +329,25 @@ class PlanValidator:
             raise reject("invalid_having", "'having' supports eq, ne, lt, lte, gt, gte.")
         return HavingSpec(measure, op, coerce(raw, measure.out_type, alias))
 
-    def _order(self, plan: QueryPlan, dims: list[FieldRef], measures: list[MeasureSpec]) -> list[OrderSpec]:
-        targets: dict[str, FieldRef | MeasureSpec] = {d.ref: d for d in dims}
+    def _order(
+        self, plan: QueryPlan, dims: list[FieldRef], measures: list[MeasureSpec], bucket: TimeBucketSpec | None
+    ) -> list[OrderSpec]:
+        # Groupings in output order: the period first (oldest to newest by default), then the dimensions.
+        groupings: list[tuple[str, FieldRef | TimeBucketSpec]] = [(bucket.name, bucket)] if bucket else []
+        groupings += [(d.ref, d) for d in dims]
+        targets: dict[str, FieldRef | MeasureSpec | TimeBucketSpec] = dict(groupings)
         targets.update({m.alias: m for m in measures})
         if not plan.order_by:
-            return [OrderSpec(d.ref, d, False) for d in dims]
+            return [OrderSpec(name, target, False) for name, target in groupings]
         order = []
         for o in plan.order_by:
             target = targets.get(o.field)
             if target is None:
                 raise reject("invalid_order", f"Can only sort by selected columns ('{o.field}').")
             order.append(OrderSpec(o.field, target, o.direction == "desc"))
-        # Stable pagination: tie-break on the remaining dimensions.
+        # Stable pagination: tie-break on the remaining groupings.
         named = {o.name for o in order}
-        order += [OrderSpec(d.ref, d, False) for d in dims if d.ref not in named]
+        order += [OrderSpec(name, target, False) for name, target in groupings if name not in named]
         return order
 
 

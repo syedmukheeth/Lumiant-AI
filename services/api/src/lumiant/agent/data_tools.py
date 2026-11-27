@@ -16,7 +16,7 @@ from pydantic import Field, ValidationError
 from lumiant.agent.tools import TOOLS, Block, ToolContext, ToolDef, ToolOutput, _Args, _col, _warn
 from lumiant.auth.permissions import Permission
 from lumiant.canonical.catalog import CATALOG, FieldDef, FieldRole, FieldType, Sensitivity
-from lumiant.query.plan import QueryPlan
+from lumiant.query.plan import PERIOD, QueryPlan
 
 MAX_QUERY_ROWS = 100
 _FIELD = r"^[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*)?$"
@@ -38,10 +38,21 @@ class FilterArg(_Args):
     )
 
 
+class PeriodArg(_Args):
+    field: str = Field(pattern=_FIELD, max_length=80, description="A date field of the dataset, e.g. posting_date")
+    grain: Literal["day", "month", "quarter", "year"] = Field(
+        description="Period length; the result gets a 'period' column such as 2026-11-27, 2026-11, 2026-Q4 or 2026"
+    )
+
+
 class QueryArgs(_Args):
     dataset: str = Field(pattern=r"^[a-z][a-z0-9_]{0,40}$", description="Dataset name from the data catalog")
     group_by: list[str] = Field(
         default_factory=list, max_length=6, description="Fields to group by (or to list, when there are no measures)"
+    )
+    period: PeriodArg | None = Field(
+        default=None,
+        description="Group by time (e.g. month by month); oldest period first unless order_by is 'period'",
     )
     measures: list[MeasureArg] = Field(default_factory=list, max_length=6)
     filters: list[FilterArg] = Field(default_factory=list, max_length=10)
@@ -68,10 +79,12 @@ def to_plan(a: QueryArgs) -> QueryPlan:
         for f in a.filters
     ]
     order = [{"field": a.order_by, "direction": "desc" if a.descending else "asc"}] if a.order_by else []
+    bucket = {"time_bucket": {"field": a.period.field, "grain": a.period.grain}} if a.period else {}
     return QueryPlan.model_validate(
         {
             "dataset": a.dataset,
             "dimensions": a.group_by,
+            **bucket,
             "measures": measures,
             "filters": filters,
             "order_by": order,
@@ -114,6 +127,50 @@ def _label(ref: str) -> str:
     return ref.replace(".", " ").replace("_", " ").strip().capitalize()
 
 
+def _text(value: Any) -> Any:
+    """Chart values travel as strings (decimals are already strings in the payload); nulls stay null."""
+    if value is None or isinstance(value, str):
+        return value
+    if isinstance(value, float):  # SQLite stand-in stores decimals as REAL
+        return format(Decimal(repr(value)), "f")
+    return str(value)
+
+
+def _period_chart(plan: QueryPlan, result_columns: list[dict[str, Any]], rows: list[dict[str, Any]]) -> Block | None:
+    """A line over periods for one money or quantity measure (contract with the web `ChartBlock`).
+
+    Only when the plan groups by period alone (plus the currency / unit the engine adds), so each period is one point
+    per unit; rows of different currencies or units stay apart through `unit_key`, never summed.
+    """
+    if plan.time_bucket is None or plan.dimensions or not rows:
+        return None
+    charted = []
+    for m in plan.measures:
+        fdef = _field_def(plan.dataset, m.field)
+        kind = _kind(fdef, m.agg.value)
+        if kind in ("money", "qty"):
+            charted.append((m, fdef, kind))
+    if len(charted) != 1:
+        return None
+    m, fdef, kind = charted[0]
+    present = {c["name"] for c in result_columns}
+    join, _, _ = m.field.rpartition(".")
+    unit = (fdef.currency_field or fdef.unit_field) if fdef else None
+    unit_ref = f"{join}.{unit}" if join and unit else unit
+    label = m.name.replace("_", " ").capitalize()
+    series: dict[str, Any] = {"key": m.name, "label": label, "kind": kind}
+    if unit_ref and unit_ref in present:
+        series["unit_key"] = unit_ref
+    return {
+        "type": "chart",
+        "variant": "line",
+        "title": f"{label} by {plan.time_bucket.grain.value}",
+        "x_key": PERIOD,
+        "series": [series],
+        "rows": [{k: _text(v) for k, v in row.items()} for row in rows],
+    }
+
+
 def query_inventory(ctx: ToolContext, a: QueryArgs) -> ToolOutput:
     try:
         plan = to_plan(a)
@@ -142,9 +199,12 @@ def query_inventory(ctx: ToolContext, a: QueryArgs) -> ToolOutput:
         )
     title = CATALOG[plan.dataset].description.split(":")[0].rstrip(".") if plan.dataset in CATALOG else plan.dataset
     blocks: list[Block] = [{"type": "table", "title": title, "columns": columns, "rows": rows}]
+    chart = _period_chart(plan, payload["columns"], rows)
+    if chart is not None:
+        blocks.append(chart)
     # One grouping and one money/quantity measure: also show it as bars (the unit stays attached to every bar).
     groups = list(plan.dimensions)
-    if len(groups) == 1 and len(plan.measures) == 1 and rows:
+    if plan.time_bucket is None and len(groups) == 1 and len(plan.measures) == 1 and rows:
         m = plan.measures[0]
         kind = _kind(_field_def(plan.dataset, m.field), m.agg.value)
         unit_key = next((c["name"] for c in payload["columns"] if c["name"].endswith(("currency", "uom"))), None)
@@ -185,10 +245,14 @@ def catalog_note(ctx: ToolContext) -> str:
             fields.append(f"{f.name} ({tag}{extra}): {f.description[:70]}")
         joins = [j for j, jd in ds.joins.items() if mapping.is_mapped(jd.dataset)]
         join_text = f" Joined fields: {', '.join(j + '.<field>' for j in joins)}." if joins else ""
-        lines.append(f"- {ds.name}: {ds.description}{join_text}\n    " + "\n    ".join(fields))
+        dates = [f.name for f in mapping.fields(ds.name).values() if f.type in (FieldType.DATE, FieldType.DATETIME)]
+        period_text = f" Period fields: {', '.join(dates)}." if dates else ""
+        lines.append(f"- {ds.name}: {ds.description}{join_text}{period_text}\n    " + "\n    ".join(fields))
     return (
         "\n\nData catalog for query_inventory (canonical names; amounts are always kept per currency and quantities "
-        "per unit, which the engine adds automatically):\n" + "\n".join(lines)
+        "per unit, which the engine adds automatically). To answer over time (e.g. month by month), pass period "
+        "{field: <one of the dataset's period fields>, grain: day|month|quarter|year}; rows then carry a 'period' "
+        "column (2026-11-27, 2026-11, 2026-Q4, 2026), oldest first:\n" + "\n".join(lines)
     )
 
 
