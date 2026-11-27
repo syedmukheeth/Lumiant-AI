@@ -261,7 +261,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </aside>
 
         <div className="min-w-0 md:my-2 md:mr-2 md:min-h-[calc(100dvh-1rem)] md:rounded-[1.25rem] md:border md:border-line md:bg-canvas md:shadow-e2">
-          <header className="sticky top-0 z-(--z-sticky) border-b border-line bg-canvas/85 backdrop-blur-xl md:rounded-t-[1.25rem]">
+          {/* Solid, not frosted: a backdrop blur on a sticky bar is recomputed on every scroll frame (S11, ISSUES #62). */}
+          <header className="sticky top-0 z-(--z-sticky) border-b border-line bg-canvas md:rounded-t-[1.25rem]">
             <div className="flex min-h-16 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2.5 sm:px-6 lg:px-10 xl:flex-nowrap">
               <div className="flex min-w-0 shrink items-center gap-3">
                 <Link href="/overview" aria-label="Lumiant home" className="md:hidden">
