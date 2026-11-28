@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -47,6 +49,8 @@ from lumiant.query.service import QueryService
 from lumiant.reports.service import ReportService
 from lumiant.tenancy.registry import TenantRegistry
 
+log = logging.getLogger("lumiant.startup")
+
 
 def build_container(settings: Settings) -> Container:
     tenants = TenantRegistry.load(settings.tenant_config_dir, settings.private_tenants_dir)
@@ -79,9 +83,12 @@ def build_container(settings: Settings) -> Container:
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
+    started = time.perf_counter()
     settings = settings or get_settings()
     configure_logging(settings.log_level)
     container = build_container(settings)
+    # Once per instance: tenant configs, migrations and stores (cold start, TEST_RUNS S11-22).
+    log.info("startup", extra={"duration_ms": round((time.perf_counter() - started) * 1000)})
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:

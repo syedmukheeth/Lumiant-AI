@@ -6,6 +6,7 @@ import { Qty, RecommendationNote } from "@/components/planning/shared";
 import { ErrorState, Panel, Skeleton } from "@/components/data/widget";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
+import { ShowMore, useShowMore } from "@/components/ui/show-more";
 import { Tabs } from "@/components/ui/tabs";
 import type { DuplicateFinding } from "@/lib/api";
 import { formatCount, humanize } from "@/lib/format";
@@ -27,6 +28,7 @@ const VERDICT: Record<DuplicateFinding["verdict"], { label: string; tone: "signa
 
 function DuplicatesView() {
   const { data, error, isPending } = useDuplicates();
+  const shown = useShowMore(data?.findings ?? []);
   if (isPending) return <Skeleton className="h-64 w-full" />;
   if (error) return <Panel title="Duplicate items"><ErrorState error={error} /></Panel>;
   return (
@@ -35,7 +37,7 @@ function DuplicatesView() {
         <p className="text-sm text-ink-3">No probable or possible duplicates found.</p>
       ) : (
         <ul className="divide-y divide-line">
-          {data.findings.map((f) => (
+          {shown.visible.map((f) => (
             <li key={`${f.item_a}-${f.item_b}`} className="py-3" data-testid={`dup-${f.item_a}-${f.item_b}`}>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="code text-sm text-ink">{f.item_a}</span>
@@ -50,6 +52,7 @@ function DuplicatesView() {
           ))}
         </ul>
       )}
+      <ShowMore rest={shown.rest} step={shown.step} onMore={shown.more} />
       <div className="mt-3"><RecommendationNote>Review only: records are never merged, renamed or deleted automatically; BOM references stay intact.</RecommendationNote></div>
     </Panel>
   );
@@ -64,16 +67,18 @@ const LIFE_TONE: Record<string, "signal" | "accent" | "neutral" | "ok"> = {
   active: "neutral",
 };
 
+const LIFE_ORDER = ["obsolete_candidate", "expiring_action", "superseded_run_down", "slow_moving_review", "critical_keep", "active"];
+
 function LifecycleView() {
   const { data, error, isPending } = useLifecycle();
+  const findings = [...(data?.findings ?? [])].sort((a, b) => LIFE_ORDER.indexOf(a.verdict) - LIFE_ORDER.indexOf(b.verdict));
+  const shown = useShowMore(findings);
   if (isPending) return <Skeleton className="h-64 w-full" />;
   if (error) return <Panel title="Lifecycle review"><ErrorState error={error} /></Panel>;
-  const order = ["obsolete_candidate", "expiring_action", "superseded_run_down", "slow_moving_review", "critical_keep", "active"];
-  const findings = [...data.findings].sort((a, b) => order.indexOf(a.verdict) - order.indexOf(b.verdict));
   return (
     <Panel title="Items with stock" subtitle={`reviewed on ${data.today}`}>
       <ul className="divide-y divide-line">
-        {findings.map((f) => (
+        {shown.visible.map((f) => (
           <li key={f.item_id} className="py-3" data-testid={`life-${f.item_id}`}>
             <div className="flex flex-wrap items-center gap-2">
               <span className="code text-sm text-ink">{f.item_id}</span>
@@ -88,6 +93,7 @@ function LifecycleView() {
           </li>
         ))}
       </ul>
+      <ShowMore rest={shown.rest} step={shown.step} onMore={shown.more} />
       <div className="mt-3"><RecommendationNote>An authorised user decides: nothing is blocked or disposed of automatically.</RecommendationNote></div>
     </Panel>
   );

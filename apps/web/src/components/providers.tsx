@@ -1,9 +1,10 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ApiError } from "@/lib/api";
+import { bindSessionCache } from "@/lib/session-cache";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [client] = useState(
@@ -19,6 +20,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
       }),
   );
+  // After hydration (never during it: the server has no session copy), show the saved session at once (lib/session-cache.ts).
+  useEffect(() => bindSessionCache(client), [client]);
   // Motion settings live in the signed-in app (components/shell/motion-provider.tsx), not on public pages.
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }

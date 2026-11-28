@@ -10,6 +10,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, Query
 
 from lumiant.analyses.below_reorder import BelowReorderFilters, run_below_reorder
+from lumiant.analyses.cache import cached
 from lumiant.auth.deps import get_container, require
 from lumiant.auth.permissions import Permission
 from lumiant.auth.principal import Principal
@@ -58,6 +59,11 @@ def filters(principal: Reader, container: Container = Depends(get_container)) ->
     `truncated` names every list that has more values than were returned, so the UI can say so instead of offering a
     silently incomplete list (TECHNICAL_BOTTLENECKS: lists used to stop at 100 without a word).
     """
+    # Up to five governed reads; every Inventory and Costs visit asks for the same lists.
+    return cached(container.query, principal, "inventory_filters", (), lambda: _filters(container, principal))
+
+
+def _filters(container: Container, principal: Principal) -> dict[str, Any]:
     q = container.query
     mapping = q.mapping(principal.tenant_id)
     cap = mapping.tenant.policies.max_rows

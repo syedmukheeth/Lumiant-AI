@@ -115,7 +115,9 @@
   --dur-base: 220ms;
   --dur-slow: 360ms;
   --dur-enter: 420ms;
-  --rise: 6px;
+  /* Page panels: quick and short, so content is still the moment it arrives (S11 speed pass). */
+  --dur-rise: 200ms;
+  --rise: 4px;
 
   /* z scale (mirrors Z in src/lib/motion.ts) */
   --z-sticky: 20;
@@ -423,7 +425,7 @@ kbd,
 }
 
 .rise {
-  animation: enter-rise var(--dur-enter) var(--ease-out-expo) both;
+  animation: enter-rise var(--dur-rise) var(--ease-out-expo) both;
 }
 
 /* Popovers grow from their trigger (Radix exposes the origin). */
@@ -433,7 +435,7 @@ kbd,
 }
 
 .route-enter {
-  animation: enter-fade var(--dur-base) var(--ease-out-expo) both;
+  animation: enter-fade var(--dur-fast) var(--ease-out-expo) both;
 }
 
 /* Analyst answers: the card rises, trace steps fade in as they arrive, result bars grow from their axis. */
@@ -505,19 +507,30 @@ kbd,
   }
 }
 
+/* The highlight moves with transform on its own layer: the compositor animates it, nothing is repainted per frame. */
 @keyframes shimmer {
   from {
-    background-position: -200px 0;
+    transform: translateX(-100%);
   }
   to {
-    background-position: 200px 0;
+    transform: translateX(100%);
   }
 }
 
 .skeleton {
-  background: linear-gradient(90deg, var(--surface-2) 0, var(--line) 50%, var(--surface-2) 100%);
-  background-size: 400px 100%;
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--line) 80%, transparent), transparent);
+  transform: translateX(-100%);
   animation: shimmer 1.2s linear infinite;
+  will-change: transform;
 }
 
 /* Reduced motion: no travel, no loops — content still arrives, by opacity. */
@@ -531,8 +544,9 @@ kbd,
   .bar-grow {
     animation: none;
   }
-  .skeleton {
+  .skeleton::after {
     animation: none;
+    opacity: 0;
   }
 }
 

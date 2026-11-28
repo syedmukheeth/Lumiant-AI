@@ -3,7 +3,7 @@
 import { clsx } from "clsx";
 import { Sparkles } from "lucide-react";
 
-import { analyze, sameSelection, useAnalyst } from "@/components/analyst/store";
+import { analyze, sameSelection, useAnalystSelector } from "@/components/analyst/store";
 import type { Selection } from "@/lib/agent";
 
 /** Attributes that make any element pickable by the Lens (read by lens.tsx on click). */
@@ -59,8 +59,7 @@ export function Analyzable({
   className?: string;
   button?: boolean;
 }) {
-  const { selections } = useAnalyst();
-  const selected = selections.some((s) => sameSelection(s, sel));
+  const selected = useAnalystSelector((s) => s.selections.some((x) => sameSelection(x, sel)));
   return (
     <div
       {...analyzableProps(sel, selected)}

@@ -1,17 +1,36 @@
 "use client";
 
 import { Lock } from "lucide-react";
+import dynamic from "next/dynamic";
 
-import { ValueBars } from "@/components/data/value-bars";
 import { AreaBoard } from "@/components/overview/area-board";
 import { BelowReorderPanel } from "@/components/overview/below-reorder";
 import { InsightsFeed } from "@/components/overview/insights-feed";
 import { KpiStrip } from "@/components/overview/kpi-strip";
-import { ValueTrend } from "@/components/overview/value-trend";
 import { Welcome } from "@/components/overview/welcome";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { useMetricList, usePageMe } from "@/lib/hooks";
+
+/** Panel-shaped placeholder while a chart's code loads (same frame as the panel, so nothing jumps). */
+function ChartSlot({ height }: { height: string }) {
+  return (
+    <div className="panel p-5" aria-hidden>
+      <div className="skeleton h-5 w-44 rounded-control" />
+      <div className={`skeleton mt-5 w-full rounded-control ${height}`} />
+    </div>
+  );
+}
+
+// The charting library is the largest part of this page's JavaScript: load it beside the data, not before the page.
+const ValueBars = dynamic(() => import("@/components/data/value-bars").then((m) => m.ValueBars), {
+  ssr: false,
+  loading: () => <ChartSlot height="h-48" />,
+});
+const ValueTrend = dynamic(() => import("@/components/overview/value-trend").then((m) => m.ValueTrend), {
+  ssr: false,
+  loading: () => <ChartSlot height="h-64" />,
+});
 
 export default function OverviewPage() {
   const me = usePageMe();

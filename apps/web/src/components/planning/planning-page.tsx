@@ -8,6 +8,7 @@ import { DateCell, PlanningIssues, Qty, RecommendationNote, Stat } from "@/compo
 import { SimpleTable, type SimpleColumn } from "@/components/data/simple-table";
 import { ErrorState, Panel, Skeleton } from "@/components/data/widget";
 import { Badge } from "@/components/ui/badge";
+import { ShowMore, useShowMore } from "@/components/ui/show-more";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { PageHeader } from "@/components/ui/page-header";
@@ -96,6 +97,7 @@ function FulfilmentLineRow({ line, canProtect }: { line: FulfilmentLine; canProt
 function FulfilmentView() {
   const { data, error, isPending } = useFulfilment();
   const canProtect = !!useMe().data?.sections.includes("procurement");
+  const shown = useShowMore(data?.lines ?? []);
   if (isPending) return <Skeleton className="h-72 w-full" />;
   if (error) return <Panel title="Order fulfilment"><ErrorState error={error} /></Panel>;
   const lines = data.lines;
@@ -114,11 +116,12 @@ function FulfilmentView() {
           <p className="text-sm text-ink-3">No open customer orders in your scope.</p>
         ) : (
           <ul className="divide-y divide-line">
-            {lines.map((l) => (
+            {shown.visible.map((l) => (
               <FulfilmentLineRow key={l.key} line={l} canProtect={canProtect} />
             ))}
           </ul>
         )}
+        <ShowMore rest={shown.rest} step={shown.step} onMore={shown.more} />
         <div className="mt-3 space-y-2">
           <PlanningIssues issues={data.issues} />
           <RecommendationNote />

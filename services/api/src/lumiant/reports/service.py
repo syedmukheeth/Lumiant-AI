@@ -13,9 +13,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from openpyxl import Workbook
-from openpyxl.styles import Font
-
 from lumiant.analyses.below_reorder import BelowReorderFilters, run_below_reorder
 from lumiant.analyses.risks import run_dormant, run_expiring
 from lumiant.auth.permissions import Permission
@@ -320,6 +317,10 @@ class ReportService:
             for r in rows:
                 w.writerow([safe_cell(r.get(c["key"], "")) if r.get(c["key"]) is not None else "" for c in cols])
             return ("﻿" + buf.getvalue()).encode("utf-8"), "text/csv; charset=utf-8", name
+        # Imported here: openpyxl takes ~0.4 s to import, and only an Excel export needs it (cold start, S11-22).
+        from openpyxl import Workbook
+        from openpyxl.styles import Font
+
         wb = Workbook()
         ws = wb.active
         assert ws is not None

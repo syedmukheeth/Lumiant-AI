@@ -3,11 +3,11 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { ErrorState, Panel, Skeleton } from "@/components/data/widget";
-import { api } from "@/lib/api";
 import { formatCount, formatMoney } from "@/lib/format";
+import { queries } from "@/lib/queries";
 
 type Bucket = { bucket: string; label: string; pairs: number; value?: Record<string, string> };
-type Ageing = { as_of: string; rule: string; buckets: Bucket[]; currencies: string[]; value_visible: boolean; warnings: { code: string; message: string }[] };
+export type Ageing = { as_of: string; rule: string; buckets: Bucket[]; currencies: string[]; value_visible: boolean; warnings: { code: string; message: string }[] };
 
 // Older buckets read warmer: the bar colour carries age, the text carries the figure.
 const TONE: Record<string, string> = {
@@ -20,7 +20,7 @@ const TONE: Record<string, string> = {
 
 /** Risks: stock by time since its last issue. Bar lengths are geometry only; printed figures are the API's strings. */
 export function AgeingPanel() {
-  const q = useQuery({ queryKey: ["ageing"], queryFn: () => api.get<Ageing>("/api/analyses/ageing") });
+  const q = useQuery(queries.ageing());
   const currency = q.data?.currencies[0];
   const measure = (b: Bucket) => (q.data?.value_visible && currency ? Number(b.value?.[currency] ?? 0) : b.pairs);
   const max = Math.max(1, ...(q.data?.buckets ?? []).map(measure));

@@ -14,11 +14,12 @@ import { Tabs } from "@/components/ui/tabs";
 import type { DataQualityCheck } from "@/lib/api";
 import { formatCount, formatNumber, formatQuantity, formatTimestamp, humanize } from "@/lib/format";
 import { type RiskKind, useDataQuality, useRisk } from "@/lib/hooks";
+import { RISK_PAGE } from "@/lib/queries";
 import { enterDelay } from "@/lib/motion";
 
 import { AgeingPanel } from "./ageing-panel";
 
-const PAGE = 25;
+const PAGE = RISK_PAGE; // shared with the navigation prefetch (lib/prefetch.ts)
 
 const TABS = [
   { id: "excess-stock", label: "Excess stock", blurb: "On hand is above the customer's maximum-stock policy." },

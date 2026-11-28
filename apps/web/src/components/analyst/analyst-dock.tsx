@@ -23,9 +23,9 @@ import {
 import { Chip as Suggestion } from "@/components/ui/badge";
 import { IconButton } from "@/components/ui/button";
 import type { Selection } from "@/lib/agent";
-import { api } from "@/lib/api";
 import { humanize } from "@/lib/format";
 import { DUR, EASE, REDUCED_DUR } from "@/lib/motion";
+import { queries } from "@/lib/queries";
 
 const KIND_LABEL: Record<Selection["kind"], string> = {
   warehouse: "Warehouse",
@@ -153,12 +153,7 @@ export function AnalystDock({ canCost }: { canCost: boolean }) {
   const end = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const startResize = useDockWidth();
-  const defaults = useQuery({
-    queryKey: ["agent-suggestions"],
-    queryFn: () => api.get<{ suggestions: string[] }>("/api/agent/suggestions"),
-    enabled: open,
-    staleTime: 300_000,
-  });
+  const defaults = useQuery({ ...queries.agentSuggestions(), enabled: open });
 
   const lastTurn = turns[turns.length - 1];
   useEffect(() => {

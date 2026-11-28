@@ -11,6 +11,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
+from lumiant.analyses.cache import cached
 from lumiant.auth.permissions import Permission
 from lumiant.auth.principal import Principal
 from lumiant.core.errors import AppError
@@ -54,7 +55,10 @@ class PlanningService:
         self.query = query
 
     def _load(self, principal: Principal, today: date | None) -> LoadedPlanning:
-        loaded = load(self.query, principal, today or date.today())
+        on = today or date.today()
+        # Up to ten governed reads (~1.4 s); master data, planning, suppliers and commitments share one load per
+        # scope and data timestamp. `cached` returns a deep copy, so callers may change what they get.
+        loaded = cached(self.query, principal, "planning_load", on.isoformat(), lambda: load(self.query, principal, on))
         meta = self.query.tenant_meta(principal.tenant_id)
         if meta.stale:
             loaded.issues.append(
@@ -204,10 +208,14 @@ class PlanningService:
         }
 
     def duplicates(self, principal: Principal) -> dict[str, Any]:
-        loaded = self._load(principal, None)
-        found = find_duplicates(list(loaded.data.items.values()))
+        def run() -> dict[str, Any]:
+            loaded = self._load(principal, None)
+            found = find_duplicates(list(loaded.data.items.values()))  # pairwise text matching, ~0.3 s
+            return {**self._meta(loaded), "findings": jsonable(found)}
+
+        out = cached(self.query, principal, "duplicates", date.today().isoformat(), run)
         self._record(principal, "duplicates", "item")
-        return {**self._meta(loaded), "findings": jsonable(found)}
+        return out
 
     def lifecycle(self, principal: Principal, today: date | None = None) -> dict[str, Any]:
         if not self.query.mapping(principal.tenant_id).has_ref("item", "critical"):

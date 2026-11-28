@@ -15,6 +15,7 @@ import type { Selection, SelectionKind } from "@/lib/agent";
 import { api } from "@/lib/api";
 import { formatCount, formatMoney, formatNumber, humanize } from "@/lib/format";
 import { enterDelay } from "@/lib/motion";
+import { queries } from "@/lib/queries";
 
 type Metric = { kind: "money" | "pct" | "count"; label?: string; currency?: string; value: string | number };
 type Insight = {
@@ -30,7 +31,7 @@ type Insight = {
 };
 type Gap = { id: string; message: string; needs: string };
 type FailedCheck = { id: string; label: string; code: string; message: string };
-type Feed = {
+export type Feed = {
   insights: Insight[];
   gaps: Gap[];
   failed: FailedCheck[];
@@ -59,7 +60,7 @@ function href(link: Insight["link"]) {
 }
 
 export function useInsights() {
-  return useQuery({ queryKey: ["insights"], queryFn: () => api.get<Feed>("/api/insights"), staleTime: 60_000 });
+  return useQuery(queries.insights());
 }
 
 /** Refresh re-runs every rule (`fresh=true`); a plain refetch would be answered from the server's two-minute cache. */

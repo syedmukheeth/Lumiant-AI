@@ -9,6 +9,13 @@ const nextConfig: NextConfig = {
   // The dev-only route indicator sat over "Sign out" at the bottom of the nav rail, and every other corner holds a
   // control (theme toggle, Analyst dock). Errors still open Next's overlay in development; production never shows it.
   devIndicators: false,
+  experimental: {
+    // Every page renders per request (nonce CSP, ADR-0007), which by default makes the client router refetch a page on
+    // every visit. Keep visited pages for 30 s and fully prefetched ones (rail links, router.prefetch) for 5 min, so
+    // moving between pages needs no server round trip (ADR-0014). Pages hold no server data: their data comes from
+    // React Query, which keeps its own freshness rules.
+    staleTimes: { dynamic: 30, static: 300 },
+  },
   turbopack: {
     rules: {
       "*.css": {

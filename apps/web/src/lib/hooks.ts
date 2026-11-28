@@ -1,6 +1,6 @@
 "use client";
 
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useSyncExternalStore } from "react";
 
 import {
@@ -9,25 +9,19 @@ import {
   type CostComparison,
   type DataQuality,
   type DevUser,
-  type Envelope,
-  type InventoryFilters,
   type Me,
-  type MetricInfo,
-  type MetricResult,
-  type TenantMeta,
   type BomLineView,
   type CommitmentAnalysis,
-  type CommitmentAtRisk,
-  type DuplicateFinding,
   type ExcessSupply,
-  type FulfilmentLine,
-  type LifecycleFinding,
   type PlannedOrder,
   type PlanningMeta,
   type SupplierComparisonView,
 } from "@/lib/api";
+import { type BalanceQuery, type RiskKind, queries } from "@/lib/queries";
 
-export const useMe = () => useQuery({ queryKey: ["me"], queryFn: () => api.get<Me>("/api/auth/me") });
+export { type BalanceQuery, OVERVIEW_BELOW_REORDER, type RiskKind } from "@/lib/queries";
+
+export const useMe = () => useQuery(queries.me());
 
 const noop = () => () => {};
 
@@ -48,14 +42,11 @@ export function usePageMe(): Me | undefined {
   return useHydrated() ? me.data : undefined;
 }
 
-export const useTenantMeta = (enabled = true) =>
-  useQuery({ queryKey: ["meta"], queryFn: () => api.get<TenantMeta>("/api/meta/tenant"), enabled });
+export const useTenantMeta = (enabled = true) => useQuery({ ...queries.meta(), enabled });
 
-export const useMetricList = () =>
-  useQuery({ queryKey: ["metrics"], queryFn: () => api.get<{ metrics: MetricInfo[] }>("/api/metrics") });
+export const useMetricList = () => useQuery(queries.metricList());
 
-export const useMetric = (id: string, enabled = true) =>
-  useQuery({ queryKey: ["metric", id], queryFn: () => api.get<MetricResult>(`/api/metrics/${id}`), enabled });
+export const useMetric = (id: string, enabled = true) => useQuery({ ...queries.metric(id), enabled });
 
 export const useDevUsers = () =>
   useQuery({
@@ -63,48 +54,14 @@ export const useDevUsers = () =>
     queryFn: () => api.get<{ users: DevUser[]; notice: string }>("/api/auth/dev-users"),
   });
 
-export const useInventoryFilters = () =>
-  useQuery({ queryKey: ["inventory-filters"], queryFn: () => api.get<InventoryFilters>("/api/inventory/filters") });
+export const useInventoryFilters = () => useQuery(queries.inventoryFilters());
 
-export type BalanceQuery = {
-  warehouse?: string;
-  item_group?: string;
-  abc?: string;
-  stage?: string;
-  status?: string;
-  q?: string;
-  sort: string;
-  dir: "asc" | "desc";
-  offset: number;
-  limit: number;
-};
+export const useBalances = (query: BalanceQuery) => useQuery(queries.balances(query));
 
-export const useBalances = (query: BalanceQuery) =>
-  useQuery({
-    queryKey: ["balances", query],
-    queryFn: () => api.get<Envelope>("/api/inventory/balances", query),
-    placeholderData: keepPreviousData,
-  });
-
-/** The Overview's below-reorder page: the KPI, the area board and the panel all use this key, so it is fetched once. */
-export const OVERVIEW_BELOW_REORDER = { offset: 0, limit: 12 } as const;
-
-export const useBelowReorder = (query: { offset: number; limit: number }) =>
-  useQuery({
-    queryKey: ["below-reorder", query],
-    queryFn: () => api.get<Envelope>("/api/analyses/below-reorder", query),
-    placeholderData: keepPreviousData,
-  });
-
-export type RiskKind = "excess-stock" | "dormant" | "expiring-lots";
+export const useBelowReorder = (query: { offset: number; limit: number }) => useQuery(queries.belowReorder(query));
 
 export const useRisk = (kind: RiskKind, params: Record<string, string | number>, enabled = true) =>
-  useQuery({
-    queryKey: ["risk", kind, params],
-    queryFn: () => api.get<Envelope>(`/api/analyses/${kind}`, params),
-    placeholderData: keepPreviousData,
-    enabled,
-  });
+  useQuery({ ...queries.risk(kind, params), enabled });
 
 export const useDataQuality = (enabled = true) =>
   useQuery({ queryKey: ["data-quality"], queryFn: () => api.get<DataQuality>("/api/analyses/data-quality"), enabled });
@@ -127,12 +84,7 @@ export const useAbc = (a: string, b: string, currency: string) =>
   });
 
 // ---------------------------------------------------------------------------------------- planning
-export const useFulfilment = (enabled = true) =>
-  useQuery({
-    queryKey: ["planning", "fulfilment"],
-    queryFn: () => api.get<PlanningMeta & { lines: FulfilmentLine[] }>("/api/planning/fulfilment"),
-    enabled,
-  });
+export const useFulfilment = (enabled = true) => useQuery({ ...queries.fulfilment(), enabled });
 
 export const useMaterialPlan = (enabled = true) =>
   useQuery({
@@ -163,12 +115,7 @@ export const useSupplierComparison = (q: SupplierQuery | null) =>
     retry: false,
   });
 
-export const useCommitments = () =>
-  useQuery({
-    queryKey: ["planning", "commitments"],
-    queryFn: () => api.get<PlanningMeta & { at_risk: CommitmentAtRisk[] }>("/api/planning/commitments"),
-    retry: false,
-  });
+export const useCommitments = () => useQuery(queries.commitments());
 
 export const useCommitment = (order: string | null) =>
   useQuery({
@@ -178,17 +125,6 @@ export const useCommitment = (order: string | null) =>
     retry: false,
   });
 
-export const useDuplicates = (enabled = true) =>
-  useQuery({
-    queryKey: ["planning", "duplicates"],
-    queryFn: () => api.get<PlanningMeta & { findings: DuplicateFinding[] }>("/api/planning/duplicates"),
-    enabled,
-  });
+export const useDuplicates = (enabled = true) => useQuery({ ...queries.duplicates(), enabled });
 
-export const useLifecycle = (enabled = true) =>
-  useQuery({
-    queryKey: ["planning", "lifecycle"],
-    queryFn: () => api.get<PlanningMeta & { findings: LifecycleFinding[] }>("/api/planning/lifecycle"),
-    enabled,
-    retry: false,
-  });
+export const useLifecycle = (enabled = true) => useQuery({ ...queries.lifecycle(), enabled });

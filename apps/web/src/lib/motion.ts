@@ -43,7 +43,7 @@ export const STAGGER = {
 } as const;
 
 /** Lift distance (px) of entrance reveals. One value, app-wide. */
-export const RISE = 6;
+export const RISE = 4;
 
 /** Under reduced motion: short enough to read as instant, long enough not to be a hard cut. */
 export const REDUCED_DUR = 0.01;
@@ -54,9 +54,12 @@ export const REDUCED_DUR = 0.01;
  */
 export const LAYOUT_SPRING = { type: "spring", stiffness: 560, damping: 44, mass: 0.7 } as const;
 
+/** Longest wait before any item of a stagger starts (seconds): the last panel is never held back noticeably. */
+export const MAX_STAGGER = 0.12;
+
 /** Inline style for the n-th item of a CSS `.rise` stagger (capped so long lists never wait). */
 export function enterDelay(index: number, step: number = STAGGER.base, max = 8): React.CSSProperties {
-  return { animationDelay: `${Math.round(Math.min(index, max) * step * 1000)}ms` };
+  return { animationDelay: `${Math.round(Math.min(Math.min(index, max) * step, MAX_STAGGER) * 1000)}ms` };
 }
 
 /** Motion props for a floating surface (palette, sheets): fade + small scale; opacity only under reduced motion. */

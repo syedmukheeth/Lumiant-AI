@@ -4,14 +4,17 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Eye, FileSearch, Lock, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 import { DataBadge } from "@/components/shell/synthetic-tape";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { BrandLogo } from "@/components/ui/brand-logo";
-import { api, ApiError, type DevUser } from "@/lib/api";
+import { api, ApiError, type DevUser, type Me } from "@/lib/api";
 import { humanize } from "@/lib/format";
 import { useDevUsers } from "@/lib/hooks";
 import { enterDelay } from "@/lib/motion";
+import { queries } from "@/lib/queries";
+import { clearSessionCache } from "@/lib/session-cache";
 import { KpiCard } from "@/components/viz/kpi-card";
 import { SAMPLE_SPARK } from "@/components/viz/samples";
 
@@ -19,11 +22,19 @@ export default function LoginPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const users = useDevUsers();
+  // The Overview opens next: fetch its page shell while the user picks who to sign in as.
+  useEffect(() => router.prefetch("/overview"), [router]);
   const login = useMutation({
-    mutationFn: (username: string) => api.post("/api/auth/dev-login", { username }),
-    onSuccess: () => {
+    mutationFn: (username: string) => api.post<Me>("/api/auth/dev-login", { username }),
+    onSuccess: (me) => {
       // Drop anything cached for a previous user before the next page loads.
       queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== "dev-users" });
+      clearSessionCache();
+      // The sign-in response is the session itself: the shell needs no /api/auth/me round trip, and the Overview's
+      // first requests start while the page is still opening.
+      queryClient.setQueryData(queries.me().queryKey, me);
+      void queryClient.prefetchQuery(queries.meta());
+      void queryClient.prefetchQuery(queries.metricList());
       router.replace("/overview");
     },
   });

@@ -451,3 +451,35 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
   - S11-17: API 1113 passed, ruff and mypy clean, web unit 100, e2e 56/56.
   - S11-18: the real UI shows the levers table and the trend chart.
 - **Release:** a PR to `main` with green CI, then merge (owner authorization in the session log). No AI key is set: the live harness, `lumiant-knowledge embed` and the Gemini checks wait for the owner.
+
+## 2026-11-28 · S11 · Smooth navigation and fast load (owner: "lag and slowness … super smooth navigation, fast load")
+- **Plan approved** (four iterations), ADR-0014, DEC-039. The nonce CSP (ADR-0007) stays; navigation is made instant around it.
+- **Iteration 1, instant clicks:**
+  - `staleTimes` (dynamic 30 s, static 300 s).
+  - Full prefetch of rail links, the logo and Settings, plus every permitted route on idle.
+  - `(app)/loading.tsx` skeleton.
+  - Data prefetch on link intent (`lib/prefetch.ts`, using the shared `lib/queries.ts`).
+  - The rail highlight moves on click.
+  - Explorer, saved views and Commitments filters use `history.replaceState`.
+- **Iteration 2, lighter shell:**
+  - `me`/`meta` in `sessionStorage` as stale data (`lib/session-cache.ts`). After login the session is seeded and the Overview's first queries are prefetched.
+  - zod replaced by a type guard.
+  - Palette, Analyst dock and Overview charts load lazily.
+  - `useAnalystSelector`, so streamed Analyst steps stop re-rendering the shell.
+  - Motion: 200 ms entrances, 4 px travel, stagger cap 120 ms, 140 ms route fade, composited skeleton shimmer.
+  - Show-more (100 rows) on master-data and planning lists.
+  - Geist Mono not preloaded.
+- **Iteration 3, API:**
+  - The DEC-032 result cache now also covers metrics, inventory filters, ABC, cost comparison, concentration, the planning load and duplicates. The permission check comes before the cache, and every hit is audited.
+  - SQLite `synchronous=NORMAL` with WAL.
+  - openpyxl is imported only for Excel exports, and YAML uses libyaml.
+  - Startup time is logged.
+  - **Planning loader ordering:** the plan assumed its OFFSET paging had no ORDER BY. It does have one: the validator orders by every grouping when a plan gives none (`validator._order`). Nothing to fix.
+  - **Not done:** server paging for duplicates (cached instead, ISSUES #72), and keep-warm (Hobby plan: 15 min schedules with 15 min jitter, ISSUES #71).
+- **Iteration 4:**
+  - e2e `navigation.spec.ts`: a prefetched rail click shows its page while page requests are held; a filter change sends no page request.
+  - Unit tests for the session cache and malformed error envelopes. `test_result_cache.py` (9) for the API.
+  - `scripts/nav-timing.mjs`.
+  - Bundle budgets re-recorded.
+- **Docs:** ADR-0014, DEC-039, ISSUES #71/#72 and #57, FRONTEND (data fetching, motion, shell), QUERY_ENGINE §7/§8, TESTING, PERFORMANCE_AND_LOAD_TESTING.
+- **Commands + results:** TEST_RUNS S11-22 … S11-26.
