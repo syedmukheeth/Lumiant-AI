@@ -5,7 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect } from "react";
 
 import { readSelection } from "@/components/analyst/analyzable";
-import { analyze, setLens, useAnalyst } from "@/components/analyst/store";
+import { analyze, setLens, useAnalystSelector } from "@/components/analyst/store";
 import { DUR, EASE, REDUCED_DUR } from "@/lib/motion";
 
 /**
@@ -13,7 +13,8 @@ import { DUR, EASE, REDUCED_DUR } from "@/lib/motion";
  * comparison) instead of doing what the click normally does; everything else keeps working. Esc leaves the lens.
  */
 export function Lens() {
-  const { lens, selections } = useAnalyst();
+  const lens = useAnalystSelector((s) => s.lens);
+  const selections = useAnalystSelector((s) => s.selections);
   const reduce = useReducedMotion();
 
   useEffect(() => {

@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 /** Error returned by the API ({error: {code, message, request_id}}) or by the network. */
 export class ApiError extends Error {
   constructor(
@@ -13,15 +11,22 @@ export class ApiError extends Error {
   }
 }
 
-const errorBody = z.object({
-  error: z.object({ code: z.string(), message: z.string(), request_id: z.string().nullable().optional() }),
-});
+type ErrorBody = { error: { code: string; message: string; request_id?: string | null } };
+
+/** The API's error envelope, checked field by field (a plain guard: a schema library here cost every page ~30 KB). */
+function isErrorBody(body: unknown): body is ErrorBody {
+  if (typeof body !== "object" || body === null || !("error" in body)) return false;
+  const e: unknown = body.error;
+  if (typeof e !== "object" || e === null) return false;
+  const { code, message, request_id: id } = e as Record<string, unknown>;
+  return typeof code === "string" && typeof message === "string" && (id === undefined || id === null || typeof id === "string");
+}
 
 export async function toApiError(res: Response): Promise<ApiError> {
   try {
-    const parsed = errorBody.safeParse(await res.json());
-    if (parsed.success) {
-      const e = parsed.data.error;
+    const body: unknown = await res.json();
+    if (isErrorBody(body)) {
+      const e = body.error;
       return new ApiError(res.status, e.code, e.message, e.request_id ?? null);
     }
   } catch {

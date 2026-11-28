@@ -101,6 +101,19 @@ export function useAnalyst(): State {
   );
 }
 
+/**
+ * One slice of the state. The component re-renders only when the slice changes (compared with Object.is), so a
+ * streamed answer step does not re-render the shell, the lens or every analyzable panel. Return a primitive or a
+ * piece of the state itself, never a new object.
+ */
+export function useAnalystSelector<T>(select: (s: State) => T): T {
+  return useSyncExternalStore(
+    subscribe,
+    () => select(state),
+    () => select(SERVER),
+  );
+}
+
 export const sameSelection = (a: Selection, b: Selection) => a.kind === b.kind && a.id === b.id;
 
 // ------------------------------------------------------------------------------------------------ actions

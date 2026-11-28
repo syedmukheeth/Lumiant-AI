@@ -3,7 +3,6 @@ import Script from "next/script";
 import { headers } from "next/headers";
 import { connection } from "next/server";
 import localFont from "next/font/local";
-import { GeistMono } from "geist/font/mono";
 
 import { Providers } from "@/components/providers";
 
@@ -17,6 +16,16 @@ const inter = localFont({
   variable: "--font-inter",
   weight: "100 900",
   display: "swap",
+});
+
+// Geist Mono only sets identifiers (codes, ids). It is not preloaded: the first screen rarely needs it, and every
+// preloaded font competes with the page's own requests on a first visit.
+const geistMono = localFont({
+  src: "../../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2",
+  variable: "--font-geist-mono",
+  weight: "100 900",
+  display: "swap",
+  preload: false,
 });
 
 // Newsreader (SIL OFL) for page titles and marketing headlines: an editorial serif beside Inter's UI text.
@@ -41,7 +50,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   // hydration does not report a nonce mismatch.
   const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
-    <html lang="en" className={`${inter.variable} ${newsreader.variable} ${GeistMono.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${inter.variable} ${newsreader.variable} ${geistMono.variable}`} suppressHydrationWarning>
       <body className="min-h-dvh antialiased">
         <Script src="/theme-init.js" strategy="beforeInteractive" nonce={nonce} />
         <Providers>{children}</Providers>

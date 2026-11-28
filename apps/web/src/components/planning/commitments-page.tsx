@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckCircle2, Split, Trophy, XCircle } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 import { DateCell, PlanningIssues, RecommendationNote, Stat } from "@/components/planning/shared";
 import { ErrorState, Panel, Skeleton } from "@/components/data/widget";
@@ -207,7 +207,6 @@ function Analysis({ a }: { a: CommitmentAnalysis }) {
 }
 
 export function CommitmentsPage() {
-  const router = useRouter();
   const params = useSearchParams();
   const list = useCommitments();
   const rows = list.data?.at_risk ?? [];
@@ -222,7 +221,7 @@ export function CommitmentsPage() {
       />
       <Panel title="Customer order lines at risk" subtitle="Open lines the current plan delivers late or cannot date, highest order value first. Select one to compare sourcing options.">
         {list.isPending ? <Skeleton className="h-40 w-full" /> : list.error ? <ErrorState error={list.error} /> : (
-          <AtRiskList rows={byValue} selected={selected} onSelect={(key) => router.replace(`/commitments?order=${encodeURIComponent(key)}`, { scroll: false })} />
+          <AtRiskList rows={byValue} selected={selected} onSelect={(key) => window.history.replaceState(null, "", `/commitments?order=${encodeURIComponent(key)}`)} />
         )}
       </Panel>
       {selected && (detail.isPending ? (

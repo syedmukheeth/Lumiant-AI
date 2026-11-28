@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { AnalyzeButton, analyzableProps } from "@/components/analyst/analyzable";
@@ -14,12 +14,13 @@ import type { Selection } from "@/lib/agent";
 import type { Row } from "@/lib/api";
 import { formatMoney, formatNumber, humanize } from "@/lib/format";
 import { type BalanceQuery, useBalances, useInventoryFilters, usePageMe } from "@/lib/hooks";
+import { INVENTORY_FIRST_PAGE } from "@/lib/queries";
 import { enterDelay } from "@/lib/motion";
 
 import { ItemSheet } from "./item-sheet";
 import { SavedViews } from "./saved-views";
 
-const LIMIT = 50;
+const LIMIT = INVENTORY_FIRST_PAGE.limit; // the navigation prefetch warms this first page (lib/prefetch.ts)
 
 type Col = {
   key: string;
@@ -120,7 +121,6 @@ function FilterSelect({
 }
 
 export function InventoryExplorer() {
-  const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const me = usePageMe();
@@ -134,15 +134,15 @@ export function InventoryExplorer() {
     stage: params.get("stage") ?? undefined,
     status: params.get("status") ?? undefined,
     q: params.get("q") ?? undefined,
-    sort: params.get("sort") ?? "item_code",
+    sort: params.get("sort") ?? INVENTORY_FIRST_PAGE.sort,
     dir: params.get("dir") === "desc" ? "desc" : "asc",
     offset: Number(params.get("offset") ?? 0) || 0,
     limit: LIMIT,
   };
   const balances = useBalances(query);
 
-  // The URL most recently requested from the router, until the router has committed it. router.replace is a
-  // transition: window.location can lag behind it, so a debounced search firing meanwhile must build on this one.
+  // The URL most recently written, until useSearchParams reports it. Filters go through the History API, which Next.js
+  // syncs with useSearchParams without a server round trip; a debounced search firing meanwhile builds on this one.
   const pendingQs = useRef<string | null>(null);
   useEffect(() => {
     if (pendingQs.current !== null && pendingQs.current === params.toString()) pendingQs.current = null;
@@ -158,7 +158,7 @@ export function InventoryExplorer() {
     }
     if (!("offset" in patch)) next.delete("offset");
     pendingQs.current = next.toString();
-    router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+    window.history.replaceState(null, "", `${pathname}?${next.toString()}`);
   };
 
   const [term, setTerm] = useState(query.q ?? "");
@@ -212,7 +212,7 @@ export function InventoryExplorer() {
               const next = new URLSearchParams(qs);
               setTerm(next.get("q") ?? "");
               pendingQs.current = next.toString();
-              router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+              window.history.replaceState(null, "", `${pathname}?${next.toString()}`);
             }}
           />
         }

@@ -4,15 +4,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { clsx } from "clsx";
 import { Clock, Lock, LogOut, PanelLeftClose, PanelLeftOpen, Search, Settings, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
+import dynamic from "next/dynamic";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Tooltip } from "radix-ui";
 import { Fragment, useEffect, useState, useSyncExternalStore } from "react";
 
-import { AnalystDock } from "@/components/analyst/analyst-dock";
 import { Lens } from "@/components/analyst/lens";
-import { bindAnalystUser, resetAnalyst, toggleDock, toggleLens, useAnalyst } from "@/components/analyst/store";
-import { CommandPalette } from "@/components/shell/command-palette";
+import { bindAnalystUser, resetAnalyst, toggleDock, toggleLens, useAnalystSelector } from "@/components/analyst/store";
 import { type NavItem, navFor, sectionFor } from "@/components/shell/nav";
 import { toggleRail, useRailCollapsed } from "@/components/shell/rail-state";
 import { DataBadge } from "@/components/shell/synthetic-tape";
@@ -26,7 +25,17 @@ import { api, ApiError, type Me } from "@/lib/api";
 import { askOnPage, assistantHref } from "@/lib/ask";
 import { formatTimestamp, humanize } from "@/lib/format";
 import { useMe, useTenantMeta } from "@/lib/hooks";
+import { prefetchRouteData } from "@/lib/prefetch";
+import { queries } from "@/lib/queries";
+import { clearSessionCache } from "@/lib/session-cache";
 import { LAYOUT_SPRING } from "@/lib/motion";
+
+// The palette and the Analyst dock are loaded when first opened, not with every page (their code was ~60 KB of each
+// page's JavaScript). The shell warms both chunks once the browser is idle, so opening them stays instant.
+const loadPalette = () => import("@/components/shell/command-palette");
+const loadDock = () => import("@/components/analyst/analyst-dock");
+const CommandPalette = dynamic(() => loadPalette().then((m) => m.CommandPalette), { ssr: false });
+const AnalystDock = dynamic(() => loadDock().then((m) => m.AnalystDock), { ssr: false });
 
 function scopeLabel(me: Me) {
   if (me.scope.all_warehouses) return "All warehouses";
@@ -64,13 +73,33 @@ function PendingDot() {
   );
 }
 
-function RailLink({ item, active, collapsed }: { item: NavItem; active: boolean; collapsed: boolean }) {
+/** A plain left click that Next.js handles in this tab (not a new tab or window). */
+const isPlainClick = (e: React.MouseEvent) => e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
+
+function RailLink({
+  item,
+  active,
+  collapsed,
+  onIntent,
+  onGo,
+}: {
+  item: NavItem;
+  active: boolean;
+  collapsed: boolean;
+  onIntent: (href: string) => void;
+  onGo: (href: string) => void;
+}) {
   const Icon = item.icon;
   return (
     <Tooltip.Root>
       <Tooltip.Trigger asChild>
         <Link
           href={item.href}
+          // Full prefetch: pages are thin client shells, so the whole route is cheap to fetch ahead (ADR-0014).
+          prefetch
+          onPointerEnter={() => onIntent(item.href)}
+          onFocus={() => onIntent(item.href)}
+          onClick={(e) => isPlainClick(e) && onGo(item.href)}
           aria-current={active ? "page" : undefined}
           aria-keyshortcuts={`G ${item.key.toUpperCase()}`}
           className={clsx(
@@ -126,6 +155,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       await api.post("/api/auth/logout");
     } finally {
       resetAnalyst();
+      clearSessionCache();
       queryClient.clear();
       router.replace("/login");
     }
@@ -134,6 +164,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (me.error instanceof ApiError && me.error.status === 401) {
       // Expired or invalid session: clear the cookie so the router stops treating us as signed in.
+      clearSessionCache();
       api.post("/api/auth/logout").finally(() => {
         resetAnalyst();
         queryClient.clear();
@@ -156,7 +187,46 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const unreachable = me.error && !(me.error instanceof ApiError && me.error.status === 401);
   const canAsk = !!user?.sections.includes("assistant");
   const canCost = !!user?.permissions.includes("cost:read");
-  const analyst = useAnalyst();
+  const dockOpen = useAnalystSelector((s) => s.open);
+  // Mounted from the first open on, so closing still animates.
+  const [paletteUsed, setPaletteUsed] = useState(false);
+  if (paletteOpen && !paletteUsed) setPaletteUsed(true);
+  const [dockUsed, setDockUsed] = useState(false);
+  if (dockOpen && !dockUsed) setDockUsed(true);
+
+  // The rail highlights the page being opened as soon as it is clicked, not when its navigation finishes.
+  const [pending, setPending] = useState<{ href: string; from: string } | null>(null);
+  const goingTo = pending && pending.from === pathname ? pending.href : null;
+  const go = (href: string) => {
+    if (!pathname.startsWith(href)) setPending({ href, from: pathname });
+  };
+  const navigate = (href: string) => {
+    go(href);
+    router.push(href);
+  };
+  // Warm a page's first requests when the pointer reaches its link (lib/prefetch.ts).
+  const intent = (href: string) => prefetchRouteData(queryClient, href, user);
+
+  // The Overview's widgets wait for the metric list: ask for it alongside the session, not after it.
+  useEffect(() => void queryClient.prefetchQuery(queries.metricList()), [queryClient]);
+
+  // Prefetch every page the role can open once the browser is idle, so palette and keyboard jumps are instant too.
+  const navKey = nav.map((n) => n.href).join(" ");
+  useEffect(() => {
+    if (!navKey) return;
+    const hrefs = [...navKey.split(" "), "/settings"];
+    const run = () => {
+      hrefs.forEach((href) => router.prefetch(href));
+      void loadPalette();
+      if (hrefs.includes("/assistant")) void loadDock();
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(run, { timeout: 2000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const t = window.setTimeout(run, 300);
+    return () => window.clearTimeout(t);
+  }, [navKey, router]);
 
   const ask = (question: string) => {
     // Already on the assistant: hand the question over without remounting (keeps the conversation).
@@ -167,7 +237,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useShortcuts({
     nav,
     onPalette: () => setPaletteOpen((o) => !o),
-    onNavigate: (href) => router.push(href),
+    onNavigate: navigate,
     onToggleRail: toggleRail,
     onDock: canAsk ? toggleDock : undefined,
     onLens: canAsk ? toggleLens : undefined,
@@ -183,7 +253,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           )}
         >
           <div className="hidden h-20 items-center px-4 md:flex md:rail-collapsed:h-14 md:rail-collapsed:justify-center md:rail-collapsed:px-0">
-            <Link href="/overview" aria-label="Lumiant home" className="flex items-center">
+            <Link href="/overview" prefetch aria-label="Lumiant home" className="flex items-center">
               <span className="md:rail-collapsed:hidden">
                 <BrandLogo width={150} plate />
               </span>
@@ -208,7 +278,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     {item.group !== nav[i - 1]?.group && i > 0 && (
                       <span aria-hidden className="mx-3 my-2 hidden border-t border-line md:rail-collapsed:block" />
                     )}
-                    <RailLink item={item} active={pathname.startsWith(item.href)} collapsed={collapsed} />
+                    <RailLink
+                      item={item}
+                      active={goingTo ? goingTo === item.href : pathname.startsWith(item.href)}
+                      collapsed={collapsed}
+                      onIntent={intent}
+                      onGo={go}
+                    />
                   </Fragment>
                 ))
               : [0, 1, 2, 3].map((i) => <span key={i} aria-hidden className="skeleton mx-1 h-8 w-16 shrink-0 rounded-control md:w-auto" />)}
@@ -241,6 +317,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Button>
               <Link
                 href="/settings"
+                prefetch
                 aria-label="Settings"
                 title="Settings"
                 className="grid size-8 place-items-center rounded-control text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
@@ -265,7 +342,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <header className="sticky top-0 z-(--z-sticky) border-b border-line bg-canvas md:rounded-t-[1.25rem]">
             <div className="flex min-h-16 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2.5 sm:px-6 lg:px-10 xl:flex-nowrap">
               <div className="flex min-w-0 shrink items-center gap-3">
-                <Link href="/overview" aria-label="Lumiant home" className="md:hidden">
+                <Link href="/overview" prefetch aria-label="Lumiant home" className="md:hidden">
                   <BrandLogo height={26} plate />
                 </Link>
                 <span className="min-w-0 truncate text-sm font-semibold text-ink">{user?.tenant.display_name ?? " "}</span>
@@ -301,13 +378,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <button
                     type="button"
                     onClick={toggleDock}
-                    aria-pressed={analyst.open}
+                    aria-pressed={dockOpen}
                     aria-keyshortcuts="Control+J Meta+J"
                     title={`Analyst (${apple ? "⌘" : "Ctrl"}+J) · Lens (L)`}
                     data-testid="analyst-toggle"
                     className={clsx(
                       "inline-flex h-8 items-center gap-1.5 rounded-control border px-2.5 text-xs font-medium transition-[background-color,border-color,color,transform] active:translate-y-px",
-                      analyst.open
+                      dockOpen
                         ? "border-accent/50 bg-accent-soft text-accent"
                         : "border-line-strong bg-surface text-ink-2 hover:border-control-line hover:text-ink",
                     )}
@@ -347,19 +424,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      <CommandPalette
-        open={paletteOpen}
-        onOpenChange={setPaletteOpen}
-        nav={nav}
-        canSearchMaterials={!!user?.sections.includes("inventory")}
-        canAsk={canAsk}
-        onNavigate={(href) => router.push(href)}
-        onAsk={ask}
-        onSignOut={signOut}
-      />
+      {paletteUsed && (
+        <CommandPalette
+          open={paletteOpen}
+          onOpenChange={setPaletteOpen}
+          nav={nav}
+          canSearchMaterials={!!user?.sections.includes("inventory")}
+          canAsk={canAsk}
+          onNavigate={navigate}
+          onAsk={ask}
+          onSignOut={signOut}
+        />
+      )}
       {canAsk && (
         <>
-          <AnalystDock canCost={canCost} />
+          {dockUsed && <AnalystDock canCost={canCost} />}
           <Lens />
         </>
       )}

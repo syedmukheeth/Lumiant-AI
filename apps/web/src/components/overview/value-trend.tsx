@@ -4,17 +4,17 @@ import { useQuery } from "@tanstack/react-query";
 
 import { ErrorState, Panel, Skeleton } from "@/components/data/widget";
 import { TrendArea } from "@/components/viz/trend-area";
-import { api } from "@/lib/api";
 import { formatMoney } from "@/lib/format";
+import { queries } from "@/lib/queries";
 
 type Point = { period: string; date: string; value: string | null; receipts_value: string | null; issues_value: string | null };
-type Trend = { as_of: string; months: number; rule: string; series: { currency: string | null; points: Point[] }[]; warnings: { code: string; message: string }[] };
+export type Trend = { as_of: string; months: number; rule: string; series: { currency: string | null; points: Point[] }[]; warnings: { code: string; message: string }[] };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const label = (p: Point) => (p.period === "now" ? "Now" : `${MONTHS[Number(p.period.slice(5, 7)) - 1]} ${p.period.slice(2, 4)}`);
 
 export const useValueTrend = (enabled: boolean) =>
-  useQuery({ queryKey: ["value-trend", 12], queryFn: () => api.get<Trend>("/api/analyses/value-trend", { months: 12 }), enabled, staleTime: 60_000 });
+  useQuery({ ...queries.valueTrend(), enabled });
 
 /** Command centre: month-end inventory value (current prices) with monthly receipts and issues, per currency. */
 export function ValueTrend() {

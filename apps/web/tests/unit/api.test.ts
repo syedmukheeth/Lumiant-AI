@@ -36,6 +36,26 @@ describe("api client", () => {
     expect(err.message).not.toContain("stack");
   });
 
+  it("treats a malformed error envelope as a generic error (no schema library)", async () => {
+    const shapes = [
+      { error: { code: 42, message: "x" } },
+      { error: { code: "c" } },
+      { error: { code: "c", message: "m", request_id: 7 } },
+      { error: "plain" },
+      { error: null },
+      [],
+    ];
+    for (const body of shapes) {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status: 400 })));
+      const err = (await api.get("/api/x").catch((e: unknown) => e)) as ApiError;
+      expect(err.code, JSON.stringify(body)).toBe("http_error");
+    }
+    const ok = { error: { code: "invalid_request", message: "Bad.", request_id: null } };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(ok), { status: 422 })));
+    const err = (await api.get("/api/x").catch((e: unknown) => e)) as ApiError;
+    expect(err).toMatchObject({ code: "invalid_request", requestId: null });
+  });
+
   it("reports network failures as status 0", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
     const err = (await api.get("/api/x").catch((e: unknown) => e)) as ApiError;

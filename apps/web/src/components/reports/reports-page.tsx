@@ -12,8 +12,10 @@ import { PageHeader } from "@/components/ui/page-header";
 import { api, type Provenance, type ResultWarning, type Row } from "@/lib/api";
 import { formatMoney, formatNumber, formatQuantity } from "@/lib/format";
 import { useMe } from "@/lib/hooks";
+import { queries } from "@/lib/queries";
 
 type ReportInfo = { id: string; title: string; description: string; params: string[] };
+export type ReportList = { reports: ReportInfo[]; can_export: boolean };
 type Built = {
   report: { id: string; title: string };
   columns: { key: string; label: string }[];
@@ -49,10 +51,7 @@ function render(key: string, row: Row) {
 
 export function ReportsPage() {
   const me = useMe();
-  const list = useQuery({
-    queryKey: ["reports"],
-    queryFn: () => api.get<{ reports: ReportInfo[]; can_export: boolean }>("/api/reports"),
-  });
+  const list = useQuery(queries.reports());
   const [selected, setSelected] = useState("");
   const [days, setDays] = useState(180);
   const current = list.data?.reports.find((r) => r.id === selected);

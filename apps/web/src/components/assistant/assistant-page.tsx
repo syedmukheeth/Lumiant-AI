@@ -10,9 +10,10 @@ import { Chip } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { type Block, type ChatAnswer, type Step, streamChat, toHistory } from "@/lib/agent";
-import { api, ApiError } from "@/lib/api";
+import { ApiError } from "@/lib/api";
 import { ASK_EVENT } from "@/lib/ask";
 import { enterDelay } from "@/lib/motion";
+import { queries } from "@/lib/queries";
 
 type Turn = { id: number; question: string; steps: Step[]; blocks: Block[]; response?: ChatAnswer; error?: string };
 
@@ -20,7 +21,7 @@ export function AssistantPage() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [text, setText] = useState("");
   const [pending, setPending] = useState(false);
-  const suggestions = useQuery({ queryKey: ["agent-suggestions"], queryFn: () => api.get<{ suggestions: string[] }>("/api/agent/suggestions") });
+  const suggestions = useQuery(queries.agentSuggestions());
   const end = useRef<HTMLDivElement>(null);
   const next = useRef(1);
   const turnsRef = useRef(turns);
