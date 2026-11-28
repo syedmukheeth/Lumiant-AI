@@ -1,6 +1,12 @@
 # Current State
 
-_Rewritten at the end of every session. Last update: 2026-11-27, S11.
+_Rewritten at the end of every session. Last update: 2026-11-28, S11.
+- **Speed work** (ADR-0014, DEC-039), on branch `perf/smooth-nav`, not merged yet:
+  - client navigation cache and full prefetch around the nonce CSP
+  - data prefetch on intent, and the session kept for reloads
+  - filters without a server trip
+  - a lighter, calmer shell
+  - wider shared API results, and cold-start trims
 - **Smart Analyst** (ADR-0013, DEC-036…038): inventory levers, app-computed figures, more analysis tools, time
   bucketing, RAG v2, chart answers, daily AI allowance; external AI approved on the four synthetic demos.
 - **Earlier in S11:** form-control and favicon fixes; functions moved to `bom1` (PR #9, #10).
@@ -15,7 +21,7 @@ _Rewritten at the end of every session. Last update: 2026-11-27, S11.
   - V1–V5 partly done (see the plan's phase table).
   - S11 adds the Smart Analyst. It covers V4 "Analyst inline charts", plus the trends that the query engine's time
     bucketing makes possible.
-- **Branch:** only `main`.
+- **Branches:** `main`, plus `perf/smooth-nav` (the speed work) until its PR is merged with the owner's go.
 - **Deployment:** Vercel project `lumiant-ai`.
   - Vercel Services: web + API, functions in `bom1` (DEC-035). Production builds from `main` at
     https://lumiant-ai.vercel.app.
@@ -35,7 +41,8 @@ _Rewritten at the end of every session. Last update: 2026-11-27, S11.
 | **RAG v2:** a per-tenant, per-role knowledge index; 20 new playbook and capability sections; a lasting vector cache (memory, committed file, app DB via Alembic 0008); `lumiant-knowledge embed`; retrieval eval (keyword recall@4 0.90 product, 0.95/0.94 tenant) | `test_knowledge_rag.py`, `test_retrieval_eval.py`, S11-13 |
 | **Analyst UI:** chart blocks (line via the viz kit, bar), distinct unsupported and clarify layouts, styled notices; follow-ups carry the earlier answer (≤ 300 characters, context only) | web unit tests, S11-14 |
 | **AI cost guard:** daily allowance per tenant (`LUMIANT_AI_DAILY_CALLS`, 300); 45 s deadline per question; Gemini output cap. A customer extract can never be AI-approved | `test_agent_s11.py`, `test_tenancy.py` |
-| **Gates** | API 1113 passed + 15 env skips; ruff and mypy clean; web unit 100; e2e: see TEST_RUNS S11-17 |
+| **Smooth navigation (branch `perf/smooth-nav`):** rail routes prefetched in full and cached on the client, a route skeleton, data prefetched on link intent, session restored on reload, filters without a server trip, lazy palette, dock and charts, calmer motion. API: metrics, filters, ABC, cost comparison, concentration, the planning load and duplicates shared for 60 s (audited, scope-safe); SQLite `synchronous=NORMAL` | `navigation.spec.ts`, `session-cache.test.ts`, `test_result_cache.py`, TEST_RUNS S11-22 … S11-26 |
+| **Gates** | API 1123 passed + 15 env skips; ruff and mypy clean; web unit 106; e2e: see TEST_RUNS S11-25 |
 
 ## What is simulated (not evidence of customer readiness)
 - All demo data is synthetic; the client SAP extract is a local one-off.
@@ -67,6 +74,8 @@ See `../logs/ISSUES.md`. Open items include:
 - #60: Windows-only screenshot baselines.
 - #63: AI allowance per instance without Redis.
 - #64: ageing and value trend have no provenance slip.
+- #71: cold start after idle (narrowed; no keep-warm on the Hobby plan).
+- #72: duplicates are cached but not paged on the server.
 - #65: lever values are a floor beyond 200 rows.
 - #66: retrieval eval ids depend on section order; no stemming.
 - #67: knowledge vectors not precomputed.
@@ -75,6 +84,9 @@ See `../logs/ISSUES.md`. Open items include:
 - The SAP-extract items #23–#30.
 
 ## Next step
+0. **Speed work:** the owner gives the go to merge the `perf/smooth-nav` PR (merging redeploys production). Then
+   time production with `node apps/web/scripts/nav-timing.mjs https://lumiant-ai.vercel.app` (before: TEST_RUNS
+   S11-22), including a run after an idle period for the cold start (#71).
 1. **Owner:**
    1. Set a spending cap on the Gemini key in Google AI Studio.
    2. Add `LUMIANT_AGENT_PROVIDER=gemini` and `LUMIANT_GEMINI_API_KEY` in Vercel production and in

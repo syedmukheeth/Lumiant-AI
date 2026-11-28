@@ -55,3 +55,23 @@ cold Overview on the test tenant needs more than 45 source queries.
 
 **Budgets still unmet:** landing page first-load JS 193 KB gzip against a 100 KB target (ISSUES #57). LCP and route
 change times have not been measured in a browser yet.
+
+## Navigation and shared results (S11, 28 Nov 2026, ADR-0014)
+
+**Method.** `apps/web/scripts/nav-timing.mjs` drives Chromium against a running build. It signs in as `alpha.admin`
+and times, for each rail page, click → page shown and click → data shown, first visit and revisit. It also times an
+Overview reload and counts API calls. Bundle sizes come from `bundle-report.mjs`. API timings come from the Overview
+benchmark and in-process service calls.
+
+| | Before (production, S11-22) | After (local production build, S11-26) |
+|---|---|---|
+| Rail click → page shown, median | 271 ms first visit, 187 ms revisit | 70–74 ms first visit, 79 ms revisit |
+| Overview reload → figures | 1,056 ms, 17 calls | 595–834 ms, 17 calls |
+| Item master data | 2,240 ms | 2,299 ms cold, then 130 ms (shared planning load) |
+| `/api/planning/duplicates` (in process) | 1.56 s warm | 1 ms warm, 0.61 s cold |
+| First-load JS, gzip | `/overview` 407 KB, app routes ~287 KB, `/` 193 KB | `/overview` 256 KB, app routes ~251 KB, `/` 163 KB |
+| API entry import (cold start) | 3.5 s | 2.0 s |
+
+"Before" is production and "after" is this laptop, so the click times are not a like-for-like comparison. The
+production "after" run follows the merge. The e2e `navigation.spec.ts` locks in the behaviour itself: a prefetched
+page appears within 2 s while every page request is held for 4 s, and a filter change sends no page request.

@@ -109,6 +109,10 @@ Clients only ever see `query_rejected`; the specific reason goes to server logs 
 
 One `audit_event` per data request (allowed **and** denied): request_id, timestamp, tenant_id, user_id, action (`metric:<id>`, `query`, `inventory.balances`, …), dataset, decision (`allow`/`deny`), reason_code, row_count, duration_ms, status. **No result values, no filter values** (filter *fields* only).
 
+Writes fail closed (DEC-012): each row is committed before the response, and a failed write returns no data. On
+SQLite the app database runs WAL with `synchronous=NORMAL` (S11, ADR-0014). Commits still happen per row; only the
+fsync per commit goes, so a power cut can lose the last commits but cannot corrupt the file.
+
 ## 8. Named analyses
 
 Analyses that need SQL shapes the generic plan cannot express (e.g. below-reorder needs `reorder_policy LEFT JOIN aggregated stock` so zero-stock items appear) are hand-written SQLAlchemy Core queries in `analyses/`, but they **must** use the same building blocks: mapping resolver, scope injection helper, sql_guard, executor, provenance, audit.
@@ -121,3 +125,13 @@ Since V0:
 - Results of below-reorder, excess, dormant, expiry, data quality and the metric gap count are shared for 60 s
   between callers with the same tenant, warehouse scope, permissions and data timestamp (`analyses/cache.py`);
   hits are audited with reason `cache`; the insight feed's `fresh=true` bypasses it.
+- Since S11 (ADR-0014) the same cache also shares:
+  - catalog metrics (audited as `analysis:metric:<id>` on a hit)
+  - the inventory filter lists
+  - ABC, cost comparison and value concentration
+  - the planning load (`planning_load`, keyed by planning date), so master data, planning, suppliers, commitments
+    and lifecycle read the source once per scope per minute
+  - duplicate findings
+
+  A caller without the permission is refused before the cache is read. The capability's own audit row (for example
+  `planning:duplicates`) is still written on every call. Tests: `test_result_cache.py`.

@@ -16,7 +16,15 @@ Navigation shows only routes that exist **and** that the user may access. No pla
 
 - `src/lib/api.ts`: typed fetch wrapper (same-origin `/api/*`, `credentials: "same-origin"`, `X-Requested-With: lumiant` on POST); throws `ApiError{status, code, message, requestId}` (status 0 = network).
 - React Query for caching, retries off for 4xx, loading/error states per widget.
-- The error envelope is validated with zod (`lib/api.ts`); success payloads are typed. Non-JSON error bodies are never shown to users.
+- The error envelope is checked by a small type guard (`lib/api.ts`; zod was removed in S11, ~30 KB on every page); success payloads are typed. Non-JSON or malformed error bodies become a generic error and are never shown to users.
+- **Navigation and data on intent (ADR-0014):**
+  - Query definitions live in one place, `lib/queries.ts`, shared by the hooks, the pages and the prefetcher, so a prefetch and a page always hit the same key.
+  - `lib/prefetch.ts` maps each route to its first-screen queries. A rail link prefetches them on pointer-enter or focus.
+  - Routes are prefetched in full (`prefetch={true}`, and `router.prefetch` for every permitted route when the browser is idle). `staleTimes` is dynamic 30 s, static 300 s. `(app)/loading.tsx` covers any route that was not prefetched.
+  - `lib/session-cache.ts` keeps `me` and `meta` in `sessionStorage`. They are restored as stale data (`updatedAt: 0`), so the API is still asked. The copy is cleared on a 401, on sign-out and on removal. Nothing else is stored.
+  - Filters, sorts and pages change the URL with `window.history.replaceState`, not `router.replace`, so they never cause a server round trip. Next 16 keeps `useSearchParams` in sync.
+- **Lazy pieces:** the command palette and the Analyst dock load on first use (warmed when idle). The Overview's Recharts panels load with `next/dynamic` and a sized skeleton.
+- **Long lists:** master-data and planning tables render 100 rows, then "Show more" (`components/ui/show-more.tsx`).
 - Pages are client components; no server component reads cookies, so the API stays the only enforcement point.
 - `usePageMe()` reads the session only after hydration (the shell may resolve it first), which prevents hydration mismatches.
 - The shell always renders page content (Next 16 instant-navigation validation requires it); the session state only affects the chrome.
@@ -78,7 +86,7 @@ Graphite and emerald (ADR-0011) in `src/app/globals.css` (raw variables on `:roo
 
 ## Motion
 
-Single source of truth: `src/lib/motion.ts` (`EASE`, `DUR`, `STAGGER`, `RISE`, `Z`, `LAYOUT_SPRING`, `enterDelay()`, `floatIn()`), mirrored as CSS variables (`--ease-*`, `--dur-*`, `--rise`) in `globals.css` — change both together. Values suit a dense working tool: `fast` 140 ms (hover/press; also Tailwind's default transition), `base` 220 ms (palette, route fade, popovers), `slow` 360 ms, `enter` 420 ms (entrance reveal), stagger 50 ms capped at 8 steps, lift 6 px. Three curves: `out` (expo-out, default), `inOut` (symmetric moves), `pop` (one accent overshoot). The one exception is a critically damped spring for the shared-layout active-nav marker, so an interrupted move keeps its velocity.
+Single source of truth: `src/lib/motion.ts` (`EASE`, `DUR`, `STAGGER`, `RISE`, `Z`, `LAYOUT_SPRING`, `enterDelay()`, `floatIn()`), mirrored as CSS variables (`--ease-*`, `--dur-*`, `--rise`) in `globals.css` — change both together. Values suit a dense working tool: `fast` 140 ms (hover/press; also Tailwind's default transition), `base` 220 ms (palette, route fade, popovers), `slow` 360 ms, `enter` 420 ms. Entrance reveals (`.rise`) use `--dur-rise` 200 ms with 4 px of travel (`RISE`). Staggers step 50 ms, and no delay passes `MAX_STAGGER` (120 ms), so content stops moving soon after it arrives (S11, ADR-0014). The skeleton shimmer is a `transform` animation on a pseudo-element, so it is composited, not repainted. Three curves: `out` (expo-out, default), `inOut` (symmetric moves), `pop` (one accent overshoot). The one exception is a critically damped spring for the shared-layout active-nav marker, so an interrupted move keeps its velocity.
 
 - **Who animates what.** Entrance reveals are CSS (`.rise`, `.route-enter`, `.pop-enter`; keyframe names start with `enter-`): they work before JavaScript runs and cost nothing. Motion (`motion/react`) is used only for interactive and layout motion: the palette's enter/exit (`AnimatePresence` + Radix `forceMount`) and the rail's sliding active marker (`layoutId`). Recharts animation stays off. Only `transform` and `opacity` animate; the rail width changes instantly (animating it would re-lay out every chart on every frame).
 - **Staggers:** every entrance delay comes from `enterDelay(i)`; no page passes a hand-built `animationDelay` (migrated in M11). Buttons and chips give 1 px press feedback (`active:translate-y-px`).
@@ -91,7 +99,7 @@ Single source of truth: `src/lib/motion.ts` (`EASE`, `DUR`, `STAGGER`, `RISE`, `
 - **Rail state** lives on `<html data-rail="collapsed">`, applied before first paint from `localStorage` (`lumiant-rail`), so there is no layout shift or hydration mismatch. `rail-state.ts` is the only writer and exposes `useRailCollapsed()` (external store). Collapsed labels are `sr-only` (the `rail-collapsed:` variant), never removed, so links keep their accessible names; a Radix tooltip shows the label and its shortcut.
 - **Rail look (M11):** solid `surface` with a hairline; the active item is a `surface-2` fill with an accent bar on its left edge and an accent icon (the marker still slides with `layoutId`). Group names are sentence case.
 - **Command bar** (`<header>`, the page banner): tenant name, data-badge slot (`SyntheticTape`; the badge component belongs to the data-intake work), palette trigger ("Search, jump or ask…", ⌘/Ctrl K), `data-as-of` slot, theme toggle. Glass, sticky.
-- **Route transition:** the page is wrapped in `<div key={pathname} className="route-enter">`, a 220 ms opacity fade on every page change; search-param changes (explorer filters) do not remount. Nav links show a pulsing dot while their navigation is pending (`useLinkStatus`).
+- **Route transition:** the page is wrapped in `<div key={pathname} className="route-enter">`, a 140 ms opacity fade on every page change; search-param changes (explorer filters) do not remount. The rail highlight moves to a link as soon as it is clicked, and nav links show a pulsing dot while their navigation is pending (`useLinkStatus`).
 
 ## Command palette
 
