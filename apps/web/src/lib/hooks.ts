@@ -7,7 +7,6 @@ import {
   api,
   type AbcResult,
   type CostComparison,
-  type DataQuality,
   type DevUser,
   type Me,
   type BomLineView,
@@ -63,8 +62,7 @@ export const useBelowReorder = (query: { offset: number; limit: number }) => use
 export const useRisk = (kind: RiskKind, params: Record<string, string | number>, enabled = true) =>
   useQuery({ ...queries.risk(kind, params), enabled });
 
-export const useDataQuality = (enabled = true) =>
-  useQuery({ queryKey: ["data-quality"], queryFn: () => api.get<DataQuality>("/api/analyses/data-quality"), enabled });
+export const useDataQuality = (enabled = true) => useQuery({ ...queries.dataQuality(), enabled });
 
 export const useCostComparison = (item: string, warehouse: string) =>
   useQuery({

@@ -10,14 +10,12 @@ import { ApiError, type Me } from "@/lib/api";
 import { formatCount, formatMoney, formatNumber, humanize } from "@/lib/format";
 import { OVERVIEW_BELOW_REORDER, useBelowReorder, useDataQuality, useMetric, useRisk } from "@/lib/hooks";
 import { enterDelay } from "@/lib/motion";
+import { OVERVIEW_DORMANT_DAYS as DORMANT_DAYS, OVERVIEW_EXPIRY_DAYS as EXPIRY_DAYS, OVERVIEW_RISKS } from "@/lib/queries";
 
 /**
  * The four areas that cover inventory management. Each shows its standing figures without the user asking anything,
  * and offers the drill-down questions that area usually leads to; a question opens the Analyst and asks it.
  */
-
-const DORMANT_DAYS = 180;
-const EXPIRY_DAYS = 60;
 
 type Figure = { label: string; value?: React.ReactNode; pending?: boolean; error?: unknown; testId?: string };
 
@@ -178,9 +176,9 @@ export function AreaBoard({ me, canSeeValue }: { me: Me; canSeeValue: boolean })
   const topGroup = useLargest("Largest item group", "inventory_value_by_item_group", "item.item_group", canSeeValue, true);
   const below = useBelowReorder(OVERVIEW_BELOW_REORDER); // same request as the below-reorder panel, sent once
   // Risk analyses belong to the Risks section: a role without it is not asked for them at all.
-  const excess = useRisk("excess-stock", { limit: 1, offset: 0 }, seesRisks);
-  const dormant = useRisk("dormant", { limit: 1, offset: 0, days: DORMANT_DAYS }, seesRisks);
-  const expiring = useRisk("expiring-lots", { limit: 1, days: EXPIRY_DAYS }, seesRisks);
+  const excess = useRisk("excess-stock", OVERVIEW_RISKS.excess, seesRisks);
+  const dormant = useRisk("dormant", OVERVIEW_RISKS.dormant, seesRisks);
+  const expiring = useRisk("expiring-lots", OVERVIEW_RISKS.expiring, seesRisks);
   const quality = useDataQuality(seesRisks);
   const gated = (f: Figure): Figure => (seesRisks ? f : { label: f.label, value: <Unavailable /> });
 

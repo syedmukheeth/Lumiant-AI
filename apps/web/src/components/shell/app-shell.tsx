@@ -8,7 +8,7 @@ import dynamic from "next/dynamic";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Tooltip } from "radix-ui";
-import { Fragment, useEffect, useState, useSyncExternalStore } from "react";
+import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { Lens } from "@/components/analyst/lens";
 import { bindAnalystUser, resetAnalyst, toggleDock, toggleLens, useAnalystSelector } from "@/components/analyst/store";
@@ -210,7 +210,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // The Overview's widgets wait for the metric list: ask for it alongside the session, not after it.
   useEffect(() => void queryClient.prefetchQuery(queries.metricList()), [queryClient]);
 
-  // Prefetch every page the role can open once the browser is idle, so palette and keyboard jumps are instant too.
+  // On a reload the session is known at once (lib/session-cache.ts): start this page's first requests now instead of
+  // after the page's own gates (the Overview waits for the metric list). Only for a page the role may open, and only
+  // without filters in the URL, whose requests would differ from the first-screen ones.
+  // Once per user per page load: later navigations prefetch on link intent instead.
+  const warmedFor = useRef("");
+  const userKey = user ? `${user.tenant.id}:${user.user.id}` : "";
+  useEffect(() => {
+    if (!user || !pageAllowed || warmedFor.current === userKey || window.location.search) return;
+    warmedFor.current = userKey;
+    prefetchRouteData(queryClient, pathname, user);
+  }, [user, userKey, pageAllowed, pathname, queryClient]);
+
+  // Prefetch every page the role can open once the browser is idle, so rail, palette and keyboard jumps are instant.
+  // This full prefetch is what lets a click render without the server: the links' own prefetch requests alone do not
+  // (removing it failed e2e `navigation.spec.ts`, TEST_RUNS S11-29). Also load the palette and Analyst dock code.
   const navKey = nav.map((n) => n.href).join(" ");
   useEffect(() => {
     if (!navKey) return;

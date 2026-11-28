@@ -13,6 +13,7 @@ import { api, ApiError, type DevUser, type Me } from "@/lib/api";
 import { humanize } from "@/lib/format";
 import { useDevUsers } from "@/lib/hooks";
 import { enterDelay } from "@/lib/motion";
+import { prefetchRouteData } from "@/lib/prefetch";
 import { queries } from "@/lib/queries";
 import { clearSessionCache } from "@/lib/session-cache";
 import { KpiCard } from "@/components/viz/kpi-card";
@@ -35,6 +36,9 @@ export default function LoginPage() {
       queryClient.setQueryData(queries.me().queryKey, me);
       void queryClient.prefetchQuery(queries.meta());
       void queryClient.prefetchQuery(queries.metricList());
+      // The Overview's figures too, under the same rules as the page (TEST_RUNS S11-28: they used to wait for the
+      // metric list, a whole extra round trip on a cold API).
+      if (me.sections.includes("overview")) prefetchRouteData(queryClient, "/overview", me);
       router.replace("/overview");
     },
   });
