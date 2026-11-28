@@ -20,7 +20,8 @@ Navigation shows only routes that exist **and** that the user may access. No pla
 - **Navigation and data on intent (ADR-0014):**
   - Query definitions live in one place, `lib/queries.ts`, shared by the hooks, the pages and the prefetcher, so a prefetch and a page always hit the same key.
   - `lib/prefetch.ts` maps each route to its first-screen queries. A rail link prefetches them on pointer-enter or focus.
-  - Routes are prefetched in full (`prefetch={true}`, and `router.prefetch` for every permitted route when the browser is idle). `staleTimes` is dynamic 30 s, static 300 s. `(app)/loading.tsx` covers any route that was not prefetched.
+  - Routes are prefetched in full: rail links use `prefetch={true}`, and `router.prefetch` runs for every permitted route when the browser is idle. The idle call is the one that lets a click render without the server; the e2e test failed without it (S11-29). `staleTimes` is dynamic 30 s, static 300 s. `(app)/loading.tsx` covers any route that was not prefetched.
+  - Once the session is known (the sign-in response, or the session restored on a reload), the current page's first-screen queries start at once (`prefetchRouteData`). They are skipped for a page outside the role's sections, and when the URL carries filters. The Overview's figures therefore no longer wait for the metric list.
   - `lib/session-cache.ts` keeps `me` and `meta` in `sessionStorage`. They are restored as stale data (`updatedAt: 0`), so the API is still asked. The copy is cleared on a 401, on sign-out and on removal. Nothing else is stored.
   - Filters, sorts and pages change the URL with `window.history.replaceState`, not `router.replace`, so they never cause a server round trip. Next 16 keeps `useSearchParams` in sync.
 - **Lazy pieces:** the command palette and the Analyst dock load on first use (warmed when idle). The Overview's Recharts panels load with `next/dynamic` and a sized skeleton.

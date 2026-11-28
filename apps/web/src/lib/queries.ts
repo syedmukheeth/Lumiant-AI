@@ -7,6 +7,7 @@ import type { Ageing } from "@/components/risks/ageing-panel";
 import {
   api,
   type CommitmentAtRisk,
+  type DataQuality,
   type DuplicateFinding,
   type Envelope,
   type FulfilmentLine,
@@ -47,6 +48,23 @@ export const INVENTORY_FIRST_PAGE: BalanceQuery = { sort: "item_code", dir: "asc
 /** Risks: rows per page, and the first tab's request. */
 export const RISK_PAGE = 25;
 
+/** The Overview area board's risk counts (one row each; the summary carries the totals). */
+export const OVERVIEW_DORMANT_DAYS = 180;
+export const OVERVIEW_EXPIRY_DAYS = 60;
+export const OVERVIEW_RISKS = {
+  excess: { limit: 1, offset: 0 },
+  dormant: { limit: 1, offset: 0, days: OVERVIEW_DORMANT_DAYS },
+  expiring: { limit: 1, days: OVERVIEW_EXPIRY_DAYS },
+} as const;
+
+/** The Overview's value breakdowns (cost roles only). */
+export const OVERVIEW_VALUE_METRICS = [
+  "inventory_value_by_warehouse",
+  "inventory_value_by_item_group",
+  "inventory_value_by_abc",
+  "inventory_value_by_stage",
+] as const;
+
 export const queries = {
   me: () => queryOptions({ queryKey: ["me"], queryFn: () => api.get<Me>("/api/auth/me") }),
   meta: () => queryOptions({ queryKey: ["meta"], queryFn: () => api.get<TenantMeta>("/api/meta/tenant") }),
@@ -82,6 +100,8 @@ export const queries = {
       queryFn: () => api.get<Envelope>(`/api/analyses/${kind}`, params),
       placeholderData: keepPreviousData,
     }),
+  dataQuality: () =>
+    queryOptions({ queryKey: ["data-quality"], queryFn: () => api.get<DataQuality>("/api/analyses/data-quality") }),
   ageing: () => queryOptions({ queryKey: ["ageing"], queryFn: () => api.get<Ageing>("/api/analyses/ageing") }),
   reports: () => queryOptions({ queryKey: ["reports"], queryFn: () => api.get<ReportList>("/api/reports") }),
   agentSuggestions: () =>

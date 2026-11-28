@@ -483,3 +483,21 @@ Append-only. Newest entry at the bottom. Template in `../00-context/CONTEXT_FLOW
   - Bundle budgets re-recorded.
 - **Docs:** ADR-0014, DEC-039, ISSUES #71/#72 and #57, FRONTEND (data fetching, motion, shell), QUERY_ENGINE §7/§8, TESTING, PERFORMANCE_AND_LOAD_TESTING.
 - **Commands + results:** TEST_RUNS S11-22 … S11-26.
+- **Released (2026-11-28):**
+  - PR #13 merged as `ab9c6d4` after green CI. The first CI run caught the SQLite-only pragma test running on
+    PostgreSQL; the test now skips there.
+  - On production, a rail click shows its page in under 100 ms (was 271 ms), and a warm sign-in takes 1.1 s.
+  - The web cold start after a deploy (20.6 s) is still open (#71).
+  - These post-merge log entries are not committed yet; they go out with the next change to `main`.
+
+## 2026-11-28 · S11 · Cold-start investigation (owner: "Yes, investigate")
+- **Found (S11-28):**
+  - A cold sign-in spends 4.6 s on the `/login` page (web function), then 2.8 s on the demo users and 2.5 s on the metric list (each a cold API instance). The Overview figures came 2.7 s after the click.
+  - On Vercel, the Overview's parallel calls start one new API instance per request. Each has its own empty result cache and `/tmp` database.
+  - The 20.6 s first sign-in after the deploy was mostly a 19.5 s wait before the login POST; it was not seen again.
+- **Fixed (S11-29):**
+  - The Overview's figures, risks, values and trend start with the session (at sign-in, and on reload from the session cache) instead of after the metric list. The prefetch keeps the page's rules: the Risks section for risks, cost access for values, nothing for a page outside the role's sections.
+  - New `scripts/sign-in-trace.mjs`.
+  - Tried and reverted: dropping the idle `router.prefetch` to stop each page being requested three times. Clicks then waited for the server, so it stays.
+- **Still open (#71):** the web function cold start, API scale-out per parallel call, and no keep-warm on Hobby.
+- **Not committed or deployed:** this needs a PR and the owner's go to merge.
