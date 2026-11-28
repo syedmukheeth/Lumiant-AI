@@ -159,6 +159,8 @@ def test_inventory_filters_repeat_runs_no_query(data_dir: Path, tmp_path: Path) 
 
 
 def test_sqlite_audit_store_commits_in_wal_without_full_sync(audit_store: AuditStore) -> None:
+    if audit_store.engine.dialect.name != "sqlite":  # CI's api-postgres-redis job runs the app DB on PostgreSQL
+        pytest.skip("SQLite pragmas only")
     with audit_store.engine.connect() as con:
         assert con.exec_driver_sql("PRAGMA journal_mode").scalar() == "wal"
         assert con.exec_driver_sql("PRAGMA synchronous").scalar() == 1  # NORMAL
