@@ -28,6 +28,9 @@ not compatible with a per-request nonce (ADR-0007).
    - Rail links, the logo and Settings use `prefetch={true}` (a full prefetch, kept for `static` = 5 minutes).
      Once the browser is idle, the shell calls `router.prefetch` for every route the role can open, plus Settings,
      so the palette and G-key jumps are instant too. It also loads the palette and Analyst dock chunks then.
+   - *Note 2026-11-28 (S11-28, S11-29):* at sign-in each page is requested three times: twice by its link's
+     prefetch and once by `router.prefetch`, about 70 ms each. Removing the idle `router.prefetch` made clicks wait
+     for the server again (e2e `navigation.spec.ts` failed). It is the one that makes navigation instant, so it stays.
    - `(app)/loading.tsx` is a skeleton of the page header and panels, for any route that was not prefetched.
    - The rail highlight moves on click. The pending link is cleared when the pathname changes.
    - Prefetched payloads are the pages' client shells: no data and no user facts (pages fetch data from `/api`,
@@ -40,6 +43,10 @@ not compatible with a per-request nonce (ADR-0007).
      sign-out or removal clears the copy. After sign-in, the login response seeds `me`, and `meta` and the metric
      list are prefetched before the redirect.
    - The shell asks for the metric list alongside the session instead of after it.
+   - *Added 2026-11-28 (S11-28):* as soon as the session is known (the sign-in response, or the session restored on a
+     reload), the current page's first-screen requests start, and the Overview's figures no longer wait for the
+     metric list. The rules match the page: risks only with the Risks section, values only with cost access, nothing
+     for a page outside the role's sections, and the API still decides.
 3. **Filters change the URL without a server trip:** `window.history.replaceState` (Next 16 syncs it with
    `useSearchParams`) in the Inventory explorer, saved views and Commitments.
 4. **A lighter, calmer shell.**

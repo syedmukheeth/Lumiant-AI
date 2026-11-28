@@ -63,15 +63,19 @@ and times, for each rail page, click → page shown and click → data shown, fi
 Overview reload and counts API calls. Bundle sizes come from `bundle-report.mjs`. API timings come from the Overview
 benchmark and in-process service calls.
 
-| | Before (production, S11-22) | After (local production build, S11-26) |
-|---|---|---|
-| Rail click → page shown, median | 271 ms first visit, 187 ms revisit | 70–74 ms first visit, 79 ms revisit |
-| Overview reload → figures | 1,056 ms, 17 calls | 595–834 ms, 17 calls |
-| Item master data | 2,240 ms | 2,299 ms cold, then 130 ms (shared planning load) |
-| `/api/planning/duplicates` (in process) | 1.56 s warm | 1 ms warm, 0.61 s cold |
-| First-load JS, gzip | `/overview` 407 KB, app routes ~287 KB, `/` 193 KB | `/overview` 256 KB, app routes ~251 KB, `/` 163 KB |
-| API entry import (cold start) | 3.5 s | 2.0 s |
+| | Before (production, S11-22) | After (production, S11-27) | After (local production build, S11-26) |
+|---|---|---|---|
+| Rail click → page shown, median | 271 ms first visit, 187 ms revisit | 76–78 ms first visit, 87–90 ms revisit | 70–74 ms first visit, 79 ms revisit |
+| Sign-in → Overview figures | 6,979 ms (cold) | 1,074 ms warm; 20,570 ms on the first run after the deploy | 781–1,466 ms |
+| Overview reload → figures | 1,056 ms, 17 calls | 758–1,115 ms, 17 calls | 595–834 ms, 17 calls |
+| Item master data, first open | 2,240 ms | 1,562–1,892 ms (planning load cold); 80–99 ms on revisit | 2,299 ms cold, then 130 ms |
+| `/api/planning/duplicates` (in process) | 1.56 s warm | | 1 ms warm, 0.61 s cold |
+| First-load JS, gzip | `/overview` 407 KB, app routes ~287 KB, `/` 193 KB | same build | `/overview` 256 KB, app routes ~251 KB, `/` 163 KB |
+| API first call after a new deploy | ~2.7 s (S11-6) | 0.79 s | entry import 3.5 → 2.0 s |
 
-"Before" is production and "after" is this laptop, so the click times are not a like-for-like comparison. The
-production "after" run follows the merge. The e2e `navigation.spec.ts` locks in the behaviour itself: a prefetched
-page appears within 2 s while every page request is held for 4 s, and a filter change sends no page request.
+Click-to-page is now under 100 ms on production, first visit and revisit. An Overview reload is about the same as
+before: it is bound by its 17 API calls, which run in parallel against one function region.
+
+The first sign-in after a deploy took 20.6 s while the API's first call took 0.79 s, so the cold start is on the
+web function (ISSUES #71). The e2e `navigation.spec.ts` locks in the behaviour itself: a prefetched page appears
+within 2 s while every page request is held for 4 s, and a filter change sends no page request.
