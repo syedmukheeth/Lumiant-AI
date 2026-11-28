@@ -92,6 +92,10 @@ class AuditStore:
                 cur = dbapi_conn.cursor()
                 cur.execute("PRAGMA journal_mode=WAL")
                 cur.execute("PRAGMA busy_timeout=5000")
+                # With WAL, NORMAL still commits every row before the response; it only skips the fsync per
+                # commit (a power cut can lose the last commits, not corrupt the file). The fsyncs were about a
+                # quarter of a master-data request (33 audit commits, TEST_RUNS S11-22).
+                cur.execute("PRAGMA synchronous=NORMAL")
                 cur.close()
 
     def record(self, rec: AuditRecord) -> None:

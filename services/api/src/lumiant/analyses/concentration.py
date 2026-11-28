@@ -10,6 +10,7 @@ from __future__ import annotations
 from decimal import ROUND_HALF_EVEN, Decimal
 from typing import Any
 
+from lumiant.analyses.cache import cached
 from lumiant.auth.permissions import Permission
 from lumiant.auth.principal import Principal
 from lumiant.core.errors import AppError
@@ -34,6 +35,23 @@ def run_concentration(
 ) -> dict[str, Any]:
     if not principal.has(Permission.COST_READ):
         raise AppError("forbidden_field", "Your role cannot view inventory values.", 403)
+    return cached(  # the insight feed and the Analyst ask for the same ranking
+        query,
+        principal,
+        "concentration",
+        (repr(filters), target_pct, top_rows),
+        lambda: _run(query, principal, filters=filters, target_pct=target_pct, top_rows=top_rows),
+    )
+
+
+def _run(
+    query: QueryService,
+    principal: Principal,
+    *,
+    filters: list[dict[str, Any]] | None,
+    target_pct: int,
+    top_rows: int,
+) -> dict[str, Any]:
     base = [*(filters or []), {"field": "quantity", "op": "gt", "value": "0"}]
     totals = query.run_plan(
         QueryPlan.model_validate(

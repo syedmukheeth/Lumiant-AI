@@ -33,7 +33,13 @@ class MetricsService:
             plan["dimensions"] = [
                 d for d in plan["dimensions"] if d not in metric.optional_dims or mapping.has_ref(plan["dataset"], d)
             ]
-        result = self.query.run_plan(QueryPlan.model_validate(plan), principal, action=action, metric=ref)
+        result = cached(  # Overview, the insight feed and the Analyst ask for the same metrics within seconds
+            self.query,
+            principal,
+            action,
+            (metric.version, repr(plan)),
+            lambda: self.query.run_plan(QueryPlan.model_validate(plan), principal, action=action, metric=ref),
+        )
         if metric.gap_plan is not None:
             gap_plan = metric.gap_plan
             gap = cached(  # the same count backs every value metric on a page

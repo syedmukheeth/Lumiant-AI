@@ -727,6 +727,20 @@ def _master_without_stock(query: QueryService, principal: Principal) -> int:
 def run_abc(
     query: QueryService, principal: Principal, *, a_cutoff: Decimal, b_cutoff: Decimal, currency: str | None
 ) -> dict[str, Any]:
+    if not principal.has(Permission.COST_READ):
+        raise ForbiddenError("forbidden_field", "Your role cannot view cost or value information.")
+    return cached(
+        query,
+        principal,
+        "abc",
+        (str(a_cutoff), str(b_cutoff), currency),
+        lambda: _run_abc(query, principal, a_cutoff=a_cutoff, b_cutoff=b_cutoff, currency=currency),
+    )
+
+
+def _run_abc(
+    query: QueryService, principal: Principal, *, a_cutoff: Decimal, b_cutoff: Decimal, currency: str | None
+) -> dict[str, Any]:
     """ABC computed in the source with window sums, so it works for any number of items (no row cap).
 
     Same rule as `costing.abc.classify`: rank by value (ties by item id), classify by the cumulative share *before*
@@ -914,6 +928,18 @@ def run_cost_comparison(
 ) -> dict[str, Any]:
     if not principal.has(Permission.COST_READ):
         raise ForbiddenError("forbidden_field", "Your role cannot view cost or value information.")
+    return cached(
+        query,
+        principal,
+        "cost_comparison",
+        (item_id, warehouse_id),
+        lambda: _run_cost_comparison(query, principal, item_id=item_id, warehouse_id=warehouse_id),
+    )
+
+
+def _run_cost_comparison(
+    query: QueryService, principal: Principal, *, item_id: str, warehouse_id: str
+) -> dict[str, Any]:
     action = "analysis:cost_comparison"
     pair = [
         {"field": "item_id", "op": "eq", "value": item_id},

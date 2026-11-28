@@ -14,6 +14,8 @@ from lumiant.tenancy.models import DevUser, TenantConfig
 ATTRIBUTE_PREFIX = "attr_"
 # Relative to the API directory; `services/api/var/` is git-ignored (docs/07-customer/CLIENT_DATA_INTAKE.md).
 PRIVATE_DATA_PREFIX = "var/private"
+# libyaml's safe loader when the wheel has it: same rules as `yaml.safe_load`, ~10x faster on every cold start.
+_SAFE_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
 
 
 class TenantConfigError(Exception):
@@ -185,7 +187,7 @@ class TenantRegistry:
 
 def parse_tenant_file(path: Path) -> TenantConfig:
     try:
-        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+        raw = yaml.load(path.read_text(encoding="utf-8"), Loader=_SAFE_LOADER)  # noqa: S506 (a safe loader)
     except yaml.YAMLError as exc:
         raise TenantConfigError(path.name, [f"invalid YAML: {exc}"]) from exc
     try:
